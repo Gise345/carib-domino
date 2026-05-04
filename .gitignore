@@ -11,8 +11,8 @@ unity/[Uu]ser[Ss]ettings/
 unity/[Mm]emoryCaptures/
 unity/[Rr]ecordings/
 
-# Asset meta data should only be ignored when the corresponding asset is also ignored
-unity/!*[Aa]ssets/**/*.meta
+# Note: do NOT ignore *.meta files under Assets/. Unity needs them tracked
+# alongside their corresponding assets — losing them breaks references.
 
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # unity/[Aa]ssets/AssetStoreTools*
