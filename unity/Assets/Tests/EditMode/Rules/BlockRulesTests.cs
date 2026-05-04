@@ -432,7 +432,7 @@ namespace Pose.Core.Tests
             Assert.That(outcome, Is.Not.Null);
             Assert.That(
                 outcome!.Reason,
-                Is.AnyOf(MatchEndReason.Domino, MatchEndReason.Blocked));
+                Is.EqualTo(MatchEndReason.Domino).Or.EqualTo(MatchEndReason.Blocked));
         }
 
         [Test]
