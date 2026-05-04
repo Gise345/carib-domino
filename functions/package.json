@@ -1,7 +1,7 @@
 {
   "name": "@invovibe/dominoes-functions",
   "version": "0.1.0",
-  "description": "Firebase Cloud Functions for Caribbean Dominoes — the trust boundary for wallets, ELO, match settlement, and webhook handling.",
+  "description": "Firebase Cloud Functions for Pose: Caribbean Dominoes — the trust boundary for wallets, ELO, match settlement, and webhook handling.",
   "private": true,
   "main": "lib/index.js",
   "engines": {

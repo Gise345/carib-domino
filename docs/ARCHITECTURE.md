@@ -1,6 +1,6 @@
-# Caribbean Dominoes — System Architecture
+# Pose: Caribbean Dominoes — System Architecture
 
-**Project codename:** TBD
+**Brand mark:** Pose (see [`DECISIONS/0002-product-name.md`](./DECISIONS/0002-product-name.md))
 **Author:** Giselle Johnson, INVOVIBE TECH LTD
 **Status:** Draft v0.2 — pre-implementation
 **Client engine:** Unity 6 LTS (C#)

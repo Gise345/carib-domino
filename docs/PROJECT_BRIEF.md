@@ -1,6 +1,6 @@
 # What You Are Building — Project Brief
 
-**Working title:** Caribbean Dominoes (final name TBD)
+**Name:** Pose: Caribbean Dominoes (brand mark: **Pose**) — see [`DECISIONS/0002-product-name.md`](./DECISIONS/0002-product-name.md)
 **Company:** INVOVIBE TECH LTD
 **Type:** Free-to-play global mobile game (iOS + Android)
 **Engine:** Unity 6 LTS + C#
