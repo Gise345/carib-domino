@@ -1,4 +1,7 @@
-# Caribbean Dominoes (working title)
+# Pose: Caribbean Dominoes
+
+> Brand mark: **Pose** · Store name: **Pose: Caribbean Dominoes** · Subtitle: *Jamaican, Mexican, Cuban, Slam*
+> See [`docs/DECISIONS/0002-product-name.md`](./docs/DECISIONS/0002-product-name.md) for the naming rationale.
 
 A polished, multiplayer mobile dominoes game in the spirit of Ludo Club — same level of animation polish, sound design, social features, and tactile satisfaction — but built around dominoes, with the Caribbean variants (Jamaican Partner, Cuban, Trinidadian, Puerto Rican) as the cultural and marketing centrepiece. Global from day one, with eleven rulesets at launch covering the Caribbean, Latin America, North America, and Europe. Free to play on iOS and Android, monetised via an optional premium subscription (ad removal + monthly token grant) and one-time token-pack IAPs. Built by INVOVIBE TECH LTD.
 
@@ -26,8 +29,8 @@ A polished, multiplayer mobile dominoes game in the spirit of Ludo Club — same
 ## Bootstrap
 
 ```bash
-git clone <remote-url> caribbean-dominoes
-cd caribbean-dominoes
+git clone <remote-url> posedominoes
+cd posedominoes
 
 # 1. Cloud Functions
 cd functions
