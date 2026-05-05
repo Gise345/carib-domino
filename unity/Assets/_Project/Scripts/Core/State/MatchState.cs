@@ -12,6 +12,14 @@ namespace Pose.Core
     /// </summary>
     public sealed class MatchState
     {
+        /// <summary>
+        /// The participants in **turn order**. Index 0 plays first (after opening
+        /// rules pick the leader), index 1 next, and so on, wrapping. The engine is
+        /// direction-agnostic — it simply iterates this list — but the canonical
+        /// Jamaican variants (Cut-Throat, Partner) describe play as anticlockwise
+        /// around a physical table, so when seating is rendered, list order
+        /// corresponds to anticlockwise seating from the dealer/leader.
+        /// </summary>
         public IReadOnlyList<PlayerId> Players { get; }
         public int CurrentPlayerIndex { get; }
         public IReadOnlyDictionary<PlayerId, Hand> Hands { get; }

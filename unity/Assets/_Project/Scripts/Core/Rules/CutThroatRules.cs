@@ -5,22 +5,28 @@ using System.Collections.Generic;
 namespace Pose.Core
 {
     /// <summary>
-    /// Block dominoes (the "Anglo" variant in <c>docs/ARCHITECTURE.md</c> section 8.1).
-    /// Standard double-six tile set, 2–4 players cut-throat, no boneyard draws — a
-    /// player who cannot match either chain end must pass. The round ends either when
-    /// a player empties their hand (<see cref="MatchEndReason.Domino"/>) or when every
-    /// player passes in succession (<see cref="MatchEndReason.Blocked"/>).
+    /// Jamaican Cut-Throat dominoes — every player for themselves, no teams. Standard
+    /// double-six tile set, 2–4 players, no boneyard draws: a player who cannot match
+    /// either chain end must pass. The round ends either when a player empties their
+    /// hand (<see cref="MatchEndReason.Domino"/>) or when every player passes in
+    /// succession (<see cref="MatchEndReason.Blocked"/>). Round winner scores the sum
+    /// of every other player's remaining pips; a tied block ends in a draw with no
+    /// score. Multi-round mechanics ("Six-Love", tied-block replay for 2 points) are
+    /// out of scope at this layer — the engine produces a single-round outcome that a
+    /// higher tournament/scoring layer wraps. The "Block / Draw (Anglo)" variant in
+    /// <c>docs/ARCHITECTURE.md</c> §8.1 is a separate future ruleset; this type
+    /// implements the Jamaican Cut-Throat row of that table.
     /// </summary>
-    public sealed class BlockRules : IRuleEngine
+    public sealed class CutThroatRules : IRuleEngine
     {
         private readonly byte _maxPip;
 
         /// <summary>
-        /// Creates a Block rule engine for a tile set with the given maximum pip
+        /// Creates a Cut-Throat rule engine for a tile set with the given maximum pip
         /// value (6 for standard double-six). The max pip is needed only by the
         /// opening-turn rule to identify the leading double.
         /// </summary>
-        public BlockRules(byte maxPip = 6)
+        public CutThroatRules(byte maxPip = 6)
         {
             _maxPip = maxPip;
         }

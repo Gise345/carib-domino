@@ -42,13 +42,68 @@ namespace Pose.Core
         }
 
         /// <summary>
-        /// Standard double-six Block configuration: 28 tiles, 7 dealt per player.
-        /// For 2 players, 14 tiles sleep face-down (Block has no boneyard draws).
-        /// For 4 players, every tile is dealt.
+        /// Standard double-six Cut-Throat configuration for the given player count.
+        /// Encodes the canonical Jamaican deal counts: 2 players get 14 tiles each
+        /// from the full 28-tile set (no sleeping tiles); 3 players get 9 each from a
+        /// 27-tile set with <c>[0|0]</c> removed; 4 players get 7 each from the full
+        /// set. Cut-Throat has no boneyard, so for 4 players every tile is dealt.
         /// </summary>
-        public static DealConfig BlockDoubleSix { get; } = new(
-            tileSet: Pose.Core.TileSet.DoubleSix,
-            tilesPerHand: 7,
-            maxPip: 6);
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when <paramref name="playerCount"/> is not 2, 3, or 4.
+        /// </exception>
+        public static DealConfig CutThroatDoubleSix(int playerCount)
+        {
+            switch (playerCount)
+            {
+                case 2:
+                    return new DealConfig(
+                        tileSet: Pose.Core.TileSet.DoubleSix,
+                        tilesPerHand: 14,
+                        maxPip: 6);
+                case 3:
+                    return new DealConfig(
+                        tileSet: DoubleSixWithoutDoubleZero,
+                        tilesPerHand: 9,
+                        maxPip: 6);
+                case 4:
+                    return new DealConfig(
+                        tileSet: Pose.Core.TileSet.DoubleSix,
+                        tilesPerHand: 7,
+                        maxPip: 6);
+                default:
+                    throw new ArgumentOutOfRangeException(
+                        nameof(playerCount),
+                        playerCount,
+                        "Cut-Throat requires 2, 3, or 4 players.");
+            }
+        }
+
+        // The 3-player Jamaican Cut-Throat deck: standard double-six minus [0|0], so
+        // the 27 tiles divide evenly into three 9-tile hands with nothing left over.
+        // Built lazily and cached because TileSet.DoubleSix is itself lazy.
+        private static IReadOnlyList<Tile>? _doubleSixWithoutDoubleZero;
+        private static IReadOnlyList<Tile> DoubleSixWithoutDoubleZero
+        {
+            get
+            {
+                if (_doubleSixWithoutDoubleZero != null)
+                {
+                    return _doubleSixWithoutDoubleZero;
+                }
+
+                IReadOnlyList<Tile> full = Pose.Core.TileSet.DoubleSix;
+                List<Tile> filtered = new(full.Count - 1);
+                Tile doubleZero = new(0, 0);
+                for (int i = 0; i < full.Count; i++)
+                {
+                    if (full[i] != doubleZero)
+                    {
+                        filtered.Add(full[i]);
+                    }
+                }
+                _doubleSixWithoutDoubleZero = filtered;
+                return _doubleSixWithoutDoubleZero;
+            }
+        }
     }
 }

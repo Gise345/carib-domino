@@ -5,7 +5,7 @@ using NUnit.Framework;
 
 namespace Pose.Core.Tests
 {
-    public class BlockRulesTests
+    public class CutThroatRulesTests
     {
         private static readonly PlayerId Alice = new("alice");
         private static readonly PlayerId Bob = new("bob");
@@ -43,6 +43,67 @@ namespace Pose.Core.Tests
                 isOver: false);
         }
 
+        // ---- Deal counts (Jamaican Cut-Throat) ----------------------------
+
+        [Test]
+        public void TwoPlayer_Deal_Distributes_All_28_Tiles_With_Nothing_Sleeping()
+        {
+            // Per the Jamaican rules in docs/SESSION_NOTES/2026-05-04-handoff-m1-step-3.md,
+            // 2-player Cut-Throat splits the full 28-tile set evenly: 14 each, no
+            // sleeping tiles (the older generic-Block 7-each-with-14-sleeping behaviour
+            // is what step 1 of M1 step 3 corrects).
+            MatchState state = Dealer.Deal(
+                DealConfig.CutThroatDoubleSix(2),
+                new[] { Alice, Bob },
+                new SeededRandomSource(0xBADCAFEUL));
+
+            Assert.That(state.Hands[Alice].Count, Is.EqualTo(14));
+            Assert.That(state.Hands[Bob].Count, Is.EqualTo(14));
+
+            int totalTiles = 0;
+            foreach (Hand h in state.Hands.Values)
+            {
+                totalTiles += h.Count;
+            }
+            Assert.That(totalTiles, Is.EqualTo(28),
+                "2-player Cut-Throat must deal every tile — there is no boneyard.");
+        }
+
+        [Test]
+        public void ThreePlayer_Deal_Gives_9_Tiles_Each_With_DoubleZero_Removed()
+        {
+            // 3-player Jamaican Cut-Throat removes [0|0] entirely so the remaining 27
+            // tiles divide into three 9-tile hands. The double-zero must not be dealt
+            // to anyone.
+            MatchState state = Dealer.Deal(
+                DealConfig.CutThroatDoubleSix(3),
+                new[] { Alice, Bob, Cara },
+                new SeededRandomSource(0xBADCAFEUL));
+
+            Assert.That(state.Hands[Alice].Count, Is.EqualTo(9));
+            Assert.That(state.Hands[Bob].Count, Is.EqualTo(9));
+            Assert.That(state.Hands[Cara].Count, Is.EqualTo(9));
+
+            Tile doubleZero = new(0, 0);
+            foreach (Hand h in state.Hands.Values)
+            {
+                Assert.That(h.Contains(doubleZero), Is.False,
+                    "[0|0] must be omitted entirely from the 3-player deck.");
+            }
+        }
+
+        [Test]
+        public void DealConfig_Rejects_Player_Counts_Outside_Two_To_Four()
+        {
+            // Cut-Throat is defined for 2, 3, or 4 players only; the factory must
+            // refuse 1-player and 5+-player counts at construction time so the rest of
+            // the engine never sees a malformed deal config.
+            Assert.Throws<ArgumentOutOfRangeException>(() => DealConfig.CutThroatDoubleSix(1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DealConfig.CutThroatDoubleSix(0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DealConfig.CutThroatDoubleSix(5));
+            Assert.Throws<ArgumentOutOfRangeException>(() => DealConfig.CutThroatDoubleSix(8));
+        }
+
         // ---- Opening turn --------------------------------------------------
 
         [Test]
@@ -53,7 +114,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6), new Tile(0, 1) },
                 bobTiles: new[] { new Tile(2, 2), new Tile(3, 5) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -73,7 +134,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(5, 6), new Tile(0, 1) },
                 bobTiles: new[] { new Tile(4, 6), new Tile(0, 2) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -94,7 +155,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -112,7 +173,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -132,7 +193,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 3), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -156,7 +217,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -173,7 +234,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
 
@@ -190,7 +251,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             bool legal = rules.IsLegal(state, new PassMove(Alice));
 
@@ -203,7 +264,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6) },
                 bobTiles: new[] { new Tile(0, 1) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             // Alice is current; submitting a move as Bob must be rejected.
             bool legal = rules.IsLegal(state, new PlaceMove(Bob, new Tile(6, 6), ChainEnd.Left));
@@ -219,7 +280,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6), new Tile(0, 1) },
                 bobTiles: new[] { new Tile(0, 0) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState after = rules.Apply(state, new PlaceMove(Alice, new Tile(6, 6), ChainEnd.Left));
 
@@ -236,7 +297,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6), new Tile(0, 1) },
                 bobTiles: new[] { new Tile(0, 0) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState after = rules.Apply(state, new PlaceMove(Alice, new Tile(6, 6), ChainEnd.Left));
 
@@ -254,7 +315,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState after = rules.Apply(state, new PassMove(Alice));
 
@@ -270,7 +331,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6), new Tile(0, 1) },
                 bobTiles: new[] { new Tile(0, 0) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             // Tile [0|1] not allowed on opening turn (only the leading double is).
             Assert.Throws<InvalidOperationException>(() =>
@@ -286,7 +347,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(0, 0) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(3, 5), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             // Alice doesn't hold [5|2]; cannot play it even though it would otherwise match RIGHT.
             Assert.Throws<InvalidOperationException>(() =>
@@ -311,7 +372,7 @@ namespace Pose.Core.Tests
                 consecutivePassCount: 0,
                 history: Array.Empty<Move>(),
                 isOver: true);
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             Assert.Throws<InvalidOperationException>(() =>
                 rules.Apply(state, new PassMove(Alice)));
@@ -326,7 +387,7 @@ namespace Pose.Core.Tests
             MatchState state = MakeState(
                 aliceTiles: new[] { new Tile(6, 6) },
                 bobTiles: new[] { new Tile(0, 1), new Tile(2, 3) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState after = rules.Apply(state, new PlaceMove(Alice, new Tile(6, 6), ChainEnd.Left));
             MatchOutcome? outcome = rules.GetOutcome(after);
@@ -351,7 +412,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(5, 6), new Tile(1, 3) },   // no zeros, no overlap with Alice
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(0, 0), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState afterAlicePass = rules.Apply(state, new PassMove(Alice));
             MatchState afterBobPass = rules.Apply(afterAlicePass, new PassMove(Bob));
@@ -373,7 +434,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(5, 6), new Tile(1, 3) },
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(0, 0), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState s1 = rules.Apply(state, new PassMove(Alice));
             MatchState s2 = rules.Apply(s1, new PassMove(Bob));
@@ -393,7 +454,7 @@ namespace Pose.Core.Tests
                 bobTiles: new[] { new Tile(2, 4), new Tile(1, 3) },   // 10
                 chain: chain,
                 history: new Move[] { new PlaceMove(Bob, new Tile(0, 0), ChainEnd.Left) });
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             MatchState s1 = rules.Apply(state, new PassMove(Alice));
             MatchState s2 = rules.Apply(s1, new PassMove(Bob));
@@ -413,10 +474,10 @@ namespace Pose.Core.Tests
             // first legal move. The game must terminate (Domino or Blocked) within
             // a reasonable upper bound — there are only 28 tiles.
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
                 new SeededRandomSource(0xC0FFEEUL));
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             int safetyLimit = 200;
             int turns = 0;
@@ -439,10 +500,10 @@ namespace Pose.Core.Tests
         public void Four_Player_Random_Game_Plays_To_A_Valid_End_State()
         {
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xC0FFEEUL));
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             int safetyLimit = 200;
             while (!state.IsOver && safetyLimit-- > 0)
@@ -464,15 +525,15 @@ namespace Pose.Core.Tests
             // across runs. The eventual TS validator on the server (M4) will rely on
             // this exactly.
             MatchState first = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xCAFEBABEUL));
             MatchState second = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xCAFEBABEUL));
 
-            BlockRules rules = new();
+            CutThroatRules rules = new();
 
             // Drive both states by always picking the first legal move; they must
             // remain bit-equivalent at every step.

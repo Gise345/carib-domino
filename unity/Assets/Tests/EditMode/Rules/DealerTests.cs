@@ -12,22 +12,25 @@ namespace Pose.Core.Tests
         private static readonly PlayerId Dan = new("dan");
 
         [Test]
-        public void Two_Player_Block_Deal_Gives_7_Tiles_Each()
+        public void Two_Player_CutThroat_Deal_Gives_14_Tiles_Each()
         {
+            // 2-player Jamaican Cut-Throat splits the full 28-tile set evenly: 14
+            // each, no sleeping tiles. Replaces the old (incorrect) 7-each behaviour
+            // inherited from generic Block dominoes.
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
                 new SeededRandomSource(42));
 
-            Assert.That(state.Hands[Alice].Count, Is.EqualTo(7));
-            Assert.That(state.Hands[Bob].Count, Is.EqualTo(7));
+            Assert.That(state.Hands[Alice].Count, Is.EqualTo(14));
+            Assert.That(state.Hands[Bob].Count, Is.EqualTo(14));
         }
 
         [Test]
-        public void Four_Player_Block_Deal_Distributes_All_28_Tiles()
+        public void Four_Player_CutThroat_Deal_Distributes_All_28_Tiles()
         {
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(42));
 
@@ -43,7 +46,7 @@ namespace Pose.Core.Tests
         public void Initial_State_Has_Empty_Chain_And_No_History()
         {
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
                 new SeededRandomSource(42));
 
@@ -61,12 +64,12 @@ namespace Pose.Core.Tests
             // The eventual M4 settlement validator will rely on this exact property
             // when it replays a match log against the server-issued seed.
             MatchState first = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xCAFEBABEUL));
 
             MatchState second = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xCAFEBABEUL));
 
@@ -83,11 +86,11 @@ namespace Pose.Core.Tests
         public void Different_Seeds_Produce_Different_Deals()
         {
             MatchState a = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
                 new SeededRandomSource(1));
             MatchState b = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
                 new SeededRandomSource(2));
 
@@ -101,7 +104,7 @@ namespace Pose.Core.Tests
         public void Dealt_Tiles_Are_Disjoint_Across_Players()
         {
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xDEADBEEFUL));
 
@@ -119,7 +122,7 @@ namespace Pose.Core.Tests
         public void Starting_Player_Holds_The_Highest_Double_Or_Highest_Single()
         {
             MatchState state = Dealer.Deal(
-                DealConfig.BlockDoubleSix,
+                DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
                 new SeededRandomSource(0xDEADBEEFUL));
 
