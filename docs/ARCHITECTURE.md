@@ -491,13 +491,15 @@ Total infra cost target: **under $2k/month at 100k MAU**, well below the subscri
 
 ### 9.5 Environments
 
-Standard three-environment setup:
+**Single Firebase project, promoted from staging to prod.** One project (`carib-domino`) carries the app from solo development through soft launch into production. Earlier drafts of this document called for a three-project (dev/staging/prod) split — that was reversed in [`docs/DECISIONS/0004-single-firebase-project.md`](DECISIONS/0004-single-firebase-project.md). The single-project pattern matches the founder's prior shipping experience, removes per-environment configuration drift, and keeps the operational footprint small while pre-launch.
 
-- `dev-invovibe-dominoes` — developer free-for-all
-- `staging-invovibe-dominoes` — pre-prod, feature-flagged beta users
-- `prod-invovibe-dominoes` — live
+Stage gating happens *inside* the one project rather than across multiple projects:
 
-Each environment has its own Firebase project, its own Photon AppID, its own RevenueCat project, and its own Remote Config. Unity build variants (dev / staging / release) point to different Firebase configs via per-flavor `google-services.json` / `GoogleService-Info.plist`.
+- **Pre-soft-launch:** Firestore rules permissive enough for dev workflows; Cloud Functions deployed without staged rollouts; Remote Config populated with dev defaults.
+- **Soft launch (M9):** Cloud Functions move to staged rollouts (10% → 50% → 100%); Remote Config gates new features behind audience flags; Firestore rules tighten for production-shaped data.
+- **Global launch (M10):** Same project, full rollouts, Remote Config audience gates retired or scoped to A/B tests.
+
+Photon and RevenueCat similarly use one app/project each, configured the same way across environments. Unity build variants (development / release) toggle the Firebase analytics namespace and the Photon log level, but both point at the same Firebase project and the same Photon AppID. If a true second environment is ever required (for example, a public open beta running in parallel to a private alpha), revisit ADR 0004 — re-introducing a `staging-carib-domino` project at that point is straightforward thanks to the `.firebaserc` alias structure.
 
 ---
 

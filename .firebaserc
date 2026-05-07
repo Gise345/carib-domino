@@ -1,8 +1,5 @@
 {
   "projects": {
-    "default": "dev-invovibe-dominoes",
-    "dev": "dev-invovibe-dominoes",
-    "staging": "staging-invovibe-dominoes",
-    "prod": "prod-invovibe-dominoes"
+    "default": "carib-domino"
   }
 }

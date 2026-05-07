@@ -185,8 +185,7 @@ npm run build              # tsc
 npm run lint               # eslint
 npm test                   # vitest
 npm run serve              # firebase emulators:start --only functions
-npm run deploy             # firebase deploy --only functions (staging)
-npm run deploy:prod        # firebase deploy --only functions --project prod-invovibe-dominoes
+npm run deploy             # firebase deploy --only functions (single project: carib-domino)
 
 # Firestore
 firebase emulators:start   # full local emulator suite

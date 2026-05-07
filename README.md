@@ -22,8 +22,8 @@ A polished, multiplayer mobile dominoes game in the spirit of Ludo Club — same
 - **Node.js 20** — required for Cloud Functions. [nvm](https://github.com/nvm-sh/nvm) (or [nvm-windows](https://github.com/coreybutler/nvm-windows)) recommended for version pinning.
 - **Firebase CLI** — `npm install -g firebase-tools`. Then `firebase login`.
 - **Java 17 JDK** — required by the Firebase emulator suite (Firestore + Auth emulators).
-- **Photon Fusion 2 account** — sign up at [photonengine.com](https://www.photonengine.com/) and create three apps (dev, staging, prod). The Photon AppIDs are configured per Unity build variant — never committed.
-- **Google Cloud / Firebase projects** — three projects (`dev-invovibe-dominoes`, `staging-invovibe-dominoes`, `prod-invovibe-dominoes`) aliased in [`.firebaserc`](./.firebaserc).
+- **Photon Fusion 2 account** — sign up at [photonengine.com](https://www.photonengine.com/) and create one Photon app to start. The AppID is configured per Unity build and never committed.
+- **Firebase project** — one project, ID `carib-domino`, aliased as `default` in [`.firebaserc`](./.firebaserc). The project starts in dev/staging mode and is promoted to prod when ready (see [`docs/DECISIONS/0004-single-firebase-project.md`](./docs/DECISIONS/0004-single-firebase-project.md)).
 - **RevenueCat account** — created when M7 (monetization) work begins.
 
 ## Bootstrap
