@@ -12,6 +12,25 @@ namespace Pose.Core.Tests
         private static readonly PlayerId Dan = new("dan");
 
         [Test]
+        public void Deal_Propagates_Input_Partnership_Onto_The_New_State()
+        {
+            // The Dealer is the only place a fresh MatchState is constructed, so the
+            // partnership it receives must round-trip onto state.Partnership unchanged.
+            // The rule engine downstream relies on this for GetTeamOf lookups.
+            Partnership partnership = Partnership.AlternatingPairs(Alice, Bob, Cara, Dan);
+
+            MatchState state = Dealer.Deal(
+                DealConfig.CutThroatDoubleSix(4),
+                new[] { Alice, Bob, Cara, Dan },
+                partnership,
+                new SeededRandomSource(42));
+
+            Assert.That(state.Partnership, Is.SameAs(partnership));
+            Assert.That(state.Partnership.GetTeamOf(Alice), Is.EqualTo(state.Partnership.GetTeamOf(Cara)));
+            Assert.That(state.Partnership.GetTeamOf(Bob), Is.EqualTo(state.Partnership.GetTeamOf(Dan)));
+        }
+
+        [Test]
         public void Two_Player_CutThroat_Deal_Gives_14_Tiles_Each()
         {
             // 2-player Jamaican Cut-Throat splits the full 28-tile set evenly: 14
@@ -20,6 +39,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(42));
 
             Assert.That(state.Hands[Alice].Count, Is.EqualTo(14));
@@ -32,6 +52,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(42));
 
             int totalTiles = 0;
@@ -48,6 +69,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(42));
 
             Assert.That(state.Chain.IsEmpty, Is.True);
@@ -66,11 +88,13 @@ namespace Pose.Core.Tests
             MatchState first = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xCAFEBABEUL));
 
             MatchState second = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xCAFEBABEUL));
 
             for (int i = 0; i < 4; i++)
@@ -88,10 +112,12 @@ namespace Pose.Core.Tests
             MatchState a = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(1));
             MatchState b = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(2));
 
             // Almost certainly distinct hands; check at least one tile differs.
@@ -106,6 +132,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xDEADBEEFUL));
 
             HashSet<Tile> seen = new();
@@ -124,6 +151,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xDEADBEEFUL));
 
             Hand starterHand = state.Hands[state.CurrentPlayer];

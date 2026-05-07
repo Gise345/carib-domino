@@ -34,6 +34,7 @@ namespace Pose.Core.Tests
             };
             return new MatchState(
                 players: new[] { Alice, Bob },
+                partnership: Partnership.CutThroat(new[] { Alice, Bob }),
                 currentPlayerIndex: currentPlayerIndex,
                 hands: hands,
                 chain: chain ?? Chain.Empty,
@@ -55,6 +56,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(0xBADCAFEUL));
 
             Assert.That(state.Hands[Alice].Count, Is.EqualTo(14));
@@ -78,6 +80,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(3),
                 new[] { Alice, Bob, Cara },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara }),
                 new SeededRandomSource(0xBADCAFEUL));
 
             Assert.That(state.Hands[Alice].Count, Is.EqualTo(9));
@@ -365,6 +368,7 @@ namespace Pose.Core.Tests
             };
             MatchState state = new(
                 players: new[] { Alice, Bob },
+                partnership: Partnership.CutThroat(new[] { Alice, Bob }),
                 currentPlayerIndex: 0,
                 hands: hands,
                 chain: Chain.Empty.Place(new Tile(6, 6), ChainEnd.Left),
@@ -398,6 +402,8 @@ namespace Pose.Core.Tests
             Assert.That(outcome.WinnerId, Is.EqualTo((PlayerId?)Alice));
             // Bob's remaining pips: [0|1]=1 + [2|3]=5 = 6.
             Assert.That(outcome.WinnerScore, Is.EqualTo(6));
+            // Cut-Throat: the winning team is Alice's solo team.
+            Assert.That(outcome.WinningTeamId, Is.EqualTo((TeamId?)after.Partnership.GetTeamOf(Alice)));
         }
 
         // ---- Match end: Block ---------------------------------------------
@@ -442,6 +448,7 @@ namespace Pose.Core.Tests
 
             Assert.That(outcome!.WinnerId, Is.EqualTo((PlayerId?)Alice));
             Assert.That(outcome.WinnerScore, Is.EqualTo(15)); // Bob's pips
+            Assert.That(outcome.WinningTeamId, Is.EqualTo((TeamId?)s2.Partnership.GetTeamOf(Alice)));
         }
 
         [Test]
@@ -462,7 +469,40 @@ namespace Pose.Core.Tests
 
             Assert.That(outcome!.IsDraw, Is.True);
             Assert.That(outcome.WinnerId, Is.Null);
+            Assert.That(outcome.WinningTeamId, Is.Null);
             Assert.That(outcome.WinnerScore, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CutThroat_WinningTeam_Has_Exactly_One_Member_The_Winner()
+        {
+            // The Cut-Throat-specific invariant: the WinningTeamId resolves to a team
+            // whose only member is the WinnerId. This is what unifies Cut-Throat into
+            // the partner-aware engine — the team-of-one is real, not a stand-in.
+            MatchState state = MakeState(
+                aliceTiles: new[] { new Tile(6, 6) },
+                bobTiles: new[] { new Tile(0, 1), new Tile(2, 3) });
+            CutThroatRules rules = new();
+
+            MatchState after = rules.Apply(state, new PlaceMove(Alice, new Tile(6, 6), ChainEnd.Left));
+            MatchOutcome? outcome = rules.GetOutcome(after);
+
+            Assert.That(outcome!.WinningTeamId, Is.Not.Null);
+            Team winningTeam = ResolveTeam(after.Partnership, outcome.WinningTeamId!.Value);
+            Assert.That(winningTeam.Members.Count, Is.EqualTo(1));
+            Assert.That(winningTeam.Members[0], Is.EqualTo(outcome.WinnerId!.Value));
+        }
+
+        private static Team ResolveTeam(Partnership partnership, TeamId id)
+        {
+            for (int i = 0; i < partnership.Teams.Count; i++)
+            {
+                if (partnership.Teams[i].Id == id)
+                {
+                    return partnership.Teams[i];
+                }
+            }
+            throw new InvalidOperationException($"Team {id} not found in partnership.");
         }
 
         // ---- Full-game flow -----------------------------------------------
@@ -476,6 +516,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(2),
                 new[] { Alice, Bob },
+                Partnership.CutThroat(new[] { Alice, Bob }),
                 new SeededRandomSource(0xC0FFEEUL));
             CutThroatRules rules = new();
 
@@ -502,6 +543,7 @@ namespace Pose.Core.Tests
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xC0FFEEUL));
             CutThroatRules rules = new();
 
@@ -527,10 +569,12 @@ namespace Pose.Core.Tests
             MatchState first = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xCAFEBABEUL));
             MatchState second = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 new[] { Alice, Bob, Cara, Dan },
+                Partnership.CutThroat(new[] { Alice, Bob, Cara, Dan }),
                 new SeededRandomSource(0xCAFEBABEUL));
 
             CutThroatRules rules = new();
@@ -584,6 +628,7 @@ namespace Pose.Core.Tests
             Assert.That(b, Is.Not.Null);
             Assert.That(a!.Reason, Is.EqualTo(b!.Reason));
             Assert.That(a.WinnerId, Is.EqualTo(b.WinnerId));
+            Assert.That(a.WinningTeamId, Is.EqualTo(b.WinningTeamId));
             Assert.That(a.WinnerScore, Is.EqualTo(b.WinnerScore));
         }
     }

@@ -12,14 +12,16 @@ namespace Pose.Core
     public static class Dealer
     {
         /// <summary>
-        /// Deals a new round. Given the same <paramref name="random"/> sequence and
-        /// the same <paramref name="players"/> in the same order, this function is
-        /// deterministic — the foundational property the eventual server-side
-        /// validator (see <c>docs/ARCHITECTURE.md</c> section 5) will rely on.
+        /// Deals a new round. Given the same <paramref name="random"/> sequence,
+        /// the same <paramref name="players"/> in the same order, and the same
+        /// <paramref name="partnership"/>, this function is deterministic — the
+        /// foundational property the eventual server-side validator (see
+        /// <c>docs/ARCHITECTURE.md</c> §5) will rely on.
         /// </summary>
         public static MatchState Deal(
             DealConfig config,
             IReadOnlyList<PlayerId> players,
+            Partnership partnership,
             IRandomSource random)
         {
             if (config == null)
@@ -30,6 +32,11 @@ namespace Pose.Core
             if (players == null)
             {
                 throw new ArgumentNullException(nameof(players));
+            }
+
+            if (partnership == null)
+            {
+                throw new ArgumentNullException(nameof(partnership));
             }
 
             if (random == null)
@@ -67,6 +74,7 @@ namespace Pose.Core
 
             return new MatchState(
                 players: players,
+                partnership: partnership,
                 currentPlayerIndex: startingIndex,
                 hands: hands,
                 chain: Chain.Empty,

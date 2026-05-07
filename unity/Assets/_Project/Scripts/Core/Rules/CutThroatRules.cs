@@ -233,6 +233,7 @@ namespace Pose.Core
                 return new MatchOutcome(
                     MatchEndReason.Domino,
                     dominoWinner,
+                    state.Partnership.GetTeamOf(dominoWinner.Value),
                     score,
                     remaining);
             }
@@ -262,6 +263,7 @@ namespace Pose.Core
                 return new MatchOutcome(
                     MatchEndReason.Blocked,
                     winnerId: null,
+                    winningTeamId: null,
                     winnerScore: 0,
                     remaining);
             }
@@ -279,6 +281,7 @@ namespace Pose.Core
             return new MatchOutcome(
                 MatchEndReason.Blocked,
                 blockWinner,
+                state.Partnership.GetTeamOf(blockWinner.Value),
                 blockScore,
                 remaining);
         }
