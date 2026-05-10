@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using Pose.Core;
 using UnityEngine;
@@ -7,41 +9,59 @@ using UnityEngine.UI;
 namespace Pose.Game
 {
     /// <summary>
-    /// M1 step 4 scene controller: deals a fixed-seed 4-player Cut-Throat round
-    /// and renders the live state — chain at the top, four hands stacked below,
-    /// status footer at the bottom — on a felt-green tabletop. Drives hot-seat
-    /// input: clicking a playable tile in the current player's hand applies the
-    /// move; the Pass button skips the turn when no tile matches; the status
-    /// label switches to a round-over message once the engine reports
-    /// <see cref="MatchOutcome"/>.
+    /// M1 step 4 scene controller. Spatial table: Alice (human) at the bottom,
+    /// Bob right, Cara top, Dan left, chain centred. Side seats render their
+    /// hands as columns of landscape tiles; top + bottom render as rows of
+    /// portrait tiles. Bots are <see cref="RandomBot"/> instances on a 1.5s
+    /// timer.
+    ///
+    /// Tile interaction is per-tile: tiles with no meaningful end choice
+    /// (single legal placement, OR both chain ends share the same pip)
+    /// render in <b>Click</b> mode; tiles where the player must pick which
+    /// end (matches both ends, ends differ) render in <b>Drag</b> mode and
+    /// trigger the LEFT/RIGHT drop zones on the chain.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public sealed class BoardBootstrap : MonoBehaviour
     {
-        // Fixed seed so visual output is comparable across runs. A real game
-        // gets its seed from a Cloud Function — see docs/ARCHITECTURE.md §5.
         private const ulong SpikeSeed = 0xC0FFEEUL;
+        private const ulong BotSeed = SpikeSeed ^ 0xBADB07UL;
 
-        // Felt green — domino-club tabletop palette.
+        private const float InitialBotPauseSeconds = 1.5f;
+        private const float BotMoveDelaySeconds = 1.5f;
+
         private static readonly Color FeltColor = new(0.05f, 0.30f, 0.18f, 1f);
+
+        private const float TopBottomBandHeight = 180f;
+        private const float StatusFooterHeight = 90f;
+        private const float SideBandWidth = 150f;
+        private const float RegionPadding = 16f;
+
+        private static readonly PlayerId HumanPlayer = new("alice");
 
         private static readonly PlayerId[] Players =
         {
-            new("alice"),
+            HumanPlayer,
             new("bob"),
             new("cara"),
             new("dan"),
         };
 
         private readonly CutThroatRules _rules = new();
+        private readonly RandomBot _bot = new();
+        private readonly IRandomSource _botRng = new SeededRandomSource(BotSeed);
+
         private MatchState? _state;
         private ChainView? _chainView;
-        private readonly List<HandView> _handViews = new();
+        private readonly Dictionary<PlayerId, HandView> _handViewByPlayer = new();
         private GameStatusView? _statusView;
+        private Coroutine? _botRoutine;
+        private bool _firstBotMove = true;
 
         private void Start()
         {
-            ConfigureRootLayout();
+            ConfigureRoot();
+            BuildSpatialLayout();
 
             _state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
@@ -49,56 +69,111 @@ namespace Pose.Game
                 Partnership.CutThroat(Players),
                 new SeededRandomSource(SpikeSeed));
 
-            // Build the views once; subsequent moves re-populate them in place.
-            _chainView = CreateChainView();
-
-            for (int i = 0; i < Players.Length; i++)
-            {
-                PlayerId p = Players[i];
-                HandView hv = CreateHandView(p.Value);
-                hv.TileClicked += tile => OnTileClicked(p, tile);
-                _handViews.Add(hv);
-            }
-
-            _statusView = CreateStatusView();
-            _statusView.PassClicked += OnPassClicked;
-
             Render();
+            ScheduleBotIfNeeded();
         }
 
-        private void OnTileClicked(PlayerId player, Tile tile)
+        // ---- Click handler (unambiguous play) -----------------------------
+
+        private void OnHumanTileClicked(TileView tv)
         {
             if (_state == null || _state.IsOver)
             {
                 return;
             }
-
-            // Defensive: only the current player may play. The HandView only
-            // marks the current player's playable tiles as interactable, so
-            // this check is belt-and-suspenders.
-            if (player != _state.CurrentPlayer)
+            if (_state.CurrentPlayer != HumanPlayer)
             {
                 return;
             }
 
-            // Find the legal placement for this tile. If the tile matches both
-            // chain ends, CutThroatRules emits two PlaceMoves (LEFT then RIGHT);
-            // we auto-pick the first (LEFT). End-choice UI is a polish slice.
+            // Apply the first matching legal placement. Click-mode tiles only
+            // exist when there is no meaningful end choice — either the tile
+            // has a single legal placement or both chain ends share the same
+            // pip (so LEFT and RIGHT produce the same chain state).
             IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
             for (int i = 0; i < legal.Count; i++)
             {
-                if (legal[i] is PlaceMove pm && pm.Tile == tile)
+                if (legal[i] is PlaceMove pm && pm.Tile == tv.Tile)
                 {
-                    _state = _rules.Apply(_state, pm);
-                    Render();
+                    ApplyMove(pm);
                     return;
                 }
             }
         }
 
+        // ---- Drag handlers (end choice required) --------------------------
+
+        private void OnHumanTileDragStarted(TileView tv)
+        {
+            if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+
+            bool leftLegal = false;
+            bool rightLegal = false;
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            for (int i = 0; i < legal.Count; i++)
+            {
+                if (legal[i] is PlaceMove pm && pm.Tile == tv.Tile)
+                {
+                    if (pm.End == ChainEnd.Left) leftLegal = true;
+                    if (pm.End == ChainEnd.Right) rightLegal = true;
+                }
+            }
+
+            string leftLabel = _state.Chain.IsEmpty
+                ? string.Empty
+                : _state.Chain.LeftEnd.ToString();
+            string rightLabel = _state.Chain.IsEmpty
+                ? string.Empty
+                : _state.Chain.RightEnd.ToString();
+
+            _chainView!.LeftZone!.SetVisible(leftLegal, leftLabel);
+            _chainView.RightZone!.SetVisible(rightLegal, rightLabel);
+        }
+
+        private void OnHumanTileDragEnded(TileView tv)
+        {
+            if (_chainView != null)
+            {
+                _chainView.LeftZone?.SetVisible(false);
+                _chainView.RightZone?.SetVisible(false);
+            }
+        }
+
+        private void OnTileDroppedOnEnd(TileView tv, ChainEnd end)
+        {
+            if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer != HumanPlayer)
+            {
+                return;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            for (int i = 0; i < legal.Count; i++)
+            {
+                if (legal[i] is PlaceMove pm && pm.Tile == tv.Tile && pm.End == end)
+                {
+                    tv.NotifyDropAccepted();
+                    ApplyMove(pm);
+                    return;
+                }
+            }
+        }
+
+        // ---- Pass button --------------------------------------------------
+
         private void OnPassClicked()
         {
             if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer != HumanPlayer)
             {
                 return;
             }
@@ -108,53 +183,158 @@ namespace Pose.Game
             {
                 if (legal[i] is PassMove pass)
                 {
-                    _state = _rules.Apply(_state, pass);
-                    Render();
+                    ApplyMove(pass);
                     return;
                 }
             }
         }
+
+        private void ApplyMove(Move move)
+        {
+            _state = _rules.Apply(_state!, move);
+            Render();
+            ScheduleBotIfNeeded();
+        }
+
+        // ---- Bot loop -----------------------------------------------------
+
+        private void ScheduleBotIfNeeded()
+        {
+            if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer == HumanPlayer)
+            {
+                return;
+            }
+            if (_botRoutine != null)
+            {
+                return;
+            }
+            _botRoutine = StartCoroutine(BotTurnRoutine());
+        }
+
+        private IEnumerator BotTurnRoutine()
+        {
+            while (_state != null && !_state.IsOver && _state.CurrentPlayer != HumanPlayer)
+            {
+                float delay = _firstBotMove ? InitialBotPauseSeconds : BotMoveDelaySeconds;
+                _firstBotMove = false;
+                yield return new WaitForSeconds(delay);
+
+                IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+                Move move = _bot.PickMove(_state, legal, _botRng);
+                _state = _rules.Apply(_state, move);
+                Render();
+            }
+            _botRoutine = null;
+        }
+
+        // ---- Render -------------------------------------------------------
 
         private void Render()
         {
             MatchState state = _state!;
             _chainView!.Setup(state.Chain);
 
-            // Compute which tiles in the current player's hand are playable —
-            // the HandView shows these bright + interactable, others dimmed.
-            HashSet<Tile> playableTiles = new();
-            bool passIsLegal = false;
+            // Per-tile interaction mode for the human's hand.
+            //
+            // For each playable tile we count its legal placements: 1 → Click
+            // (no choice), 2 → Drag if the two open ends differ (true choice),
+            // 2 → Click if the two open ends share a pip (no functional
+            // difference between LEFT and RIGHT, so don't make the player drag).
+            Dictionary<Tile, TileInteractionMode> tileModes = new();
+            bool currentPlayerHasPass = false;
+
             if (!state.IsOver)
             {
                 IReadOnlyList<Move> legal = _rules.GetLegalMoves(state);
-                for (int i = 0; i < legal.Count; i++)
+                Dictionary<Tile, int> placementCount = new();
+                foreach (Move m in legal)
                 {
-                    switch (legal[i])
+                    switch (m)
                     {
                         case PlaceMove pm:
-                            playableTiles.Add(pm.Tile);
+                            placementCount.TryGetValue(pm.Tile, out int count);
+                            placementCount[pm.Tile] = count + 1;
                             break;
                         case PassMove:
-                            passIsLegal = true;
+                            currentPlayerHasPass = true;
                             break;
                     }
                 }
+
+                bool endsDiffer = !state.Chain.IsEmpty
+                    && state.Chain.LeftEnd != state.Chain.RightEnd;
+
+                foreach (KeyValuePair<Tile, int> kv in placementCount)
+                {
+                    bool requiresChoice = kv.Value == 2 && endsDiffer;
+                    tileModes[kv.Key] = requiresChoice
+                        ? TileInteractionMode.Drag
+                        : TileInteractionMode.Click;
+                }
             }
+
+            bool isHumansTurn = !state.IsOver && state.CurrentPlayer == HumanPlayer;
 
             for (int i = 0; i < state.Players.Count; i++)
             {
                 PlayerId p = state.Players[i];
                 bool isCurrent = !state.IsOver && p == state.CurrentPlayer;
-                System.Func<Tile, bool>? predicate = isCurrent
-                    ? new System.Func<Tile, bool>(tile => playableTiles.Contains(tile))
-                    : null;
-                _handViews[i].Setup(p.Value, isCurrent, state.Hands[p], predicate);
+                Func<Tile, TileInteractionMode>? predicate =
+                    (isHumansTurn && p == HumanPlayer)
+                        ? new Func<Tile, TileInteractionMode>(tile =>
+                            tileModes.TryGetValue(tile, out TileInteractionMode m)
+                                ? m
+                                : TileInteractionMode.None)
+                        : null;
+                _handViewByPlayer[p].Setup(p.Value, isCurrent, state.Hands[p], predicate);
             }
 
-            _statusView!.Setup(state, _rules.GetOutcome(state), passIsLegal);
+            _statusView!.Setup(
+                FormatStatus(state, isHumansTurn),
+                passEnabled: isHumansTurn && currentPlayerHasPass,
+                isOver: state.IsOver);
         }
 
-        private void ConfigureRootLayout()
+        private string FormatStatus(MatchState state, bool isHumansTurn)
+        {
+            if (state.IsOver)
+            {
+                MatchOutcome? outcome = _rules.GetOutcome(state);
+                if (outcome != null)
+                {
+                    return FormatOutcome(outcome);
+                }
+            }
+
+            return isHumansTurn
+                ? $"Your turn — {state.CurrentPlayer.Value} to play"
+                : $"Waiting for {state.CurrentPlayer.Value}…";
+        }
+
+        private static string FormatOutcome(MatchOutcome outcome)
+        {
+            string reason = outcome.Reason switch
+            {
+                MatchEndReason.Domino => "Domino",
+                MatchEndReason.Blocked => "Block",
+                _ => outcome.Reason.ToString(),
+            };
+
+            if (outcome.IsDraw)
+            {
+                return $"Round over — {reason}, draw (no score)";
+            }
+
+            return $"Round over — {reason}, {outcome.WinnerId!.Value.Value} wins +{outcome.WinnerScore}";
+        }
+
+        // ---- Layout scaffolding -------------------------------------------
+
+        private void ConfigureRoot()
         {
             RectTransform rt = (RectTransform)transform;
             rt.anchorMin = Vector2.zero;
@@ -164,35 +344,156 @@ namespace Pose.Game
 
             Image background = gameObject.AddComponent<Image>();
             background.color = FeltColor;
+        }
 
-            VerticalLayoutGroup vlg = gameObject.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.UpperLeft;
-            vlg.spacing = 12f;
-            vlg.padding = new RectOffset(24, 24, 24, 24);
+        private void BuildSpatialLayout()
+        {
+            RectTransform topRegion = CreateRegion(
+                "TopRegion",
+                anchorMin: new Vector2(0f, 1f),
+                anchorMax: new Vector2(1f, 1f),
+                offsetMin: new Vector2(SideBandWidth + RegionPadding, -TopBottomBandHeight),
+                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), 0f));
+            ConfigureRegionAsCenteredRow(topRegion);
+
+            RectTransform bottomRegion = CreateRegion(
+                "BottomRegion",
+                anchorMin: new Vector2(0f, 0f),
+                anchorMax: new Vector2(1f, 0f),
+                offsetMin: new Vector2(SideBandWidth + RegionPadding, 0f),
+                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), TopBottomBandHeight + StatusFooterHeight));
+            ConfigureRegionAsVerticalStack(bottomRegion);
+
+            RectTransform leftRegion = CreateRegion(
+                "LeftRegion",
+                anchorMin: new Vector2(0f, 0f),
+                anchorMax: new Vector2(0f, 1f),
+                offsetMin: new Vector2(0f, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
+                offsetMax: new Vector2(SideBandWidth, -(TopBottomBandHeight + RegionPadding)));
+            ConfigureRegionAsCenteredColumn(leftRegion);
+
+            RectTransform rightRegion = CreateRegion(
+                "RightRegion",
+                anchorMin: new Vector2(1f, 0f),
+                anchorMax: new Vector2(1f, 1f),
+                offsetMin: new Vector2(-SideBandWidth, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
+                offsetMax: new Vector2(0f, -(TopBottomBandHeight + RegionPadding)));
+            ConfigureRegionAsCenteredColumn(rightRegion);
+
+            RectTransform centerRegion = CreateRegion(
+                "CenterRegion",
+                anchorMin: new Vector2(0f, 0f),
+                anchorMax: new Vector2(1f, 1f),
+                offsetMin: new Vector2(SideBandWidth + RegionPadding, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
+                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), -(TopBottomBandHeight + RegionPadding)));
+            ConfigureRegionAsCenteredRow(centerRegion);
+
+            _chainView = CreateChainViewInside(centerRegion);
+
+            _handViewByPlayer[Players[0]] = CreateHandView(
+                Players[0], bottomRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: true);
+            _handViewByPlayer[Players[1]] = CreateHandView(
+                Players[1], rightRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+            _handViewByPlayer[Players[2]] = CreateHandView(
+                Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: false);
+            _handViewByPlayer[Players[3]] = CreateHandView(
+                Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+        }
+
+        private RectTransform CreateRegion(
+            string name,
+            Vector2 anchorMin,
+            Vector2 anchorMax,
+            Vector2 offsetMin,
+            Vector2 offsetMax)
+        {
+            GameObject go = new(name, typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.offsetMin = offsetMin;
+            rt.offsetMax = offsetMax;
+            return rt;
+        }
+
+        private static void ConfigureRegionAsCenteredRow(RectTransform region)
+        {
+            HorizontalLayoutGroup hlg = region.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 8f;
+            hlg.padding = new RectOffset(8, 8, 4, 4);
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+        }
+
+        private static void ConfigureRegionAsCenteredColumn(RectTransform region)
+        {
+            VerticalLayoutGroup vlg = region.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.spacing = 8f;
+            vlg.padding = new RectOffset(4, 4, 8, 8);
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
         }
 
-        private ChainView CreateChainView()
+        private static void ConfigureRegionAsVerticalStack(RectTransform region)
+        {
+            VerticalLayoutGroup vlg = region.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.LowerCenter;
+            vlg.spacing = 12f;
+            vlg.padding = new RectOffset(8, 8, 8, 8);
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+        }
+
+        private ChainView CreateChainViewInside(RectTransform parent)
         {
             GameObject go = new("ChainView", typeof(RectTransform));
-            go.transform.SetParent(transform, worldPositionStays: false);
-            return go.AddComponent<ChainView>();
+            go.transform.SetParent(parent, worldPositionStays: false);
+            ChainView cv = go.AddComponent<ChainView>();
+            cv.LeftZone!.Dropped += OnTileDroppedOnEnd;
+            cv.RightZone!.Dropped += OnTileDroppedOnEnd;
+            return cv;
         }
 
-        private HandView CreateHandView(string playerName)
+        private HandView CreateHandView(
+            PlayerId player,
+            RectTransform parent,
+            HandOrientation handOrientation,
+            TileOrientation tileOrientation,
+            bool includesStatus)
         {
-            GameObject go = new($"Hand_{playerName}", typeof(RectTransform));
-            go.transform.SetParent(transform, worldPositionStays: false);
-            return go.AddComponent<HandView>();
+            GameObject go = new($"Hand_{player.Value}", typeof(RectTransform));
+            go.transform.SetParent(parent, worldPositionStays: false);
+            HandView hv = go.AddComponent<HandView>();
+            hv.Init(handOrientation, tileOrientation);
+
+            if (player == HumanPlayer)
+            {
+                hv.TileClicked += OnHumanTileClicked;
+                hv.TileDragStarted += OnHumanTileDragStarted;
+                hv.TileDragEnded += OnHumanTileDragEnded;
+            }
+
+            if (includesStatus)
+            {
+                _statusView = CreateStatusViewInside(parent);
+                _statusView.PassClicked += OnPassClicked;
+            }
+            return hv;
         }
 
-        private GameStatusView CreateStatusView()
+        private GameStatusView CreateStatusViewInside(RectTransform parent)
         {
             GameObject go = new("StatusView", typeof(RectTransform));
-            go.transform.SetParent(transform, worldPositionStays: false);
+            go.transform.SetParent(parent, worldPositionStays: false);
             return go.AddComponent<GameStatusView>();
         }
     }

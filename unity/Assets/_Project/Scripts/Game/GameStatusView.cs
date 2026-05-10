@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using Pose.Core;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,9 +7,10 @@ using UnityEngine.UI;
 namespace Pose.Game
 {
     /// <summary>
-    /// Footer below the hands: shows whose turn it is, exposes a "Pass turn"
-    /// button (enabled only when passing is the player's only legal move), and
-    /// switches to a round-over message once <see cref="MatchState.IsOver"/>.
+    /// Footer below the hands: shows a status line (formatted by the caller —
+    /// "Your turn — alice", "Waiting for bob…", or a round-over message) and
+    /// exposes a "Pass turn" button enabled only when the caller says passing
+    /// is legal *and* it's actually the human's turn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public sealed class GameStatusView : MonoBehaviour
@@ -37,39 +37,12 @@ namespace Pose.Game
             BuildLayout();
         }
 
-        public void Setup(MatchState state, MatchOutcome? outcome, bool passIsLegal)
+        public void Setup(string statusText, bool passEnabled, bool isOver)
         {
-            if (state.IsOver && outcome != null)
-            {
-                _statusLabel!.color = OutcomeColor;
-                _statusLabel.fontStyle = FontStyles.Bold;
-                _statusLabel.text = FormatOutcome(outcome);
-                SetPassEnabled(false);
-                return;
-            }
-
-            _statusLabel!.color = StatusColor;
-            _statusLabel.fontStyle = FontStyles.Normal;
-            _statusLabel.text =
-                $"Turn {state.TurnNumber} — {state.CurrentPlayer.Value} to play";
-            SetPassEnabled(passIsLegal);
-        }
-
-        private static string FormatOutcome(MatchOutcome outcome)
-        {
-            string reason = outcome.Reason switch
-            {
-                MatchEndReason.Domino => "Domino",
-                MatchEndReason.Blocked => "Block",
-                _ => outcome.Reason.ToString(),
-            };
-
-            if (outcome.IsDraw)
-            {
-                return $"Round over — {reason}, draw (no score)";
-            }
-
-            return $"Round over — {reason}, {outcome.WinnerId!.Value.Value} wins +{outcome.WinnerScore}";
+            _statusLabel!.text = statusText;
+            _statusLabel.color = isOver ? OutcomeColor : StatusColor;
+            _statusLabel.fontStyle = isOver ? FontStyles.Bold : FontStyles.Normal;
+            SetPassEnabled(passEnabled);
         }
 
         private void SetPassEnabled(bool enabled)
@@ -133,7 +106,6 @@ namespace Pose.Game
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
 
-            // Label child centred inside the button.
             GameObject labelGo = new("Label", typeof(RectTransform));
             labelGo.transform.SetParent(go.transform, worldPositionStays: false);
             RectTransform labelRt = (RectTransform)labelGo.transform;

@@ -8,25 +8,54 @@ using UnityEngine.UI;
 namespace Pose.Game
 {
     /// <summary>
-    /// Renders a single domino tile as a bone-coloured rectangle with two pip
-    /// patterns stacked vertically (top half = pip A, bottom half = pip B), a
-    /// dark divider line between them, and a soft drop shadow. Pip dots use
-    /// dice-style positioning. Procedurally constructed in <see cref="Awake"/> —
-    /// a small circular sprite is generated once and shared by every dot on
-    /// every tile, so we don't need any art assets for the M1 step 4 spike.
-    ///
-    /// Click-aware: implements <see cref="IPointerClickHandler"/> and raises
-    /// <see cref="Clicked"/> when tapped, *if* <see cref="Interactable"/> is true.
-    /// Non-interactable tiles dim out via a <c>CanvasGroup</c> so the player can
-    /// tell at a glance which tiles they're allowed to play.
+    /// Visual orientation of a tile. Portrait = 60 wide × 120 tall, two pips
+    /// stacked top/bottom. Landscape = 120 wide × 60 tall, two pips side-by-
+    /// side left/right.
+    /// </summary>
+    public enum TileOrientation
+    {
+        Portrait,
+        Landscape,
+    }
+
+    /// <summary>
+    /// How the tile responds to input.
+    /// <list type="bullet">
+    ///   <item><b>None</b>: dim, no events. Used for non-current players' tiles
+    ///         and for the current player's un-playable tiles.</item>
+    ///   <item><b>Display</b>: bright, no events. Used for chain tiles (they
+    ///         render at full brightness but never play.)</item>
+    ///   <item><b>Click</b>: bright, fires <see cref="TileView.Clicked"/> on
+    ///         tap. Used when a tile is playable but there's no meaningful
+    ///         end choice — either it has only one legal placement, or both
+    ///         chain ends share the same pip value so the result is identical.</item>
+    ///   <item><b>Drag</b>: bright, fires drag events. Used when the player
+    ///         must pick which end (tile matches both ends and the two pip
+    ///         values differ).</item>
+    /// </list>
+    /// </summary>
+    public enum TileInteractionMode
+    {
+        None,
+        Display,
+        Click,
+        Drag,
+    }
+
+    /// <summary>
+    /// Renders a single domino tile. Orientation chosen via <see cref="Init"/>;
+    /// interaction mode set per-render via <see cref="Mode"/>. Drag-aware:
+    /// Drag-mode tiles can be lifted out of the hand and dropped onto a
+    /// chain end's <see cref="EndDropZone"/>.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
-    public sealed class TileView : MonoBehaviour, IPointerClickHandler
+    public sealed class TileView : MonoBehaviour,
+        IPointerClickHandler,
+        IBeginDragHandler, IDragHandler, IEndDragHandler
     {
-        public const float Width = 60f;
-        public const float Height = 120f;
+        public const float ShortDim = 60f;
+        public const float LongDim = 120f;
 
-        // Bone/ivory body, dark walnut pips, brown divider, soft drop shadow.
         private static readonly Color BodyColor = new(0.97f, 0.95f, 0.88f);
         private static readonly Color PipColor = new(0.10f, 0.07f, 0.06f);
         private static readonly Color DividerColor = new(0.40f, 0.30f, 0.22f);
@@ -69,55 +98,170 @@ namespace Pose.Game
         private static Sprite? _dotSprite;
 
         public Tile Tile { get; private set; }
-        public event Action<Tile>? Clicked;
 
-        private RectTransform? _topPipPanel;
-        private RectTransform? _bottomPipPanel;
+        public event Action<TileView>? Clicked;
+        public event Action<TileView>? DragStarted;
+        public event Action<TileView>? DragEnded;
+
+        private TileOrientation _orientation = TileOrientation.Portrait;
+        private bool _layoutBuilt;
+
+        private RectTransform? _firstPipPanel;
+        private RectTransform? _secondPipPanel;
         private CanvasGroup? _canvasGroup;
-        private bool _interactable = true;
 
-        public bool Interactable
+        private TileInteractionMode _mode = TileInteractionMode.None;
+
+        // Drag state.
+        private Transform? _originalParent;
+        private int _originalSiblingIndex;
+        private Vector3 _originalLocalPosition;
+        private Canvas? _rootCanvas;
+        private bool _dropAccepted;
+        private bool _dragging;
+
+        public TileInteractionMode Mode
         {
-            get => _interactable;
+            get => _mode;
             set
             {
-                _interactable = value;
-                if (_canvasGroup != null)
+                _mode = value;
+                if (_canvasGroup == null)
                 {
-                    _canvasGroup.alpha = value ? 1f : DimmedAlpha;
-                    _canvasGroup.interactable = value;
-                    _canvasGroup.blocksRaycasts = value;
+                    return;
                 }
+                // Bright for Display/Click/Drag; dim for None.
+                _canvasGroup.alpha = value == TileInteractionMode.None ? DimmedAlpha : 1f;
+                // Only Click and Drag receive events. Display tiles render
+                // bright but ignore input (chain tiles).
+                bool receivesInput = value == TileInteractionMode.Click
+                    || value == TileInteractionMode.Drag;
+                _canvasGroup.interactable = receivesInput;
+                _canvasGroup.blocksRaycasts = receivesInput;
             }
         }
 
-        private void Awake()
+        public void Init(TileOrientation orientation)
         {
-            BuildVisuals();
+            if (_layoutBuilt)
+            {
+                return;
+            }
+            _orientation = orientation;
+        }
+
+        public void NotifyDropAccepted()
+        {
+            _dropAccepted = true;
         }
 
         public void Setup(Tile tile)
         {
+            EnsureLayoutBuilt();
             Tile = tile;
-            ClearChildren(_topPipPanel!);
-            ClearChildren(_bottomPipPanel!);
-            RenderPips(_topPipPanel!, tile.A);
-            RenderPips(_bottomPipPanel!, tile.B);
+            ClearChildren(_firstPipPanel!);
+            ClearChildren(_secondPipPanel!);
+            RenderPips(_firstPipPanel!, tile.A);
+            RenderPips(_secondPipPanel!, tile.B);
         }
+
+        // ---- Input handlers ------------------------------------------------
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (!_interactable)
+            if (_mode != TileInteractionMode.Click)
             {
                 return;
             }
-            Clicked?.Invoke(Tile);
+            Clicked?.Invoke(this);
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (_mode != TileInteractionMode.Drag)
+            {
+                return;
+            }
+
+            _dropAccepted = false;
+            _dragging = true;
+            _originalParent = transform.parent;
+            _originalSiblingIndex = transform.GetSiblingIndex();
+            _originalLocalPosition = transform.localPosition;
+
+            _rootCanvas ??= GetComponentInParent<Canvas>();
+            if (_rootCanvas != null)
+            {
+                transform.SetParent(_rootCanvas.transform, worldPositionStays: true);
+                transform.SetAsLastSibling();
+            }
+
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.blocksRaycasts = false;
+            }
+
+            DragStarted?.Invoke(this);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (!_dragging)
+            {
+                return;
+            }
+            transform.position = eventData.position;
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            // Forgiveness: if a Click-mode tile got dragged past the threshold
+            // (Unity treats it as a drag and won't fire OnPointerClick), still
+            // treat the release as a click so the player isn't stuck.
+            if (_mode == TileInteractionMode.Click)
+            {
+                Clicked?.Invoke(this);
+                return;
+            }
+
+            if (!_dragging)
+            {
+                return;
+            }
+            _dragging = false;
+
+            DragEnded?.Invoke(this);
+
+            if (_dropAccepted)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            transform.SetParent(_originalParent, worldPositionStays: false);
+            transform.SetSiblingIndex(_originalSiblingIndex);
+            transform.localPosition = _originalLocalPosition;
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.blocksRaycasts = _mode == TileInteractionMode.Click
+                    || _mode == TileInteractionMode.Drag;
+            }
+        }
+
+        // ---- Visual construction ------------------------------------------
+
+        private void EnsureLayoutBuilt()
+        {
+            if (_layoutBuilt)
+            {
+                return;
+            }
+            BuildVisuals();
+            _layoutBuilt = true;
         }
 
         private void BuildVisuals()
         {
-            // CanvasGroup at the root so dimming + click-blocking propagate to all
-            // children (body, divider, pips) with a single alpha/flag flip.
             _canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
             Image body = gameObject.AddComponent<Image>();
@@ -128,25 +272,37 @@ namespace Pose.Game
             shadow.effectColor = ShadowColor;
             shadow.effectDistance = new Vector2(3f, -3f);
 
+            float w = _orientation == TileOrientation.Portrait ? ShortDim : LongDim;
+            float h = _orientation == TileOrientation.Portrait ? LongDim : ShortDim;
+
             LayoutElement layout = gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = Width;
-            layout.preferredHeight = Height;
+            layout.preferredWidth = w;
+            layout.preferredHeight = h;
 
-            _topPipPanel = CreatePipPanel("TopPip", new Vector2(0f, 0.5f), new Vector2(1f, 1f));
-            _bottomPipPanel = CreatePipPanel("BottomPip", new Vector2(0f, 0f), new Vector2(1f, 0.5f));
+            RectTransform rt = (RectTransform)transform;
+            rt.sizeDelta = new Vector2(w, h);
 
-            // Divider line between the two halves. raycastTarget = false so a
-            // click on the centre line still hits the body's IPointerClickHandler.
-            GameObject divider = new("Divider", typeof(RectTransform));
-            divider.transform.SetParent(transform, worldPositionStays: false);
-            RectTransform divRt = (RectTransform)divider.transform;
-            divRt.anchorMin = new Vector2(0.05f, 0.5f);
-            divRt.anchorMax = new Vector2(0.95f, 0.5f);
-            divRt.offsetMin = new Vector2(0f, -DividerThickness * 0.5f);
-            divRt.offsetMax = new Vector2(0f, DividerThickness * 0.5f);
-            Image divImg = divider.AddComponent<Image>();
-            divImg.color = DividerColor;
-            divImg.raycastTarget = false;
+            if (_orientation == TileOrientation.Portrait)
+            {
+                _firstPipPanel = CreatePipPanel(
+                    "TopPip", new Vector2(0f, 0.5f), new Vector2(1f, 1f));
+                _secondPipPanel = CreatePipPanel(
+                    "BottomPip", new Vector2(0f, 0f), new Vector2(1f, 0.5f));
+                CreateDivider(horizontal: true);
+            }
+            else
+            {
+                _firstPipPanel = CreatePipPanel(
+                    "LeftPip", new Vector2(0f, 0f), new Vector2(0.5f, 1f));
+                _secondPipPanel = CreatePipPanel(
+                    "RightPip", new Vector2(0.5f, 0f), new Vector2(1f, 1f));
+                CreateDivider(horizontal: false);
+            }
+
+            // Apply the current Mode now that the CanvasGroup exists. This
+            // ensures the alpha/raycast flags reflect whatever was set before
+            // BuildVisuals ran.
+            Mode = _mode;
         }
 
         private RectTransform CreatePipPanel(string name, Vector2 anchorMin, Vector2 anchorMax)
@@ -160,6 +316,32 @@ namespace Pose.Game
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             return rt;
+        }
+
+        private void CreateDivider(bool horizontal)
+        {
+            GameObject divider = new("Divider", typeof(RectTransform));
+            divider.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform divRt = (RectTransform)divider.transform;
+
+            if (horizontal)
+            {
+                divRt.anchorMin = new Vector2(0.05f, 0.5f);
+                divRt.anchorMax = new Vector2(0.95f, 0.5f);
+                divRt.offsetMin = new Vector2(0f, -DividerThickness * 0.5f);
+                divRt.offsetMax = new Vector2(0f, DividerThickness * 0.5f);
+            }
+            else
+            {
+                divRt.anchorMin = new Vector2(0.5f, 0.05f);
+                divRt.anchorMax = new Vector2(0.5f, 0.95f);
+                divRt.offsetMin = new Vector2(-DividerThickness * 0.5f, 0f);
+                divRt.offsetMax = new Vector2(DividerThickness * 0.5f, 0f);
+            }
+
+            Image divImg = divider.AddComponent<Image>();
+            divImg.color = DividerColor;
+            divImg.raycastTarget = false;
         }
 
         private static void ClearChildren(RectTransform parent)
@@ -192,15 +374,13 @@ namespace Pose.Game
             rt.anchorMin = normalizedPos;
             rt.anchorMax = normalizedPos;
             rt.pivot = new Vector2(0.5f, 0.5f);
-            float diameter = Width * DotSizeRatio;
+            float diameter = ShortDim * DotSizeRatio;
             rt.sizeDelta = new Vector2(diameter, diameter);
             rt.anchoredPosition = Vector2.zero;
 
             Image img = dot.AddComponent<Image>();
             img.sprite = GetDotSprite();
             img.color = PipColor;
-            // Dots must not intercept clicks — let the body's IPointerClickHandler
-            // see every tap on the tile, including those that land on a pip.
             img.raycastTarget = false;
         }
 
