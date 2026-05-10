@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "650525007766",
+    "project_id": "carib-domino",
+    "storage_bucket": "carib-domino.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:650525007766:android:05554b6c00bfcec6d2c7b7",
+        "android_client_info": {
+          "package_name": "com.invovibe.posedominoes"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "650525007766-e2dae3cp9e639l9flcpddse8no1l0kd3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDev329rNxsDD3iQ_rCuvwy5jILAmzmb4Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "650525007766-e2dae3cp9e639l9flcpddse8no1l0kd3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

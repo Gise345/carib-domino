@@ -3,6 +3,7 @@
     "rootNamespace": "Pose.Game",
     "references": [
         "Pose.Core",
+        "Pose.Net",
         "Unity.TextMeshPro",
         "UnityEngine.UI"
     ],

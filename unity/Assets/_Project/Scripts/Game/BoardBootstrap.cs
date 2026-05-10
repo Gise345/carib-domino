@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Pose.Core;
+using Pose.Net;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -63,6 +64,67 @@ namespace Pose.Game
             ConfigureRoot();
             BuildSpatialLayout();
 
+            // Kick off Firebase init (auto-creates the singleton GameObject if
+            // it doesn't already exist), then wait for sign-in before dealing.
+            // The game logic itself doesn't need auth yet (M2.1) — we just want
+            // to prove the boundary works end-to-end before profile/stats land.
+            EnsureFirebaseBootstrap();
+
+            FirebaseBootstrap fb = FirebaseBootstrap.Instance!;
+            if (fb.IsReady)
+            {
+                OnFirebaseReady();
+            }
+            else if (fb.HasFailed)
+            {
+                OnFirebaseFailed(fb.ErrorMessage ?? "unknown error");
+            }
+            else
+            {
+                _statusView!.Setup(
+                    "Signing in to Firebase…",
+                    passEnabled: false,
+                    isOver: false);
+                fb.Ready += OnFirebaseReady;
+                fb.Failed += OnFirebaseFailed;
+            }
+        }
+
+        private static void EnsureFirebaseBootstrap()
+        {
+            if (FirebaseBootstrap.Instance != null)
+            {
+                return;
+            }
+            GameObject go = new("FirebaseBootstrap");
+            go.AddComponent<FirebaseBootstrap>();
+        }
+
+        private void OnFirebaseReady()
+        {
+            UnsubscribeFromFirebase();
+            Debug.Log($"[BoardBootstrap] Auth ready, uid: {FirebaseBootstrap.Instance!.Uid}");
+            StartGame();
+        }
+
+        private void OnFirebaseFailed(string error)
+        {
+            UnsubscribeFromFirebase();
+            Debug.LogWarning($"[BoardBootstrap] Continuing offline — Firebase failed: {error}");
+            // Fail-open: still let the player play. Stats/profile won't persist
+            // this session, but the game loop is unaffected.
+            StartGame();
+        }
+
+        private void UnsubscribeFromFirebase()
+        {
+            FirebaseBootstrap fb = FirebaseBootstrap.Instance!;
+            fb.Ready -= OnFirebaseReady;
+            fb.Failed -= OnFirebaseFailed;
+        }
+
+        private void StartGame()
+        {
             _state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 Players,
