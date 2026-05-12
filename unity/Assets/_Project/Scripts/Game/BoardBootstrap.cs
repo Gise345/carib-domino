@@ -104,7 +104,7 @@ namespace Pose.Game
         {
             UnsubscribeFromFirebase();
             Debug.Log($"[BoardBootstrap] Auth ready, uid: {FirebaseBootstrap.Instance!.Uid}");
-            StartGame();
+            LoadProfile();
         }
 
         private void OnFirebaseFailed(string error)
@@ -121,6 +121,70 @@ namespace Pose.Game
             FirebaseBootstrap fb = FirebaseBootstrap.Instance!;
             fb.Ready -= OnFirebaseReady;
             fb.Failed -= OnFirebaseFailed;
+        }
+
+        // ---- Profile load (M2.2) -------------------------------------------
+
+        private void LoadProfile()
+        {
+            _statusView!.Setup("Loading profile…", passEnabled: false, isOver: false);
+
+            EnsureProfileService();
+
+            ProfileService ps = ProfileService.Instance!;
+            if (ps.IsReady)
+            {
+                OnProfileReady();
+            }
+            else if (ps.HasFailed)
+            {
+                OnProfileFailed(ps.ErrorMessage ?? "unknown error");
+            }
+            else
+            {
+                // Subscribe BEFORE kicking off LoadOrCreate so we can't miss
+                // the Ready/Failed event on a fast-completing path.
+                ps.Ready += OnProfileReady;
+                ps.Failed += OnProfileFailed;
+                ps.LoadOrCreate(FirebaseBootstrap.Instance!.Uid!);
+            }
+        }
+
+        private static void EnsureProfileService()
+        {
+            if (ProfileService.Instance != null)
+            {
+                return;
+            }
+            GameObject go = new("ProfileService");
+            go.AddComponent<ProfileService>();
+        }
+
+        private void OnProfileReady()
+        {
+            UnsubscribeFromProfile();
+            UserProfile profile = ProfileService.Instance!.Profile!;
+            Debug.Log(
+                $"[BoardBootstrap] Profile ready: \"{profile.DisplayName}\" " +
+                $"({(ProfileService.Instance.IsNewProfile ? "new" : "returning")} player)");
+            StartGame();
+        }
+
+        private void OnProfileFailed(string error)
+        {
+            UnsubscribeFromProfile();
+            Debug.LogWarning($"[BoardBootstrap] Continuing without profile: {error}");
+            StartGame();
+        }
+
+        private void UnsubscribeFromProfile()
+        {
+            if (ProfileService.Instance == null)
+            {
+                return;
+            }
+            ProfileService.Instance.Ready -= OnProfileReady;
+            ProfileService.Instance.Failed -= OnProfileFailed;
         }
 
         private void StartGame()

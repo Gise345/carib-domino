@@ -14,6 +14,27 @@ rules_version = '2';
 //   - Add a per-collection match block for every new collection introduced.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // -----------------------------------------------------------------------
+    // /users/{userId} — player profile (display name, locale, country, etc.)
+    //
+    // Self-describing data the player controls: display name, locale, country
+    // hint, timestamps. One of the few client-writable paths in the project.
+    // Wallet, ELO, stats, and entitlement data are NOT on this document — they
+    // live in separate collections that remain Cloud-Functions-only.
+    //
+    // Both read and write are restricted to the document owner. The owner is
+    // identified by the document ID matching `request.auth.uid` — never by a
+    // field on the document itself (per trust model bullet 2 above).
+    // -----------------------------------------------------------------------
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // Default deny — collections without an explicit match block above are
+    // fully denied. Add a new match block here whenever a new collection
+    // gets introduced.
     match /{document=**} {
       allow read, write: if false;
     }
