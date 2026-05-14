@@ -1,10 +1,7 @@
 {
-    "name": "Pose.Net",
-    "rootNamespace": "Pose.Net",
-    "references": [
-        "Pose.Core",
-        "Firebase.SourceModules"
-    ],
+    "name": "Firebase.SourceModules",
+    "rootNamespace": "",
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

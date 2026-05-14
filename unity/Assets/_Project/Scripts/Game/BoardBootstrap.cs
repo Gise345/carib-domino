@@ -58,6 +58,10 @@ namespace Pose.Game
         private GameStatusView? _statusView;
         private Coroutine? _botRoutine;
         private bool _firstBotMove = true;
+        // Flag so we only fire the settlement Cloud Function once per round,
+        // not on every subsequent Render call that observes the same finished
+        // state.
+        private bool _resultSubmitted;
 
         private void Start()
         {
@@ -160,6 +164,16 @@ namespace Pose.Game
             go.AddComponent<ProfileService>();
         }
 
+        private static void EnsureStatsService()
+        {
+            if (StatsService.Instance != null)
+            {
+                return;
+            }
+            GameObject go = new("StatsService");
+            go.AddComponent<StatsService>();
+        }
+
         private void OnProfileReady()
         {
             UnsubscribeFromProfile();
@@ -167,6 +181,9 @@ namespace Pose.Game
             Debug.Log(
                 $"[BoardBootstrap] Profile ready: \"{profile.DisplayName}\" " +
                 $"({(ProfileService.Instance.IsNewProfile ? "new" : "returning")} player)");
+            // Stats submission goes through a Cloud Function; ensure the
+            // client-side StatsService exists before the round ends.
+            EnsureStatsService();
             StartGame();
         }
 
@@ -423,6 +440,32 @@ namespace Pose.Game
                 FormatStatus(state, isHumansTurn),
                 passEnabled: isHumansTurn && currentPlayerHasPass,
                 isOver: state.IsOver);
+
+            // Once per round, when state.IsOver becomes true, submit the
+            // result to the settlement Cloud Function. The flag avoids
+            // resubmitting on subsequent Renders that may fire for the same
+            // finished state (e.g. drag-end animations).
+            if (state.IsOver && !_resultSubmitted)
+            {
+                _resultSubmitted = true;
+                SubmitRoundResultIfPossible(state);
+            }
+        }
+
+        private void SubmitRoundResultIfPossible(MatchState state)
+        {
+            MatchOutcome? outcome = _rules.GetOutcome(state);
+            if (outcome == null)
+            {
+                return;
+            }
+            if (StatsService.Instance == null)
+            {
+                Debug.LogWarning(
+                    "[BoardBootstrap] StatsService missing — skipping result submit.");
+                return;
+            }
+            StatsService.Instance.SubmitRoundResult(outcome, HumanPlayer);
         }
 
         private string FormatStatus(MatchState state, bool isHumansTurn)

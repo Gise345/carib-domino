@@ -32,6 +32,21 @@ service cloud.firestore {
                          && request.auth.uid == userId;
     }
 
+    // -----------------------------------------------------------------------
+    // /stats/{userId} — per-player aggregate stats (wins, losses, draws, etc.)
+    //
+    // Read-own only; writes are Cloud-Functions-only (Admin SDK bypasses
+    // rules). The settlement Cloud Function `submitMatchResult` is the only
+    // path through which this document ever updates — clients submit a round
+    // result, the function increments counters atomically. M4's replay
+    // validator will additionally verify the claimed outcome before writing.
+    // -----------------------------------------------------------------------
+    match /stats/{userId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.

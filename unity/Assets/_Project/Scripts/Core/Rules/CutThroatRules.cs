@@ -278,10 +278,14 @@ namespace Pose.Core
                 }
             }
 
+            // blockWinner is guaranteed non-null here: the loop above always
+            // runs (a match has >= 2 players) and assigns blockWinner on the
+            // first iteration, and the tiedAtLowest early-return is the only
+            // path that skips this point.
             return new MatchOutcome(
                 MatchEndReason.Blocked,
                 blockWinner,
-                state.Partnership.GetTeamOf(blockWinner.Value),
+                state.Partnership.GetTeamOf(blockWinner!.Value),
                 blockScore,
                 remaining);
         }
