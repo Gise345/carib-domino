@@ -187,7 +187,21 @@ namespace Pose.Game
             // Stats submission goes through a Cloud Function; ensure the
             // client-side StatsService exists before the round ends.
             EnsureStatsService();
+            // M3.1 spike: kick off the Photon connection in the background.
+            // Fail-open — gameplay continues offline if Photon doesn't connect;
+            // we just want to see "Connected to Photon Cloud" in the console.
+            EnsurePhotonBootstrap();
             StartGame();
+        }
+
+        private static void EnsurePhotonBootstrap()
+        {
+            if (PhotonBootstrap.Instance != null)
+            {
+                return;
+            }
+            GameObject go = new("PhotonBootstrap");
+            go.AddComponent<PhotonBootstrap>();
         }
 
         private void OnProfileFailed(string error)

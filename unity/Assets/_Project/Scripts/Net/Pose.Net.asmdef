@@ -3,7 +3,8 @@
     "rootNamespace": "Pose.Net",
     "references": [
         "Pose.Core",
-        "Firebase.SourceModules"
+        "Firebase.SourceModules",
+        "Fusion.Unity"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
