@@ -86,7 +86,7 @@ namespace Pose.Game
             else
             {
                 _statusView!.Setup(
-                    "Signing in to Firebase…",
+                    L10n.Get("status_signing_in"),
                     passEnabled: false,
                     isOver: false);
                 fb.Ready += OnFirebaseReady;
@@ -131,7 +131,10 @@ namespace Pose.Game
 
         private void LoadProfile()
         {
-            _statusView!.Setup("Loading profile…", passEnabled: false, isOver: false);
+            _statusView!.Setup(
+                L10n.Get("status_loading_profile"),
+                passEnabled: false,
+                isOver: false);
 
             EnsureProfileService();
 
@@ -480,25 +483,30 @@ namespace Pose.Game
             }
 
             return isHumansTurn
-                ? $"Your turn — {state.CurrentPlayer.Value} to play"
-                : $"Waiting for {state.CurrentPlayer.Value}…";
+                ? L10n.Get("status_your_turn", state.CurrentPlayer.Value)
+                : L10n.Get("status_waiting_for", state.CurrentPlayer.Value);
         }
 
         private static string FormatOutcome(MatchOutcome outcome)
         {
-            string reason = outcome.Reason switch
+            string reasonKey = outcome.Reason switch
             {
-                MatchEndReason.Domino => "Domino",
-                MatchEndReason.Blocked => "Block",
-                _ => outcome.Reason.ToString(),
+                MatchEndReason.Domino => "end_reason_domino",
+                MatchEndReason.Blocked => "end_reason_block",
+                _ => "end_reason_domino",
             };
+            string reason = L10n.Get(reasonKey);
 
             if (outcome.IsDraw)
             {
-                return $"Round over — {reason}, draw (no score)";
+                return L10n.Get("status_round_over_draw", reason);
             }
 
-            return $"Round over — {reason}, {outcome.WinnerId!.Value.Value} wins +{outcome.WinnerScore}";
+            return L10n.Get(
+                "status_round_over_winner",
+                reason,
+                outcome.WinnerId!.Value.Value,
+                outcome.WinnerScore);
         }
 
         // ---- Layout scaffolding -------------------------------------------

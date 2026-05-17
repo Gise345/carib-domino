@@ -119,7 +119,7 @@ namespace Pose.Game
             labelTmp.fontSize = ButtonFontSize;
             labelTmp.fontStyle = FontStyles.Bold;
             labelTmp.color = ButtonTextColor;
-            labelTmp.text = "Pass turn";
+            labelTmp.text = L10n.Get("pass_button");
             labelTmp.raycastTarget = false;
 
             return (btn, img);

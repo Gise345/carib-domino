@@ -40,12 +40,15 @@ namespace Pose.Game
 
             if (chain.IsEmpty)
             {
-                _label!.text = "Chain empty — opener leads with [6|6]";
+                _label!.text = L10n.Get("chain_empty");
             }
             else
             {
-                _label!.text =
-                    $"Open ends: {chain.LeftEnd}  /  {chain.RightEnd}     Chain length: {chain.Count}";
+                _label!.text = L10n.Get(
+                    "chain_open_ends",
+                    chain.LeftEnd,
+                    chain.RightEnd,
+                    chain.Count);
             }
 
             for (int i = 0; i < chain.Count; i++)

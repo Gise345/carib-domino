@@ -5,6 +5,7 @@
         "Pose.Core",
         "Pose.Net",
         "Unity.TextMeshPro",
+        "Unity.Localization",
         "UnityEngine.UI"
     ],
     "includePlatforms": [],
