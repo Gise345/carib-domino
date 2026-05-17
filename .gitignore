@@ -26,6 +26,14 @@ unity/[Aa]ssets/Plugins/Editor/JetBrains*
 unity/[Aa]ssets/Photon/FusionDemos/*.unitypackage*
 unity/[Aa]ssets/Photon/FusionMenu/*.unitypackage*
 
+# Firebase Unity SDK macOS/Linux native libs for the App core — both exceed
+# GitHub's 100 MB-per-file hard limit (.bundle ≈ 191 MB, .so ≈ 123 MB on
+# the 13.10 SDK). We're Windows-only for current dev; the Windows .dll
+# (16 MB) is kept. macOS/iOS/Linux build machines re-vendor the SDK at
+# build time to pull these files in (or switch to Git LFS at that point).
+unity/[Aa]ssets/Firebase/Plugins/x86_64/FirebaseCppApp-*.bundle
+unity/[Aa]ssets/Firebase/Plugins/x86_64/FirebaseCppApp-*.so
+
 # Visual Studio cache directory
 .vs/
 
