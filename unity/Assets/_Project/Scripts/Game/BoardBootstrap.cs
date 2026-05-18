@@ -187,21 +187,59 @@ namespace Pose.Game
             // Stats submission goes through a Cloud Function; ensure the
             // client-side StatsService exists before the round ends.
             EnsureStatsService();
-            // M3.1 spike: kick off the Photon connection in the background.
-            // Fail-open — gameplay continues offline if Photon doesn't connect;
-            // we just want to see "Connected to Photon Cloud" in the console.
-            EnsurePhotonBootstrap();
-            StartGame();
+            // M3.2: Photon connection is no longer auto-started here. The
+            // LobbyView (built in Start()) drives Create / Join when the
+            // player chooses an online mode.
+            ShowLobby();
         }
 
-        private static void EnsurePhotonBootstrap()
+        // ---- Lobby (M3.2) --------------------------------------------------
+
+        private LobbyView? _lobbyView;
+
+        private void ShowLobby()
         {
-            if (PhotonBootstrap.Instance != null)
+            if (_lobbyView != null)
             {
                 return;
             }
-            GameObject go = new("PhotonBootstrap");
-            go.AddComponent<PhotonBootstrap>();
+            GameObject go = new("LobbyView", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _lobbyView = go.AddComponent<LobbyView>();
+            _lobbyView.PracticeChosen += OnPracticeChosen;
+            _lobbyView.OnlineRoomActive += OnOnlineRoomActive;
+        }
+
+        private void OnPracticeChosen()
+        {
+            UnsubscribeFromLobby();
+            if (_lobbyView != null)
+            {
+                Destroy(_lobbyView.gameObject);
+                _lobbyView = null;
+            }
+            // Offline mode — the existing bots-driven Cut-Throat scene.
+            StartGame();
+        }
+
+        private void OnOnlineRoomActive(string roomCode)
+        {
+            // M3.2 stops here — the player is connected to a Photon room, but
+            // networked gameplay (deal + move sync) lands in M3.3. For now the
+            // lobby view stays up with its "waiting/connected" message; the
+            // status footer underneath isn't touched because the board hasn't
+            // been started.
+            Debug.Log($"[BoardBootstrap] Online room active: {roomCode} (M3.2 spike ends here)");
+        }
+
+        private void UnsubscribeFromLobby()
+        {
+            if (_lobbyView == null)
+            {
+                return;
+            }
+            _lobbyView.PracticeChosen -= OnPracticeChosen;
+            _lobbyView.OnlineRoomActive -= OnOnlineRoomActive;
         }
 
         private void OnProfileFailed(string error)
