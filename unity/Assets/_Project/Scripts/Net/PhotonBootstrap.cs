@@ -31,6 +31,14 @@ namespace Pose.Net
         public string? ErrorMessage { get; private set; }
         public string? CurrentRoomCode { get; private set; }
 
+        /// <summary>
+        /// The Fusion runner this bootstrap owns. <c>null</c> until the first
+        /// <see cref="CreateRoom"/> or <see cref="JoinRoom"/> call. Exposed so
+        /// <see cref="OnlineMatchController"/> can spawn networked objects on
+        /// the same runner.
+        /// </summary>
+        public NetworkRunner? Runner => _runner;
+
         public event Action<string>? Connected;
         public event Action<string>? Failed;
 

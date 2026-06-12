@@ -270,6 +270,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5d760e198cf295749902a6a32317e7dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Pose.Game::Pose.Game.BoardBootstrap
+  _networkedMatchPrefab: {fileID: 1889307895991726986, guid: 307c7ee04ff5c54478a03f90a100e9ca, type: 3}
 --- !u!1 &1100844632
 GameObject:
   m_ObjectHideFlags: 0

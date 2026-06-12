@@ -193,9 +193,16 @@ namespace Pose.Game
             ShowLobby();
         }
 
-        // ---- Lobby (M3.2) --------------------------------------------------
+        // ---- Lobby (M3.2) + Online match (M3.3) --------------------------
+
+        [SerializeField]
+        [Tooltip("Drag the NetworkedMatch prefab here. The prefab must have a " +
+                 "NetworkObject + NetworkedMatch component. M3.3 uses this to " +
+                 "spawn the deal-state sync object on the host.")]
+        private Fusion.NetworkObject? _networkedMatchPrefab;
 
         private LobbyView? _lobbyView;
+        private OnlineMatchController? _onlineMatchController;
 
         private void ShowLobby()
         {
@@ -224,12 +231,34 @@ namespace Pose.Game
 
         private void OnOnlineRoomActive(string roomCode)
         {
-            // M3.2 stops here — the player is connected to a Photon room, but
-            // networked gameplay (deal + move sync) lands in M3.3. For now the
-            // lobby view stays up with its "waiting/connected" message; the
-            // status footer underneath isn't touched because the board hasn't
-            // been started.
-            Debug.Log($"[BoardBootstrap] Online room active: {roomCode} (M3.2 spike ends here)");
+            Debug.Log($"[BoardBootstrap] Online room active: {roomCode} — starting OnlineMatchController");
+
+            if (_networkedMatchPrefab == null)
+            {
+                Debug.LogError(
+                    "[BoardBootstrap] NetworkedMatch prefab is not wired in the inspector. " +
+                    "Drag the prefab onto the 'Networked Match Prefab' field on this " +
+                    "GameObject and try again.");
+                return;
+            }
+            if (PhotonBootstrap.Instance?.Runner == null)
+            {
+                Debug.LogError("[BoardBootstrap] PhotonBootstrap.Runner is null — cannot start online match.");
+                return;
+            }
+
+            string localPlayerId = ProfileService.Instance?.Profile?.DisplayName ?? "anon";
+
+            GameObject go = new("OnlineMatchController");
+            _onlineMatchController = go.AddComponent<OnlineMatchController>();
+            _onlineMatchController.Setup(
+                _networkedMatchPrefab,
+                PhotonBootstrap.Instance.Runner,
+                localPlayerId);
+            // M3.3 stops here: both clients will run Dealer.Deal locally once
+            // the host's NetworkedMatch sees Player2 register, and log the deal
+            // contents. Rendering the online state into the existing 4P board
+            // UI lands in M3.5 (2P-specific layout).
         }
 
         private void UnsubscribeFromLobby()
