@@ -173,7 +173,7 @@ namespace Pose.Net
             {
                 Debug.LogWarning(
                     $"[NetworkedMatch] RPC_SubmitMove rejected as illegal: " +
-                    $"player={move.PlayerIndex} pass={move.IsPass} " +
+                    $"player={move.PlayerIndex} kind={move.Kind} " +
                     $"tile=[{move.LowPip}|{move.HighPip}] end={move.EndSide}");
                 return;
             }

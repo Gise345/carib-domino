@@ -100,6 +100,55 @@ namespace Pose.Core
                 remaining[p] = state.Hands[p].PipTotal;
             }
 
+            // Resign check: if the last move was a resign, the resigner's
+            // entire team loses. The opposing team wins. Score = sum of the
+            // resigning team's remaining pips (resigner + their partner). We
+            // pick the opposing-team member with the lowest pip count as the
+            // representative WinnerId, mirroring the Block-end tiebreak.
+            if (state.History.Count > 0
+                && state.History[state.History.Count - 1] is ResignMove resignMove)
+            {
+                PlayerId resigner = resignMove.Player;
+                TeamId resigningTeam = state.Partnership.GetTeamOf(resigner);
+                TeamId winningTeam = state.Partnership.Teams[0].Id == resigningTeam
+                    ? state.Partnership.Teams[1].Id
+                    : state.Partnership.Teams[0].Id;
+
+                int score = 0;
+                for (int i = 0; i < state.Players.Count; i++)
+                {
+                    PlayerId p = state.Players[i];
+                    if (state.Partnership.GetTeamOf(p) == resigningTeam)
+                    {
+                        score += state.Hands[p].PipTotal;
+                    }
+                }
+
+                PlayerId? winnerId = null;
+                int lowestOnWinningTeam = int.MaxValue;
+                for (int i = 0; i < state.Players.Count; i++)
+                {
+                    PlayerId p = state.Players[i];
+                    if (state.Partnership.GetTeamOf(p) != winningTeam)
+                    {
+                        continue;
+                    }
+                    int pips = state.Hands[p].PipTotal;
+                    if (pips < lowestOnWinningTeam)
+                    {
+                        lowestOnWinningTeam = pips;
+                        winnerId = p;
+                    }
+                }
+
+                return new MatchOutcome(
+                    MatchEndReason.Resigned,
+                    winnerId,
+                    winningTeam,
+                    score,
+                    remaining);
+            }
+
             // Domino end: someone has emptied their hand. Their team wins; the
             // score is the opposing team's combined pips (teammate excluded).
             PlayerId? dominoer = null;

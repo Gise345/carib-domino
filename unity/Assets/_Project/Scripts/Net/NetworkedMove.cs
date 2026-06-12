@@ -10,18 +10,22 @@ namespace Pose.Net
     /// <see cref="Move"/> hierarchy is reconstructed locally on each client via
     /// <see cref="ToCoreMove"/> using the player order from the local MatchState.
     ///
-    /// For <see cref="PassMove"/>: <see cref="IsPass"/> = 1; pip/end fields are
-    /// ignored. For <see cref="PlaceMove"/>: <see cref="IsPass"/> = 0, the tile
-    /// is identified by (HighPip, LowPip), and <see cref="EndSide"/> selects
-    /// which end of the chain (0 = Left, 1 = Right).
+    /// <see cref="Kind"/> selects the move type — 0 = Place, 1 = Pass, 2 = Resign.
+    /// For Place: pip fields identify the tile, <see cref="EndSide"/> selects the
+    /// chain end (0 = Left, 1 = Right). For Pass and Resign, pip/end fields are
+    /// ignored.
     /// </summary>
     public struct NetworkedMove : INetworkStruct
     {
+        public const byte KindPlace = 0;
+        public const byte KindPass = 1;
+        public const byte KindResign = 2;
+
         public byte PlayerIndex;
         public byte HighPip;
         public byte LowPip;
         public byte EndSide;
-        public byte IsPass;
+        public byte Kind;
 
         public static NetworkedMove FromPlace(byte playerIndex, Tile tile, ChainEnd end)
         {
@@ -31,7 +35,7 @@ namespace Pose.Net
                 HighPip = tile.B,
                 LowPip = tile.A,
                 EndSide = (byte)(end == ChainEnd.Left ? 0 : 1),
-                IsPass = 0,
+                Kind = KindPlace,
             };
         }
 
@@ -43,7 +47,19 @@ namespace Pose.Net
                 HighPip = 0,
                 LowPip = 0,
                 EndSide = 0,
-                IsPass = 1,
+                Kind = KindPass,
+            };
+        }
+
+        public static NetworkedMove FromResign(byte playerIndex)
+        {
+            return new NetworkedMove
+            {
+                PlayerIndex = playerIndex,
+                HighPip = 0,
+                LowPip = 0,
+                EndSide = 0,
+                Kind = KindResign,
             };
         }
 
@@ -56,10 +72,16 @@ namespace Pose.Net
         public readonly Move ToCoreMove(System.Collections.Generic.IReadOnlyList<PlayerId> players)
         {
             PlayerId p = players[PlayerIndex];
-            if (IsPass == 1)
+            return Kind switch
             {
-                return new PassMove(p);
-            }
+                KindPass => new PassMove(p),
+                KindResign => new ResignMove(p),
+                _ => DecodePlace(p),
+            };
+        }
+
+        private readonly Move DecodePlace(PlayerId p)
+        {
             Tile tile = new(LowPip, HighPip);
             ChainEnd end = EndSide == 0 ? ChainEnd.Left : ChainEnd.Right;
             return new PlaceMove(p, tile, end);

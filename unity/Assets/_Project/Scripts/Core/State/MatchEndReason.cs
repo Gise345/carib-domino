@@ -12,5 +12,8 @@ namespace Pose.Core
 
         /// <summary>Every player passed in succession; no further play is possible.</summary>
         Blocked,
+
+        /// <summary>A player resigned (online disconnect or explicit forfeit).</summary>
+        Resigned,
     }
 }

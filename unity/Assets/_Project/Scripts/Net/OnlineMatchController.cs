@@ -46,6 +46,15 @@ namespace Pose.Net
         public event Action<MatchState, Move>? MoveApplied;
 
         /// <summary>
+        /// Fires once on the remaining client when the runner detects the
+        /// opponent has left the Photon session (either explicit back-to-lobby
+        /// or app crash). Detected by polling <c>Runner.ActivePlayers.Count()</c>
+        /// in <see cref="Update"/> — when the count drops, we fire. The UI uses
+        /// this to offer "continue against bot" or "back to lobby".
+        /// </summary>
+        public event Action? OpponentLeft;
+
+        /// <summary>
         /// The live local <see cref="MatchState"/> — advances as the networked
         /// move log replays. Null until the initial deal completes.
         /// </summary>
@@ -61,6 +70,9 @@ namespace Pose.Net
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
         private NetworkedMatch? _match;
+
+        private int _lastSeenPlayerCount;
+        private bool _opponentLeftFired;
 
         public void Setup(NetworkObject matchPrefab, NetworkRunner runner, string localPlayerId)
         {
@@ -100,6 +112,41 @@ namespace Pose.Net
                 {
                     _match.MoveValidator = null;
                 }
+            }
+        }
+
+        private void Update()
+        {
+            if (_runner == null || _opponentLeftFired)
+            {
+                return;
+            }
+            int count = _runner.ActivePlayers.Count();
+            if (_lastSeenPlayerCount == 0)
+            {
+                _lastSeenPlayerCount = count;
+                return;
+            }
+            if (count < _lastSeenPlayerCount)
+            {
+                _opponentLeftFired = true;
+                Debug.Log(
+                    $"[OnlineMatchController] OpponentLeft detected " +
+                    $"(player count {_lastSeenPlayerCount} -> {count})");
+                OpponentLeft?.Invoke();
+            }
+            _lastSeenPlayerCount = count;
+        }
+
+        /// <summary>
+        /// Hard-stop the runner and tear down the controller. Used by the
+        /// Back-to-lobby flow. Safe to call multiple times.
+        /// </summary>
+        public void ShutdownAndReturnToLobby()
+        {
+            if (_runner != null && _runner.IsRunning)
+            {
+                _ = _runner.Shutdown();
             }
         }
 
@@ -267,7 +314,10 @@ namespace Pose.Net
                     $"but LocalPlayer is {LocalPlayer} — rejected.");
                 return false;
             }
-            if (!CurrentState.CurrentPlayer.Equals(LocalPlayer.Value))
+            // Place/Pass require it's your turn; Resign is unilateral and can
+            // fire off-turn (rule engine accepts it from any participant).
+            if (move is not ResignMove
+                && !CurrentState.CurrentPlayer.Equals(LocalPlayer.Value))
             {
                 return false;
             }
@@ -280,10 +330,25 @@ namespace Pose.Net
             {
                 PlaceMove pm => NetworkedMove.FromPlace((byte)LocalPlayerIndex, pm.Tile, pm.End),
                 PassMove _ => NetworkedMove.FromPass((byte)LocalPlayerIndex),
+                ResignMove _ => NetworkedMove.FromResign((byte)LocalPlayerIndex),
                 _ => throw new InvalidOperationException($"Unsupported move type: {move.GetType().Name}"),
             };
             _match.RPC_SubmitMove(nm);
             return true;
+        }
+
+        /// <summary>
+        /// Submits a Resign for the local player. Wraps <see cref="TrySubmitLocalMove"/>
+        /// — useful for the UI's resign button which doesn't need to manufacture
+        /// a Move first.
+        /// </summary>
+        public bool TrySubmitLocalResign()
+        {
+            if (LocalPlayer == null)
+            {
+                return false;
+            }
+            return TrySubmitLocalMove(new ResignMove(LocalPlayer.Value));
         }
 
         private static void LogDeal(MatchState state)

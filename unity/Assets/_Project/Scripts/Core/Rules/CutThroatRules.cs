@@ -99,8 +99,29 @@ namespace Pose.Core
                 throw new ArgumentNullException(nameof(move));
             }
 
-            // Identity check: the move's player must be the current player. A move
-            // submitted by anyone else is rejected as a structural violation.
+            if (state.IsOver)
+            {
+                return false;
+            }
+
+            // Resign is legal for ANY participant at ANY time during the round —
+            // not just the current player. Online disconnect handling and the
+            // explicit forfeit UI both rely on this; we don't want a player who
+            // isn't currently on-turn unable to forfeit.
+            if (move is ResignMove)
+            {
+                for (int i = 0; i < state.Players.Count; i++)
+                {
+                    if (state.Players[i] == move.Player)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Place / Pass must come from the current player and match one of
+            // the engine-derived legal moves.
             if (move.Player != state.CurrentPlayer)
             {
                 return false;
@@ -182,6 +203,18 @@ namespace Pose.Core
                     isOver: blocked);
             }
 
+            if (move is ResignMove)
+            {
+                // Resign ends the round immediately. CurrentPlayerIndex is left
+                // unchanged — GetOutcome reads the resigner from history.Last
+                // rather than inferring from CurrentPlayerIndex (which would be
+                // wrong when the resigner wasn't the current player).
+                return state.With(
+                    turnNumber: state.TurnNumber + 1,
+                    history: newHistory,
+                    isOver: true);
+            }
+
             throw new ArgumentException(
                 $"Unsupported move type: {move.GetType().Name}",
                 nameof(move));
@@ -204,6 +237,57 @@ namespace Pose.Core
             {
                 PlayerId p = state.Players[i];
                 remaining[p] = state.Hands[p].PipTotal;
+            }
+
+            // Resign check: if the last move was a resign, the round ended via
+            // forfeit. Winner is unambiguous in 2P (the other player); in 3+P
+            // we use the same "lowest pip among non-resigners" rule as Blocked,
+            // which generalizes cleanly and gives the round a defined outcome
+            // without modeling continued play. Score is the resigner's
+            // remaining pip total — what they "gave up".
+            if (state.History.Count > 0
+                && state.History[state.History.Count - 1] is ResignMove resignMove)
+            {
+                PlayerId resigner = resignMove.Player;
+                int resignerPips = state.Hands[resigner].PipTotal;
+
+                if (state.Players.Count == 2)
+                {
+                    PlayerId other = state.Players[0] == resigner
+                        ? state.Players[1]
+                        : state.Players[0];
+                    return new MatchOutcome(
+                        MatchEndReason.Resigned,
+                        other,
+                        state.Partnership.GetTeamOf(other),
+                        resignerPips,
+                        remaining);
+                }
+
+                PlayerId? resignWinner = null;
+                int resignLowest = int.MaxValue;
+                for (int i = 0; i < state.Players.Count; i++)
+                {
+                    PlayerId p = state.Players[i];
+                    if (p == resigner)
+                    {
+                        continue;
+                    }
+                    int pips = state.Hands[p].PipTotal;
+                    if (pips < resignLowest)
+                    {
+                        resignLowest = pips;
+                        resignWinner = p;
+                    }
+                }
+                return new MatchOutcome(
+                    MatchEndReason.Resigned,
+                    resignWinner,
+                    resignWinner.HasValue
+                        ? state.Partnership.GetTeamOf(resignWinner.Value)
+                        : null,
+                    resignerPips,
+                    remaining);
             }
 
             // Check for Domino end: someone has zero tiles.
