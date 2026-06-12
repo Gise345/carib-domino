@@ -11,6 +11,27 @@ unity/[Uu]ser[Ss]ettings/
 unity/[Mm]emoryCaptures/
 unity/[Rr]ecordings/
 
+# Repo-root build output (we saved an Android APK here mid-M3.3 testing).
+# Anything matching <milestone>-android/ is a sideload build dir.
+m*-android/
+m*-windows/
+
+# ParrelSync local Editor clones — symlinked copies for multi-client testing.
+# Local-only dev artefact; never share via VCS.
+unity_clone_*/
+
+# IL2CPP intermediate CMake/Ninja output. Regenerated on every native build.
+unity/.utmp/
+
+# Firebase External Dependency Manager: auto-generated local Maven mirror of
+# Android AARs. Resolver re-creates this any time we touch Android Firebase
+# dependencies — checking it in just bloats the repo with regenerable bytes.
+unity/Assets/GeneratedLocalRepo/
+unity/Assets/GeneratedLocalRepo.meta
+
+# Unity scene autosave-on-crash backups. Local-only safety net.
+unity/Assets/_Recovery/
+
 # Note: do NOT ignore *.meta files under Assets/. Unity needs them tracked
 # alongside their corresponding assets — losing them breaks references.
 
