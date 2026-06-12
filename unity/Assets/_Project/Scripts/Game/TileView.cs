@@ -57,6 +57,7 @@ namespace Pose.Game
         public const float LongDim = 120f;
 
         private static readonly Color BodyColor = new(0.97f, 0.95f, 0.88f);
+        private static readonly Color BackBodyColor = new(0.18f, 0.10f, 0.06f);
         private static readonly Color PipColor = new(0.10f, 0.07f, 0.06f);
         private static readonly Color DividerColor = new(0.40f, 0.30f, 0.22f);
         private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.45f);
@@ -163,6 +164,30 @@ namespace Pose.Game
             ClearChildren(_secondPipPanel!);
             RenderPips(_firstPipPanel!, tile.A);
             RenderPips(_secondPipPanel!, tile.B);
+            ApplyBackTint(showBack: false);
+        }
+
+        /// <summary>
+        /// Renders this tile as a face-down "back" — no pips, body tinted
+        /// darker so it reads as hidden. Used for the opponent's hand in
+        /// online play, where we know HOW MANY tiles they hold but not WHICH.
+        /// </summary>
+        public void SetupAsBack()
+        {
+            EnsureLayoutBuilt();
+            ClearChildren(_firstPipPanel!);
+            ClearChildren(_secondPipPanel!);
+            ApplyBackTint(showBack: true);
+        }
+
+        private void ApplyBackTint(bool showBack)
+        {
+            Image? body = GetComponent<Image>();
+            if (body == null)
+            {
+                return;
+            }
+            body.color = showBack ? BackBodyColor : BodyColor;
         }
 
         // ---- Input handlers ------------------------------------------------

@@ -7,12 +7,13 @@ namespace Pose.Net
 {
     /// <summary>
     /// Fusion <see cref="NetworkBehaviour"/> that synchronises the minimal
-    /// inputs needed to derive a 2-player Cut-Throat round: the deal seed and
-    /// both players' display names. Both clients run the deterministic
-    /// <c>Pose.Core.Dealer.Deal</c> against these inputs and get the same
-    /// <c>MatchState</c> bit-for-bit (proven by M1 step 3's replay-determinism
-    /// tests). State stays local — we don't push the full MatchState over the
-    /// wire, only what's needed to reconstruct it.
+    /// inputs needed to derive a 2-player Cut-Throat round: the deal seed,
+    /// both players' display names (M3.3), and the append-only move log
+    /// (M3.4). Both clients run the deterministic Pose.Core engine against
+    /// these inputs and get the same <c>MatchState</c> at every turn (proven
+    /// by Pose.Core.Tests.MoveReplaySpec). State stays local — we don't push
+    /// the full MatchState over the wire, only what's needed to reconstruct
+    /// it.
     ///
     /// Authority model (Fusion Shared mode):
     /// - Host (first player in the room) spawns this object → becomes
@@ -24,9 +25,24 @@ namespace Pose.Net
     ///   and flips <see cref="DealReady"/> to true.
     /// - Both clients poll <see cref="DealReady"/> in <see cref="Render"/> and
     ///   fire <see cref="DealReadyChanged"/> on the rising edge.
+    /// - Once dealing is done, either client submits moves via
+    ///   <see cref="RPC_SubmitMove"/>. Host validates with Pose.Core's
+    ///   IsLegal (installed as <see cref="MoveValidator"/> by the controller),
+    ///   appends to <see cref="Moves"/>, and bumps <see cref="MoveCount"/>.
+    ///   Both clients watch <see cref="MoveCount"/> in <see cref="Render"/>
+    ///   and fire <see cref="MoveAppliedChanged"/> for the new index range
+    ///   so the controller can replay.
     /// </summary>
     public sealed class NetworkedMatch : NetworkBehaviour
     {
+        /// <summary>
+        /// Maximum moves that can fit in the networked log. A double-six 2P
+        /// round is bounded above by 28 placements plus a handful of passes;
+        /// 64 leaves comfortable headroom and stays a power of two for
+        /// Fusion's NetworkArray layout.
+        /// </summary>
+        public const int MaxMoves = 64;
+
         /// <summary>
         /// Static event raised every time a NetworkedMatch's <c>Spawned()</c>
         /// fires (on host AND client). Used by <see cref="OnlineMatchController"/>
@@ -41,12 +57,33 @@ namespace Pose.Net
         /// </summary>
         public event Action? DealReadyChanged;
 
+        /// <summary>
+        /// Fires on each client whenever <see cref="MoveCount"/> advances,
+        /// passing the new (zero-based) index range the listener should pull
+        /// from <see cref="Moves"/> and apply to its local MatchState. Range
+        /// semantics are [from, to) — iterate
+        /// <c>for (int i = from; i &lt; to; i++)</c>.
+        /// </summary>
+        public event Action<int, int>? MoveAppliedChanged;
+
         [Networked] public ulong Seed { get; set; }
         [Networked] public NetworkString<_32> Player1Id { get; set; }
         [Networked] public NetworkString<_32> Player2Id { get; set; }
         [Networked] public bool DealReady { get; set; }
+        [Networked, Capacity(MaxMoves)] public NetworkArray<NetworkedMove> Moves => default;
+        [Networked] public int MoveCount { get; set; }
+
+        /// <summary>
+        /// Set by the host's <see cref="OnlineMatchController"/> at spawn time
+        /// so <see cref="RPC_SubmitMove"/> can validate against the current
+        /// authoritative state before appending. The signature is a
+        /// callback-on-NetworkedMove rather than a direct Pose.Core dependency
+        /// so this file doesn't drag in the rule engine.
+        /// </summary>
+        public Func<NetworkedMove, bool>? MoveValidator { get; set; }
 
         private bool _lastDealReady;
+        private int _lastMoveCount;
 
         public override void Spawned()
         {
@@ -66,6 +103,18 @@ namespace Pose.Net
             {
                 _lastDealReady = true;
                 DealReadyChanged?.Invoke();
+            }
+
+            // Likewise for the move log — host only ever appends, so a
+            // strict > check is enough. Hand the new index range to the
+            // controller in one shot rather than one event per move so a
+            // burst (e.g. just-joined client catching up) is a single call.
+            if (MoveCount > _lastMoveCount)
+            {
+                int from = _lastMoveCount;
+                int to = MoveCount;
+                _lastMoveCount = to;
+                MoveAppliedChanged?.Invoke(from, to);
             }
         }
 
@@ -90,6 +139,46 @@ namespace Pose.Net
             Player2Id = playerId;
             DealReady = true;
             Debug.Log($"[NetworkedMatch] RPC: Player2 registered as {playerId}");
+        }
+
+        /// <summary>
+        /// Either client calls this with their intended move. Host validates
+        /// via <see cref="MoveValidator"/> (installed by the controller) and,
+        /// if legal, appends to <see cref="Moves"/> and bumps
+        /// <see cref="MoveCount"/>. Source = All because both joiner and host
+        /// submit their own moves; target = StateAuthority so only the host
+        /// mutates the log.
+        /// </summary>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_SubmitMove(NetworkedMove move, RpcInfo info = default)
+        {
+            if (!Object.HasStateAuthority)
+            {
+                return;
+            }
+            if (MoveCount >= MaxMoves)
+            {
+                Debug.LogWarning(
+                    $"[NetworkedMatch] RPC_SubmitMove dropped — log full at {MoveCount}.");
+                return;
+            }
+            if (MoveValidator == null)
+            {
+                Debug.LogWarning(
+                    "[NetworkedMatch] RPC_SubmitMove dropped — host has no MoveValidator " +
+                    "installed yet (controller not ready).");
+                return;
+            }
+            if (!MoveValidator(move))
+            {
+                Debug.LogWarning(
+                    $"[NetworkedMatch] RPC_SubmitMove rejected as illegal: " +
+                    $"player={move.PlayerIndex} pass={move.IsPass} " +
+                    $"tile=[{move.LowPip}|{move.HighPip}] end={move.EndSide}");
+                return;
+            }
+            Moves.Set(MoveCount, move);
+            MoveCount++;
         }
     }
 }

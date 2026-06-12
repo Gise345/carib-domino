@@ -55,9 +55,25 @@ namespace Pose.Game
         private MatchState? _state;
         private ChainView? _chainView;
         private readonly Dictionary<PlayerId, HandView> _handViewByPlayer = new();
+        private HandView? _bottomHandView;
+        private HandView? _rightHandView;
+        private HandView? _topHandView;
+        private HandView? _leftHandView;
         private GameStatusView? _statusView;
         private Coroutine? _botRoutine;
         private bool _firstBotMove = true;
+
+        // The player driving the local touch / drag input. Defaults to the
+        // offline hot-seat constant; replaced with the online controller's
+        // PlayerId once the networked deal lands. All input gating and
+        // showBacks decisions consult this.
+        private PlayerId _localPlayer = HumanPlayer;
+
+        // True once the online room hands off control to the OnlineMatchController.
+        // Suppresses the bot coroutine and routes input through RPCs instead of
+        // applying moves locally.
+        private bool _isOnline;
+
         // Flag so we only fire the settlement Cloud Function once per round,
         // not on every subsequent Render call that observes the same finished
         // state.
@@ -251,14 +267,41 @@ namespace Pose.Game
 
             GameObject go = new("OnlineMatchController");
             _onlineMatchController = go.AddComponent<OnlineMatchController>();
+            _onlineMatchController.MatchDealt += OnOnlineMatchDealt;
+            _onlineMatchController.MoveApplied += OnOnlineMoveApplied;
             _onlineMatchController.Setup(
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
                 localPlayerId);
-            // M3.3 stops here: both clients will run Dealer.Deal locally once
-            // the host's NetworkedMatch sees Player2 register, and log the deal
-            // contents. Rendering the online state into the existing 4P board
-            // UI lands in M3.5 (2P-specific layout).
+            // The lobby stays on screen showing "Waiting for opponent /
+            // Connected to room <code>" until the deal lands — at which point
+            // OnOnlineMatchDealt destroys it and the board takes over.
+        }
+
+        // ---- Online deal + move hooks (M3.4) ------------------------------
+
+        private void OnOnlineMatchDealt(MatchState state)
+        {
+            _isOnline = true;
+            _state = state;
+            _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
+            SeatPlayersForOnline(state.Players, _localPlayer);
+
+            // Lobby served its purpose; hand off to the board.
+            if (_lobbyView != null)
+            {
+                UnsubscribeFromLobby();
+                Destroy(_lobbyView.gameObject);
+                _lobbyView = null;
+            }
+
+            Render();
+        }
+
+        private void OnOnlineMoveApplied(MatchState state, Move move)
+        {
+            _state = state;
+            Render();
         }
 
         private void UnsubscribeFromLobby()
@@ -290,6 +333,10 @@ namespace Pose.Game
 
         private void StartGame()
         {
+            _isOnline = false;
+            _localPlayer = HumanPlayer;
+            SeatPlayersForOffline();
+
             _state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 Players,
@@ -308,7 +355,7 @@ namespace Pose.Game
             {
                 return;
             }
-            if (_state.CurrentPlayer != HumanPlayer)
+            if (_state.CurrentPlayer != _localPlayer)
             {
                 return;
             }
@@ -322,7 +369,7 @@ namespace Pose.Game
             {
                 if (legal[i] is PlaceMove pm && pm.Tile == tv.Tile)
                 {
-                    ApplyMove(pm);
+                    SubmitLocalMove(pm);
                     return;
                 }
             }
@@ -375,7 +422,7 @@ namespace Pose.Game
             {
                 return;
             }
-            if (_state.CurrentPlayer != HumanPlayer)
+            if (_state.CurrentPlayer != _localPlayer)
             {
                 return;
             }
@@ -386,7 +433,7 @@ namespace Pose.Game
                 if (legal[i] is PlaceMove pm && pm.Tile == tv.Tile && pm.End == end)
                 {
                     tv.NotifyDropAccepted();
-                    ApplyMove(pm);
+                    SubmitLocalMove(pm);
                     return;
                 }
             }
@@ -400,7 +447,7 @@ namespace Pose.Game
             {
                 return;
             }
-            if (_state.CurrentPlayer != HumanPlayer)
+            if (_state.CurrentPlayer != _localPlayer)
             {
                 return;
             }
@@ -410,14 +457,27 @@ namespace Pose.Game
             {
                 if (legal[i] is PassMove pass)
                 {
-                    ApplyMove(pass);
+                    SubmitLocalMove(pass);
                     return;
                 }
             }
         }
 
-        private void ApplyMove(Move move)
+        /// <summary>
+        /// Routes a local input through the right channel: offline applies
+        /// immediately and re-renders; online sends an RPC and waits for the
+        /// move to loop back through the networked log before the visual
+        /// updates. The networked path's "tap → tile leaves your hand" feels
+        /// like a brief beat because both clients only update once the host
+        /// has appended; that's intentional (no client-side prediction).
+        /// </summary>
+        private void SubmitLocalMove(Move move)
         {
+            if (_isOnline)
+            {
+                _onlineMatchController?.TrySubmitLocalMove(move);
+                return;
+            }
             _state = _rules.Apply(_state!, move);
             Render();
             ScheduleBotIfNeeded();
@@ -427,11 +487,17 @@ namespace Pose.Game
 
         private void ScheduleBotIfNeeded()
         {
+            // Bots never run in online mode — the second player is a real
+            // human reached via the networked move log.
+            if (_isOnline)
+            {
+                return;
+            }
             if (_state == null || _state.IsOver)
             {
                 return;
             }
-            if (_state.CurrentPlayer == HumanPlayer)
+            if (_state.CurrentPlayer == _localPlayer)
             {
                 return;
             }
@@ -444,7 +510,7 @@ namespace Pose.Game
 
         private IEnumerator BotTurnRoutine()
         {
-            while (_state != null && !_state.IsOver && _state.CurrentPlayer != HumanPlayer)
+            while (_state != null && !_state.IsOver && _state.CurrentPlayer != _localPlayer)
             {
                 float delay = _firstBotMove ? InitialBotPauseSeconds : BotMoveDelaySeconds;
                 _firstBotMove = false;
@@ -465,7 +531,7 @@ namespace Pose.Game
             MatchState state = _state!;
             _chainView!.Setup(state.Chain);
 
-            // Per-tile interaction mode for the human's hand.
+            // Per-tile interaction mode for the local player's hand.
             //
             // For each playable tile we count its legal placements: 1 → Click
             // (no choice), 2 → Drag if the two open ends differ (true choice),
@@ -504,32 +570,46 @@ namespace Pose.Game
                 }
             }
 
-            bool isHumansTurn = !state.IsOver && state.CurrentPlayer == HumanPlayer;
+            bool isLocalTurn = !state.IsOver && state.CurrentPlayer == _localPlayer;
 
             for (int i = 0; i < state.Players.Count; i++)
             {
                 PlayerId p = state.Players[i];
+                if (!_handViewByPlayer.TryGetValue(p, out HandView? hv))
+                {
+                    // No seat assigned (shouldn't happen for valid configs, but
+                    // guards against future mode-mismatch bugs).
+                    continue;
+                }
                 bool isCurrent = !state.IsOver && p == state.CurrentPlayer;
+                bool isLocal = p == _localPlayer;
                 Func<Tile, TileInteractionMode>? predicate =
-                    (isHumansTurn && p == HumanPlayer)
+                    (isLocalTurn && isLocal)
                         ? new Func<Tile, TileInteractionMode>(tile =>
                             tileModes.TryGetValue(tile, out TileInteractionMode m)
                                 ? m
                                 : TileInteractionMode.None)
                         : null;
-                _handViewByPlayer[p].Setup(p.Value, isCurrent, state.Hands[p], predicate);
+                // Online: opponent's tiles render as backs (we know HOW MANY,
+                // not WHICH). Offline (hot-seat): all hands visible.
+                bool showBacks = _isOnline && !isLocal;
+                hv.Setup(p.Value, isCurrent, state.Hands[p], predicate, showBacks);
             }
 
             _statusView!.Setup(
-                FormatStatus(state, isHumansTurn),
-                passEnabled: isHumansTurn && currentPlayerHasPass,
+                FormatStatus(state, isLocalTurn),
+                passEnabled: isLocalTurn && currentPlayerHasPass,
                 isOver: state.IsOver);
 
             // Once per round, when state.IsOver becomes true, submit the
             // result to the settlement Cloud Function. The flag avoids
             // resubmitting on subsequent Renders that may fire for the same
             // finished state (e.g. drag-end animations).
-            if (state.IsOver && !_resultSubmitted)
+            //
+            // Online rounds skip this — M2.3's submit path is single-player
+            // only; the online settlement validator (M4) takes its inputs
+            // from the move log + seed, not the client.
+            if (state.IsOver && !_resultSubmitted && !_isOnline)
             {
                 _resultSubmitted = true;
                 SubmitRoundResultIfPossible(state);
@@ -552,7 +632,7 @@ namespace Pose.Game
             StatsService.Instance.SubmitRoundResult(outcome, HumanPlayer);
         }
 
-        private string FormatStatus(MatchState state, bool isHumansTurn)
+        private string FormatStatus(MatchState state, bool isLocalTurn)
         {
             if (state.IsOver)
             {
@@ -563,7 +643,7 @@ namespace Pose.Game
                 }
             }
 
-            return isHumansTurn
+            return isLocalTurn
                 ? L10n.Get("status_your_turn", state.CurrentPlayer.Value)
                 : L10n.Get("status_waiting_for", state.CurrentPlayer.Value);
         }
@@ -648,14 +728,53 @@ namespace Pose.Game
 
             _chainView = CreateChainViewInside(centerRegion);
 
-            _handViewByPlayer[Players[0]] = CreateHandView(
+            // Seats are built once at scene load. Player-to-seat binding (and
+            // whether a seat is even used) is decided per-round when the deal
+            // lands — see SeatPlayersForOffline / SeatPlayersForOnline.
+            _bottomHandView = CreateHandView(
                 Players[0], bottomRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: true);
-            _handViewByPlayer[Players[1]] = CreateHandView(
+            _rightHandView = CreateHandView(
                 Players[1], rightRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
-            _handViewByPlayer[Players[2]] = CreateHandView(
+            _topHandView = CreateHandView(
                 Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: false);
-            _handViewByPlayer[Players[3]] = CreateHandView(
+            _leftHandView = CreateHandView(
                 Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+        }
+
+        // ---- Seat binding (per-round) -------------------------------------
+
+        /// <summary>
+        /// Offline 4P: hardcoded seat order around the table —
+        /// alice→bottom, bob→right, cara→top, dan→left. All four seats active.
+        /// </summary>
+        private void SeatPlayersForOffline()
+        {
+            _handViewByPlayer.Clear();
+            _handViewByPlayer[Players[0]] = _bottomHandView!;
+            _handViewByPlayer[Players[1]] = _rightHandView!;
+            _handViewByPlayer[Players[2]] = _topHandView!;
+            _handViewByPlayer[Players[3]] = _leftHandView!;
+            _bottomHandView!.gameObject.SetActive(true);
+            _rightHandView!.gameObject.SetActive(true);
+            _topHandView!.gameObject.SetActive(true);
+            _leftHandView!.gameObject.SetActive(true);
+        }
+
+        /// <summary>
+        /// Online 2P: local player at the bottom, opponent at the top, side
+        /// seats hidden. This is symmetric — each phone sees themselves below
+        /// regardless of who hosted.
+        /// </summary>
+        private void SeatPlayersForOnline(IReadOnlyList<PlayerId> players, PlayerId local)
+        {
+            _handViewByPlayer.Clear();
+            PlayerId remote = players[0].Equals(local) ? players[1] : players[0];
+            _handViewByPlayer[local] = _bottomHandView!;
+            _handViewByPlayer[remote] = _topHandView!;
+            _bottomHandView!.gameObject.SetActive(true);
+            _topHandView!.gameObject.SetActive(true);
+            _rightHandView!.gameObject.SetActive(false);
+            _leftHandView!.gameObject.SetActive(false);
         }
 
         private RectTransform CreateRegion(

@@ -58,7 +58,8 @@ namespace Pose.Game
             string playerName,
             bool isCurrent,
             Hand hand,
-            Func<Tile, TileInteractionMode>? tileMode = null)
+            Func<Tile, TileInteractionMode>? tileMode = null,
+            bool showBacks = false)
         {
             EnsureLayoutBuilt();
 
@@ -68,6 +69,23 @@ namespace Pose.Game
             for (int i = _tilesContainer!.childCount - 1; i >= 0; i--)
             {
                 Destroy(_tilesContainer.GetChild(i).gameObject);
+            }
+
+            // Online opponent: render N face-down tiles to convey hand size
+            // without leaking which tiles they hold. The hand parameter is
+            // still passed because Count is what we render — identity ignored.
+            if (showBacks)
+            {
+                for (int i = 0; i < hand.Count; i++)
+                {
+                    GameObject tileGo = new("TileBack", typeof(RectTransform));
+                    tileGo.transform.SetParent(_tilesContainer, worldPositionStays: false);
+                    TileView tv = tileGo.AddComponent<TileView>();
+                    tv.Init(_tileOrientation);
+                    tv.Mode = TileInteractionMode.None;
+                    tv.SetupAsBack();
+                }
+                return;
             }
 
             foreach (Tile t in hand)
