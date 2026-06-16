@@ -331,7 +331,18 @@ namespace Pose.Game
                 float colCenterCurrent = ColumnCenterX(state.Col);
                 float colCenterNext = ColumnCenterX(state.Col + 1);
                 tileCenterX = (colCenterCurrent + colCenterNext) / 2f;
-                tileCenterY = prevColLastCenterY;
+                // Shift the bridge toward the OUTER edge of the column
+                // (the edge in the snake direction): bottom of col K-1
+                // for a down-walk bend, top of col K-1 for an up-walk
+                // bend. This closes the gap between the bridge and the
+                // column's outer edge so the bend reads as a flush
+                // inverted-U / U cap, not a bar floating mid-column.
+                //
+                // (LongDim - ShortDim) / 2 = (120 - 60) / 2 = 30 px shift.
+                float bridgeShift = (TileView.LongDim - TileView.ShortDim) / 2f;
+                tileCenterY = state.GoingDown
+                    ? prevColLastCenterY + bridgeShift   // down-walk bend: bridge aligned with col bottom
+                    : prevColLastCenterY - bridgeShift;  // up-walk bend: bridge aligned with col top
 
                 state.Col++;
                 state.GoingDown = !state.GoingDown;
