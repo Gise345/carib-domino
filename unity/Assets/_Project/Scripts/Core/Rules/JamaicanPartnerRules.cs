@@ -124,7 +124,7 @@ namespace Pose.Core
                     }
                 }
 
-                PlayerId? winnerId = null;
+                PlayerId? resignWinnerId = null;
                 int lowestOnWinningTeam = int.MaxValue;
                 for (int i = 0; i < state.Players.Count; i++)
                 {
@@ -137,13 +137,13 @@ namespace Pose.Core
                     if (pips < lowestOnWinningTeam)
                     {
                         lowestOnWinningTeam = pips;
-                        winnerId = p;
+                        resignWinnerId = p;
                     }
                 }
 
                 return new MatchOutcome(
                     MatchEndReason.Resigned,
-                    winnerId,
+                    resignWinnerId,
                     winningTeam,
                     score,
                     remaining);

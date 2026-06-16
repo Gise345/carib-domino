@@ -57,7 +57,6 @@ namespace Pose.Game
         public const float LongDim = 120f;
 
         private static readonly Color BodyColor = new(0.97f, 0.95f, 0.88f);
-        private static readonly Color BackBodyColor = new(0.18f, 0.10f, 0.06f);
         private static readonly Color PipColor = new(0.10f, 0.07f, 0.06f);
         private static readonly Color DividerColor = new(0.40f, 0.30f, 0.22f);
         private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.45f);
@@ -98,6 +97,18 @@ namespace Pose.Game
 
         private static Sprite? _dotSprite;
 
+        // ---- 2-tap selection state (static, shared across all tiles) -----
+
+        /// <summary>
+        /// When true, a tile's first click selects (lifts + highlights) and
+        /// the second click plays it. When false, a click plays immediately.
+        /// Set by <see cref="GameSettings"/> at boot. Defaults to false so
+        /// in-progress games keep behaving even before settings are read.
+        /// </summary>
+        public static bool TwoTapModeStatic { get; set; }
+
+        private static TileView? _currentlySelected;
+
         public Tile Tile { get; private set; }
 
         public event Action<TileView>? Clicked;
@@ -110,8 +121,13 @@ namespace Pose.Game
         private RectTransform? _firstPipPanel;
         private RectTransform? _secondPipPanel;
         private CanvasGroup? _canvasGroup;
+        private Outline? _selectionOutline;
+        private bool _isSelected;
 
         private TileInteractionMode _mode = TileInteractionMode.None;
+
+        private static readonly Color SelectionOutlineColor = new(1f, 0.92f, 0.50f, 1f);
+        private const float SelectionScale = 1.10f;
 
         // Drag state.
         private Transform? _originalParent;
@@ -164,41 +180,117 @@ namespace Pose.Game
             ClearChildren(_secondPipPanel!);
             RenderPips(_firstPipPanel!, tile.A);
             RenderPips(_secondPipPanel!, tile.B);
-            ApplyBackTint(showBack: false);
         }
 
         /// <summary>
-        /// Renders this tile as a face-down "back" — no pips, body tinted
-        /// darker so it reads as hidden. Used for the opponent's hand in
-        /// online play, where we know HOW MANY tiles they hold but not WHICH.
+        /// Renders the tile with EXPLICIT pip values on the two panels rather
+        /// than the canonical Tile.A / Tile.B order. Used by the chain renderer
+        /// so a placed [3|5] played on a chain that ended in 5 shows up with
+        /// the 5 facing inward — the canonical Setup would render it backwards
+        /// (3 inward, 5 outward) because Tile stores pips in sorted order.
+        ///
+        /// For portrait orientation: <paramref name="firstPip"/> is the TOP pip,
+        /// <paramref name="secondPip"/> is the BOTTOM. For landscape orientation:
+        /// first is the LEFT pip, second is the RIGHT.
+        /// </summary>
+        public void Setup(Tile tile, byte firstPip, byte secondPip)
+        {
+            EnsureLayoutBuilt();
+            Tile = tile;
+            ClearChildren(_firstPipPanel!);
+            ClearChildren(_secondPipPanel!);
+            RenderPips(_firstPipPanel!, firstPip);
+            RenderPips(_secondPipPanel!, secondPip);
+        }
+
+        /// <summary>
+        /// Renders this tile as a face-down "back" — no pips, but the same
+        /// cream BodyColor as a face-up tile (Giselle's preference — reads as
+        /// a blank tile rather than a flipped-over piece). Used for the
+        /// opponent's hand in online play, where we know HOW MANY tiles they
+        /// hold but not WHICH.
         /// </summary>
         public void SetupAsBack()
         {
             EnsureLayoutBuilt();
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
-            ApplyBackTint(showBack: true);
-        }
-
-        private void ApplyBackTint(bool showBack)
-        {
-            Image? body = GetComponent<Image>();
-            if (body == null)
-            {
-                return;
-            }
-            body.color = showBack ? BackBodyColor : BodyColor;
         }
 
         // ---- Input handlers ------------------------------------------------
 
         public void OnPointerClick(PointerEventData eventData)
         {
-            if (_mode != TileInteractionMode.Click)
+            // Display / None mode tiles are not tappable.
+            if (_mode != TileInteractionMode.Click && _mode != TileInteractionMode.Drag)
             {
                 return;
             }
-            Clicked?.Invoke(this);
+
+            if (!TwoTapModeStatic)
+            {
+                // 1-tap mode: Click tiles play immediately; Drag tiles ignore
+                // taps and require the explicit drag-to-end interaction.
+                if (_mode == TileInteractionMode.Click)
+                {
+                    Clicked?.Invoke(this);
+                }
+                return;
+            }
+
+            // 2-tap mode applies to both Click and Drag mode tiles. For a
+            // Drag-mode tile the player can still drag for explicit end
+            // choice; 2-tap plays the first legal placement (whichever the
+            // rule engine returns first, typically LEFT) — handy when there
+            // are only one or two tiles left and dragging is fiddly.
+            if (_currentlySelected == this)
+            {
+                SetSelected(false);
+                _currentlySelected = null;
+                Clicked?.Invoke(this);
+                return;
+            }
+
+            if (_currentlySelected != null)
+            {
+                _currentlySelected.SetSelected(false);
+            }
+            SetSelected(true);
+            _currentlySelected = this;
+        }
+
+        /// <summary>
+        /// Clears any in-progress 2-tap selection. Called by BoardBootstrap
+        /// when the local player's turn ends (a move was applied) or the
+        /// hand is about to be re-rendered.
+        /// </summary>
+        public static void ClearSelection()
+        {
+            if (_currentlySelected != null)
+            {
+                _currentlySelected.SetSelected(false);
+                _currentlySelected = null;
+            }
+        }
+
+        private void SetSelected(bool selected)
+        {
+            _isSelected = selected;
+            if (_selectionOutline != null)
+            {
+                _selectionOutline.enabled = selected;
+            }
+            transform.localScale = selected
+                ? new Vector3(SelectionScale, SelectionScale, 1f)
+                : Vector3.one;
+        }
+
+        private void OnDestroy()
+        {
+            if (_currentlySelected == this)
+            {
+                _currentlySelected = null;
+            }
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -214,11 +306,36 @@ namespace Pose.Game
             _originalSiblingIndex = transform.GetSiblingIndex();
             _originalLocalPosition = transform.localPosition;
 
-            _rootCanvas ??= GetComponentInParent<Canvas>();
+            // Get the rootCanvas (topmost in hierarchy) so we can reparent to
+            // the absolute root layer — not whatever sub-canvas the hand might
+            // be nested in.
+            Canvas? parentCanvas = GetComponentInParent<Canvas>();
+            _rootCanvas = parentCanvas?.rootCanvas ?? parentCanvas;
             if (_rootCanvas != null)
             {
                 transform.SetParent(_rootCanvas.transform, worldPositionStays: true);
                 transform.SetAsLastSibling();
+
+                // Add a Canvas component with overrideSorting and a high
+                // sortingOrder so the dragged tile renders above the board
+                // background, played tiles, and everything else. Without
+                // this the tile can disappear behind the board art mid-drag
+                // because sibling order alone doesn't override sorting layer.
+                Canvas dragOverlay = gameObject.GetComponent<Canvas>();
+                if (dragOverlay == null)
+                {
+                    dragOverlay = gameObject.AddComponent<Canvas>();
+                    // GraphicRaycaster lets the dragged tile still receive
+                    // pointer events while floating in the overlay; without
+                    // it, OnDrag callbacks would stop firing once the Canvas
+                    // grants its own sort context.
+                    if (gameObject.GetComponent<GraphicRaycaster>() == null)
+                    {
+                        gameObject.AddComponent<GraphicRaycaster>();
+                    }
+                }
+                dragOverlay.overrideSorting = true;
+                dragOverlay.sortingOrder = 999;
             }
 
             if (_canvasGroup != null)
@@ -235,7 +352,32 @@ namespace Pose.Game
             {
                 return;
             }
-            transform.position = eventData.position;
+
+            // transform.position = eventData.position only works reliably
+            // for Screen Space - Overlay canvases. For Screen Space - Camera
+            // (or World Space) it produces silent misalignment — the tile
+            // doesn't follow the finger or jumps off-screen. Convert the
+            // screen point into the canvas's local space and update the
+            // anchored position instead, which behaves correctly across all
+            // canvas render modes.
+            RectTransform? canvasRt = _rootCanvas != null
+                ? _rootCanvas.transform as RectTransform
+                : null;
+            if (canvasRt != null
+                && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    canvasRt,
+                    eventData.position,
+                    _rootCanvas!.renderMode == RenderMode.ScreenSpaceOverlay
+                        ? null
+                        : _rootCanvas.worldCamera,
+                    out Vector2 localPoint))
+            {
+                ((RectTransform)transform).anchoredPosition = localPoint;
+            }
+            else
+            {
+                transform.position = eventData.position;
+            }
         }
 
         public void OnEndDrag(PointerEventData eventData)
@@ -271,6 +413,19 @@ namespace Pose.Game
                 _canvasGroup.blocksRaycasts = _mode == TileInteractionMode.Click
                     || _mode == TileInteractionMode.Drag;
             }
+
+            // Strip the temporary drag-overlay Canvas + GraphicRaycaster so
+            // back in the hand the tile uses its parent canvas's sort order.
+            Canvas? dragOverlay = gameObject.GetComponent<Canvas>();
+            if (dragOverlay != null)
+            {
+                Destroy(dragOverlay);
+            }
+            GraphicRaycaster? overlayRaycaster = gameObject.GetComponent<GraphicRaycaster>();
+            if (overlayRaycaster != null)
+            {
+                Destroy(overlayRaycaster);
+            }
         }
 
         // ---- Visual construction ------------------------------------------
@@ -296,6 +451,13 @@ namespace Pose.Game
             Shadow shadow = gameObject.AddComponent<Shadow>();
             shadow.effectColor = ShadowColor;
             shadow.effectDistance = new Vector2(3f, -3f);
+
+            // Yellow outline used for the 2-tap selection highlight. Disabled
+            // by default; SetSelected toggles it on/off.
+            _selectionOutline = gameObject.AddComponent<Outline>();
+            _selectionOutline.effectColor = SelectionOutlineColor;
+            _selectionOutline.effectDistance = new Vector2(4f, -4f);
+            _selectionOutline.enabled = false;
 
             float w = _orientation == TileOrientation.Portrait ? ShortDim : LongDim;
             float h = _orientation == TileOrientation.Portrait ? LongDim : ShortDim;

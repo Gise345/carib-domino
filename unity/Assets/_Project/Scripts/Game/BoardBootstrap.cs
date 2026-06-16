@@ -30,6 +30,8 @@ namespace Pose.Game
 
         private const float InitialBotPauseSeconds = 1.5f;
         private const float BotMoveDelaySeconds = 1.5f;
+        private const float AutoPoseDelaySeconds = 3f;
+        private const float AutoPassDelaySeconds = 3f;
 
         private static readonly Color FeltColor = new(0.05f, 0.30f, 0.18f, 1f);
 
@@ -37,6 +39,9 @@ namespace Pose.Game
         private const float StatusFooterHeight = 90f;
         private const float SideBandWidth = 150f;
         private const float RegionPadding = 16f;
+        // Opponent's seat sits ~60 px below the top edge so it reads as in-game
+        // rather than glued to the safe-area boundary.
+        private const float TopRegionTopMargin = 60f;
 
         private static readonly PlayerId HumanPlayer = new("alice");
 
@@ -81,8 +86,11 @@ namespace Pose.Game
 
         private void Start()
         {
+            GameSettings.Apply();
+
             ConfigureRoot();
             BuildSpatialLayout();
+            BuildHomeButton();
 
             // Kick off Firebase init (auto-creates the singleton GameObject if
             // it doesn't already exist), then wait for sign-in before dealing.
@@ -217,8 +225,30 @@ namespace Pose.Game
                  "spawn the deal-state sync object on the host.")]
         private Fusion.NetworkObject? _networkedMatchPrefab;
 
+        [SerializeField]
+        [Tooltip("Drag the lobby background sprite (poselobby.png in " +
+                 "Assets/images) here. Falls back to the felt-green panel " +
+                 "color if left empty.")]
+        private Sprite? _lobbyBackgroundSprite;
+
+        [SerializeField]
+        [Tooltip("Drag the board background sprite (board.png in " +
+                 "Assets/images) here. Falls back to the felt-green color " +
+                 "if left empty.")]
+        private Sprite? _boardBackgroundSprite;
+
+        [SerializeField]
+        [Tooltip("Drag the splash / loading sprite (posescreen.png in " +
+                 "Assets/images) here. Shown during Firebase init before the " +
+                 "lobby appears.")]
+        private Sprite? _splashBackgroundSprite;
+
+        private Image? _rootBackground;
+
         private LobbyView? _lobbyView;
         private OnlineMatchController? _onlineMatchController;
+        private Coroutine? _autoPoseRoutine;
+        private Coroutine? _autoPassRoutine;
 
         private void ShowLobby()
         {
@@ -229,6 +259,7 @@ namespace Pose.Game
             GameObject go = new("LobbyView", typeof(RectTransform));
             go.transform.SetParent(transform, worldPositionStays: false);
             _lobbyView = go.AddComponent<LobbyView>();
+            _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;
         }
@@ -286,6 +317,7 @@ namespace Pose.Game
             _state = state;
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
             SeatPlayersForOnline(state.Players, _localPlayer);
+            ApplyRootSprite(_boardBackgroundSprite);
 
             // Lobby served its purpose; hand off to the board.
             if (_lobbyView != null)
@@ -336,6 +368,7 @@ namespace Pose.Game
             _isOnline = false;
             _localPlayer = HumanPlayer;
             SeatPlayersForOffline();
+            ApplyRootSprite(_boardBackgroundSprite);
 
             _state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
@@ -524,12 +557,138 @@ namespace Pose.Game
             _botRoutine = null;
         }
 
+        // ---- Auto-pose for the opening tile ------------------------------
+
+        /// <summary>
+        /// When the round opens and it's the local player's turn (chain empty,
+        /// current player = local), kick a 3-second timer. If the player
+        /// hasn't tapped the forced opening tile by then, auto-submit it so
+        /// online play doesn't stall on an AFK host. Works the same offline
+        /// (Alice's forced opening also auto-poses) and online.
+        /// </summary>
+        private void ScheduleAutoPoseIfNeeded()
+        {
+            if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (!_state.Chain.IsEmpty)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer != _localPlayer)
+            {
+                return;
+            }
+            if (_autoPoseRoutine != null)
+            {
+                return;
+            }
+            _autoPoseRoutine = StartCoroutine(AutoPoseRoutine());
+        }
+
+        private IEnumerator AutoPoseRoutine()
+        {
+            yield return new WaitForSeconds(AutoPoseDelaySeconds);
+            _autoPoseRoutine = null;
+
+            // Re-check at fire time: the player may have tapped the tile in the
+            // intervening 3 s. State changes invalidate the timer.
+            if (_state == null || _state.IsOver)
+            {
+                yield break;
+            }
+            if (!_state.Chain.IsEmpty)
+            {
+                yield break;
+            }
+            if (_state.CurrentPlayer != _localPlayer)
+            {
+                yield break;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            for (int i = 0; i < legal.Count; i++)
+            {
+                if (legal[i] is PlaceMove openingMove)
+                {
+                    Debug.Log("[BoardBootstrap] auto-posing opening tile");
+                    SubmitLocalMove(openingMove);
+                    yield break;
+                }
+            }
+        }
+
+        // ---- Auto-pass when no tile can be played -------------------------
+
+        /// <summary>
+        /// When the local player's only legal action is a pass (no tile in
+        /// hand matches either open end), kick a 3-second timer. If the
+        /// player hasn't tapped the Pass button by then, auto-submit so play
+        /// doesn't stall waiting on an obvious forced move.
+        /// </summary>
+        private void ScheduleAutoPassIfNeeded()
+        {
+            if (_state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer != _localPlayer)
+            {
+                return;
+            }
+            if (_autoPassRoutine != null)
+            {
+                return;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            bool onlyPass = legal.Count == 1 && legal[0] is PassMove;
+            if (!onlyPass)
+            {
+                return;
+            }
+
+            _autoPassRoutine = StartCoroutine(AutoPassRoutine());
+        }
+
+        private IEnumerator AutoPassRoutine()
+        {
+            yield return new WaitForSeconds(AutoPassDelaySeconds);
+            _autoPassRoutine = null;
+
+            if (_state == null || _state.IsOver)
+            {
+                yield break;
+            }
+            if (_state.CurrentPlayer != _localPlayer)
+            {
+                yield break;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            for (int i = 0; i < legal.Count; i++)
+            {
+                if (legal[i] is PassMove autoPass)
+                {
+                    Debug.Log("[BoardBootstrap] auto-passing");
+                    SubmitLocalMove(autoPass);
+                    yield break;
+                }
+            }
+        }
+
         // ---- Render -------------------------------------------------------
 
         private void Render()
         {
             MatchState state = _state!;
-            _chainView!.Setup(state.Chain);
+            Tile? openingTile = null;
+            if (state.History.Count > 0 && state.History[0] is PlaceMove openingMove)
+            {
+                openingTile = openingMove.Tile;
+            }
+            _chainView!.Setup(state.Chain, openingTile);
 
             // Per-tile interaction mode for the local player's hand.
             //
@@ -614,6 +773,16 @@ namespace Pose.Game
                 _resultSubmitted = true;
                 SubmitRoundResultIfPossible(state);
             }
+
+            // The opening tile is forced (single legal move). Give the local
+            // player 3 seconds to ritualistically tap it, then auto-pose so
+            // online play doesn't stall on an AFK host. Idempotent — the
+            // routine guards against double-scheduling.
+            ScheduleAutoPoseIfNeeded();
+            // Mirror behaviour for forced passes (no playable tile): 3 s
+            // grace, then auto-submit. The Pass button itself remains 1-tap
+            // since pass is only legal when there's no alternative anyway.
+            ScheduleAutoPassIfNeeded();
         }
 
         private void SubmitRoundResultIfPossible(MatchState state)
@@ -680,8 +849,33 @@ namespace Pose.Game
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
-            Image background = gameObject.AddComponent<Image>();
-            background.color = FeltColor;
+            _rootBackground = gameObject.AddComponent<Image>();
+            ApplyRootSprite(_splashBackgroundSprite);
+        }
+
+        /// <summary>
+        /// Swap the root background sprite. Used to transition from the splash
+        /// art (visible during Firebase auth + profile load) to the gameplay
+        /// board art once a round is about to start.
+        /// </summary>
+        private void ApplyRootSprite(Sprite? sprite)
+        {
+            if (_rootBackground == null)
+            {
+                return;
+            }
+            if (sprite != null)
+            {
+                _rootBackground.sprite = sprite;
+                _rootBackground.color = Color.white;
+                _rootBackground.type = Image.Type.Simple;
+                _rootBackground.preserveAspect = false;
+            }
+            else
+            {
+                _rootBackground.sprite = null;
+                _rootBackground.color = FeltColor;
+            }
         }
 
         private void BuildSpatialLayout()
@@ -690,8 +884,8 @@ namespace Pose.Game
                 "TopRegion",
                 anchorMin: new Vector2(0f, 1f),
                 anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(SideBandWidth + RegionPadding, -TopBottomBandHeight),
-                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), 0f));
+                offsetMin: new Vector2(SideBandWidth + RegionPadding, -TopBottomBandHeight - TopRegionTopMargin),
+                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), -TopRegionTopMargin));
             ConfigureRegionAsCenteredRow(topRegion);
 
             RectTransform bottomRegion = CreateRegion(
@@ -872,6 +1066,142 @@ namespace Pose.Game
             GameObject go = new("StatusView", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             return go.AddComponent<GameStatusView>();
+        }
+
+        // ---- Home button + return-to-lobby teardown ----------------------
+
+        /// <summary>
+        /// Small house-icon button anchored top-left of the board. Tapping
+        /// it tears down the current round (offline: just drops the state;
+        /// online: shuts down the NetworkRunner) and brings the lobby back
+        /// so the player can start a new game without closing the app.
+        /// </summary>
+        private void BuildHomeButton()
+        {
+            GameObject go = new("HomeButton", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(16f, -16f);
+            rt.sizeDelta = new Vector2(80f, 60f);
+
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.10f, 0.40f, 0.24f, 0.85f);
+            bg.raycastTarget = true;
+
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.onClick.AddListener(OnHomePressed);
+
+            GameObject labelGo = new("Label", typeof(RectTransform));
+            labelGo.transform.SetParent(go.transform, worldPositionStays: false);
+            RectTransform labelRt = (RectTransform)labelGo.transform;
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.offsetMin = Vector2.zero;
+            labelRt.offsetMax = Vector2.zero;
+
+            TMPro.TextMeshProUGUI tmp = labelGo.AddComponent<TMPro.TextMeshProUGUI>();
+            tmp.alignment = TMPro.TextAlignmentOptions.Center;
+            tmp.fontSize = 24f;
+            tmp.fontStyle = TMPro.FontStyles.Bold;
+            tmp.color = new Color(0.97f, 0.95f, 0.88f);
+            tmp.text = "Home";
+            tmp.raycastTarget = false;
+        }
+
+        private void OnHomePressed()
+        {
+            Debug.Log("[BoardBootstrap] Home pressed — returning to lobby.");
+            ReturnToLobby();
+        }
+
+        /// <summary>
+        /// When the OS pauses + resumes the app (screen timeout, switching
+        /// apps, etc.), the static 2-tap selection in <see cref="TileView"/>
+        /// can be left in a stale "this tile is selected" state that the
+        /// fresh-after-resume input doesn't toggle off correctly — the user
+        /// sees their first tap re-highlight a tile but the second tap not
+        /// fire as a confirm. Force a clean slate on each focus regain.
+        /// </summary>
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (hasFocus)
+            {
+                TileView.ClearSelection();
+            }
+        }
+
+        private void OnApplicationPause(bool isPaused)
+        {
+            if (!isPaused)
+            {
+                TileView.ClearSelection();
+            }
+        }
+
+        /// <summary>
+        /// Resets the bootstrap to a pre-game state and re-shows the lobby.
+        /// Online sessions: shuts the NetworkRunner down (which the other
+        /// client sees as OpponentLeft). Offline sessions: just clears local
+        /// state. Either way the board is wiped and the lobby reappears so
+        /// the player can pick another game without quitting the app.
+        /// </summary>
+        private void ReturnToLobby()
+        {
+            // Stop any in-flight timers / bot loops.
+            if (_autoPoseRoutine != null)
+            {
+                StopCoroutine(_autoPoseRoutine);
+                _autoPoseRoutine = null;
+            }
+            if (_autoPassRoutine != null)
+            {
+                StopCoroutine(_autoPassRoutine);
+                _autoPassRoutine = null;
+            }
+            if (_botRoutine != null)
+            {
+                StopCoroutine(_botRoutine);
+                _botRoutine = null;
+            }
+
+            // Tear down the online session (if any). This also drops Photon
+            // room membership so the other player gets OnPlayerLeft.
+            if (_onlineMatchController != null)
+            {
+                _onlineMatchController.MatchDealt -= OnOnlineMatchDealt;
+                _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
+                _onlineMatchController.ShutdownAndReturnToLobby();
+                Destroy(_onlineMatchController.gameObject);
+                _onlineMatchController = null;
+            }
+
+            // Wipe the board: empty chain + empty hands.
+            _state = null;
+            _isOnline = false;
+            _localPlayer = HumanPlayer;
+            _resultSubmitted = false;
+            _firstBotMove = true;
+            TileView.ClearSelection();
+
+            _handViewByPlayer.Clear();
+            if (_bottomHandView != null) _bottomHandView.gameObject.SetActive(false);
+            if (_rightHandView != null) _rightHandView.gameObject.SetActive(false);
+            if (_topHandView != null) _topHandView.gameObject.SetActive(false);
+            if (_leftHandView != null) _leftHandView.gameObject.SetActive(false);
+            _chainView!.Setup(Chain.Empty);
+            _statusView!.Setup(string.Empty, passEnabled: false, isOver: false);
+
+            // Swap back to the splash sprite under the lobby (the lobby's own
+            // poselobby art covers it, but if the lobby is later dismissed
+            // for a NEW game we'll re-apply the board sprite in StartGame).
+            ApplyRootSprite(_splashBackgroundSprite);
+
+            ShowLobby();
         }
     }
 }

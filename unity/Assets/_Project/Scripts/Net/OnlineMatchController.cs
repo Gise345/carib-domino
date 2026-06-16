@@ -85,20 +85,28 @@ namespace Pose.Net
             // Catch the host-already-spawned case (e.g. we joined an existing
             // room where the host's NetworkedMatch landed before our subscribe).
             // FindObjectOfType is OK at one-shot init time.
-            NetworkedMatch existing = UnityEngine.Object.FindObjectOfType<NetworkedMatch>();
+            NetworkedMatch existing = UnityEngine.Object.FindAnyObjectByType<NetworkedMatch>();
             if (existing != null)
             {
                 OnNetworkedMatchSpawned(existing);
                 return;
             }
 
-            // No existing match → we're the first one in. Spawn as host.
-            if (_runner.ActivePlayers.Count() <= 1)
+            // Only the Photon shared-mode master client (the player who
+            // created / first connected to the room) spawns the
+            // NetworkedMatch. Other clients wait for AnySpawned to fire
+            // when Fusion replicates the master's object to them.
+            //
+            // We used to gate on ActivePlayers.Count() <= 1, but that was
+            // racy: a joiner could briefly see only themselves before the
+            // host's player info propagated and would then incorrectly
+            // spawn its own NetworkedMatch — both clients ended up
+            // "hosting" their own copy and the deal handshake never
+            // completed.
+            if (_runner.IsSharedModeMasterClient)
             {
                 SpawnAsHost();
             }
-            // Otherwise we're a joiner but the host's NetworkedMatch hasn't
-            // arrived yet — the AnySpawned subscription will catch it.
         }
 
         private void OnDestroy()

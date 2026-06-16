@@ -61,10 +61,38 @@ namespace Pose.Game
         private TextMeshProUGUI? _codeDisplay;
 
         private bool _busy;
+        private Image? _backgroundImage;
 
         private void Awake()
         {
             BuildLayout();
+        }
+
+        /// <summary>
+        /// Applies a sprite to the lobby's full-screen background. When non-null
+        /// the sprite is shown un-tinted (color reset to white) and stretched
+        /// across the panel; when null the original felt-green PanelColor is
+        /// used. Call after the LobbyView is added — typically wired by
+        /// BoardBootstrap from a SerializeField on the bootstrap GameObject so
+        /// the artwork stays editor-driven.
+        /// </summary>
+        public void SetBackgroundSprite(Sprite? sprite)
+        {
+            if (_backgroundImage == null)
+            {
+                return;
+            }
+            if (sprite == null)
+            {
+                _backgroundImage.sprite = null;
+                _backgroundImage.color = PanelColor;
+                _backgroundImage.type = Image.Type.Simple;
+                return;
+            }
+            _backgroundImage.sprite = sprite;
+            _backgroundImage.color = Color.white;
+            _backgroundImage.type = Image.Type.Simple;
+            _backgroundImage.preserveAspect = false;
         }
 
         // ---- UI build ------------------------------------------------------
@@ -77,9 +105,9 @@ namespace Pose.Game
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
 
-            Image background = gameObject.AddComponent<Image>();
-            background.color = PanelColor;
-            background.raycastTarget = true; // swallow clicks meant for the board underneath
+            _backgroundImage = gameObject.AddComponent<Image>();
+            _backgroundImage.color = PanelColor;
+            _backgroundImage.raycastTarget = true; // swallow clicks meant for the board underneath
 
             VerticalLayoutGroup vlg = gameObject.AddComponent<VerticalLayoutGroup>();
             vlg.childAlignment = TextAnchor.MiddleCenter;
