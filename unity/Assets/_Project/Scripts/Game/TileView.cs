@@ -62,7 +62,10 @@ namespace Pose.Game
         private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.45f);
 
         private const float DotSizeRatio = 0.18f;
-        private const float DividerThickness = 1.5f;
+        // Bumped from 1.5 → 3 so the divider line splitting the tile's two
+        // pip halves stays clearly visible on high-DPI screens; previously
+        // landscape bridge tiles looked like one undivided rectangle.
+        private const float DividerThickness = 3f;
         private const float DimmedAlpha = 0.45f;
 
         private static readonly Vector2[][] DotPositions =
@@ -353,31 +356,30 @@ namespace Pose.Game
                 return;
             }
 
-            // transform.position = eventData.position only works reliably
-            // for Screen Space - Overlay canvases. For Screen Space - Camera
-            // (or World Space) it produces silent misalignment — the tile
-            // doesn't follow the finger or jumps off-screen. Convert the
-            // screen point into the canvas's local space and update the
-            // anchored position instead, which behaves correctly across all
-            // canvas render modes.
-            RectTransform? canvasRt = _rootCanvas != null
-                ? _rootCanvas.transform as RectTransform
-                : null;
-            if (canvasRt != null
-                && RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    canvasRt,
-                    eventData.position,
-                    _rootCanvas!.renderMode == RenderMode.ScreenSpaceOverlay
-                        ? null
-                        : _rootCanvas.worldCamera,
-                    out Vector2 localPoint))
+            // Use WORLD point conversion instead of LOCAL point so we can
+            // set transform.position directly. The previous local-point
+            // approach was wrong when the tile's anchor didn't match the
+            // canvas pivot (the hand tiles have anchor (0.5, 1) but the
+            // canvas pivot is (0.5, 0.5), so the tile jumped half a canvas
+            // height off — Giselle saw "the tile is at the left center of
+            // the screen instead of under my finger"). ScreenPointToWorld
+            // returns a world position any RectTransform can be placed at
+            // regardless of anchor / pivot.
+            if (_rootCanvas != null)
             {
-                ((RectTransform)transform).anchoredPosition = localPoint;
+                RectTransform canvasRt = (RectTransform)_rootCanvas.transform;
+                Camera? cam = _rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+                    ? null
+                    : _rootCanvas.worldCamera;
+                if (RectTransformUtility.ScreenPointToWorldPointInRectangle(
+                        canvasRt, eventData.position, cam, out Vector3 worldPoint))
+                {
+                    transform.position = worldPoint;
+                    return;
+                }
             }
-            else
-            {
-                transform.position = eventData.position;
-            }
+
+            transform.position = eventData.position;
         }
 
         public void OnEndDrag(PointerEventData eventData)

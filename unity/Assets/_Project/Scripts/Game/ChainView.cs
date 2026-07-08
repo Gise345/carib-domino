@@ -31,32 +31,51 @@ namespace Pose.Game
     public sealed class ChainView : MonoBehaviour
     {
         // ColumnWidth = LongDim accommodates a landscape double's full width.
-        // ColumnSpacing = 60 leaves exactly LongDim of gap between adjacent
-        // portrait tiles, which is what the leveled elbow tile needs to fit
-        // horizontally between two columns without overlap.
         private const float ColumnWidth = TileView.LongDim;
-        // Adjacent columns are spaced ShortDim + LongDim apart so the
-        // bridge tile fits BETWEEN them as its own slot. The chain line
-        // (col N's center, col N+1's center, and the bridge's center) all
-        // sit at the same Y level, forming a "valid horizontal run" of
-        // three tiles end-to-end at the bend. No tile overlaps another
-        // and the bridge doesn't overhang either column.
+        // Adjacent columns are spaced LongDim + ShortDim/2 apart so col N+1
+        // sits centered under the bridge's OUTER pip half (the matching pip
+        // for col N+1's first tile). Increased from LongDim (= 120) to
+        // LongDim + ShortDim/2 (= 150) so the bridge fits between the two
+        // columns with its inner edge fully past col N's max horizontal
+        // extent — including when col N's last tile is a landscape DOUBLE
+        // (120 px wide instead of 60). Previously a bend whose col-N-last
+        // happened to be a double left the bridge's inner pip 30 px behind
+        // the double's right edge — the "sometimes the bridge is messed up"
+        // bug Giselle saw was geometry depending on whether the bend
+        // happened on a double, not caching.
         //
-        //   col N right edge | bridge left edge ... bridge right edge | col N+1 left edge
-        //         +30        |       -30        ...        -150        |         -150
-        //
-        // Translating: col N at X=0 → col N right=+30 → bridge spans -150
-        // to -30 (center -90) → col N+1 right=-150 → col N+1 center=-180.
-        // Spacing = 0 - (-180) = 180 = ShortDim + LongDim.
-        private const float ColumnCenterSpacing = TileView.ShortDim + TileView.LongDim;
+        //   ...col N area...   ...bridge area...   ...col N+1 area...
+        //   X = -60 to +60     X = +60 to +180     X = +120 to +180
+        //         ↑                  ↑                    ↑
+        //   col N (worst case   bridge: inner half     col N+1 sits
+        //   = double, 120 wide) is matching pip for     under bridge's
+        //                       col N, outer half is    OUTER half
+        //                       matching pip for col
+        //                       N+1
+        private const float ColumnCenterSpacing =
+            TileView.LongDim + TileView.ShortDim / 2f;
+        // Magnitude of the bridge tile's horizontal offset from its
+        // outgoing column's center. Multiplied by the WalkState's
+        // BendDirection (+1 right, -1 left). |offset| = LongDim so the
+        // bridge's inner edge meets the OUTER edge of a landscape DOUBLE
+        // in col K (worst case): col K double right edge = LongDim/2;
+        // bridge left edge = offset - LongDim/2 = LongDim/2. Touch, no
+        // overlap. For a portrait last tile (ShortDim wide) there's a
+        // 30 px gap — bridge still visually connects via Y alignment but
+        // its matching pip is never hidden behind col K.
+        private const float BridgeXOffsetMagnitude = TileView.LongDim;
         private const float TileSpacing = 2f;
         private const float HeadRoom = 80f;
         // Larger than HeadRoom so a bridge placed just past the last tile
         // of a fully-loaded down-walking column still fits within the
         // chain area's visible bounds.
         private const float FootRoom = 80f;
-        private const float DropZoneWidth = TileView.LongDim - 8f;
-        private const float DropZoneHeight = 56f;
+        // Generous drop targets at each chain end so a tile drag doesn't
+        // have to land pinpoint on the end tile — anywhere inside the
+        // zone counts as that end. Roughly 2× bigger than a single tile
+        // so the player can release "near" the end and have it stick.
+        private const float DropZoneWidth = 200f;
+        private const float DropZoneHeight = 140f;
         // Logical chain area height (independent of actual screen resolution)
         // so both phones produce identical bend points for the same chain.
         // The container itself is still flex-sized in the parent VLG — this
@@ -202,7 +221,9 @@ namespace Pose.Game
             bool openingLandscape = opening.Tile.IsDouble;
             float openingH = openingLandscape ? TileView.ShortDim : TileView.LongDim;
             float openingCenterY = innerH / 2f;
-            float openingCenterX = ColumnCenterX(0);
+            // Opening sits at col 0; direction doesn't matter for col 0
+            // since 0 * anything = 0. Use +1 as a non-zero placeholder.
+            float openingCenterX = ColumnCenterX(0, +1);
 
             slots[openingIdx] = new TileSlot(
                 new Vector2(openingCenterX, -(HeadRoom + openingCenterY)),
@@ -210,26 +231,32 @@ namespace Pose.Game
                 opening.LeftPip,
                 opening.RightPip);
 
-            // Walk downward from openingIdx+1 to chain.Count-1.
+            // Walk downward from openingIdx+1 to chain.Count-1. This walk
+            // bends RIGHT (+1) so right-end plays fan to the right of the
+            // opening's column.
             WalkState down = new()
             {
                 Col = 0,
                 LastTileCenterY = openingCenterY,
                 NextEdgeY = openingCenterY + openingH / 2f + TileSpacing,
                 GoingDown = true,
+                BendDirection = +1,
             };
             for (int i = openingIdx + 1; i < chain.Count; i++)
             {
                 WalkPlace(chain, slots, i, ref down, innerH);
             }
 
-            // Walk upward from openingIdx-1 down to 0.
+            // Walk upward from openingIdx-1 down to 0. This walk bends LEFT
+            // (-1) so left-end plays fan to the left and the two walks don't
+            // share columns.
             WalkState up = new()
             {
                 Col = 0,
                 LastTileCenterY = openingCenterY,
                 NextEdgeY = openingCenterY - openingH / 2f - TileSpacing,
                 GoingDown = false,
+                BendDirection = -1,
             };
             for (int i = openingIdx - 1; i >= 0; i--)
             {
@@ -259,9 +286,14 @@ namespace Pose.Game
             // mapping). After a bend, predecessor and successor swap visual
             // sides (predecessor below, successor above), so portrait tiles
             // need the OPPOSITE mapping: TOP = RightPip, BOTTOM = LeftPip.
-            // The bridge tile's own pip swap is computed separately at
-            // bend-time and isn't affected by this flag.
             public bool PortraitPipsFlipped;
+            // Direction the snake bends at column overflow. +1 = bend right
+            // (next column sits to the RIGHT of the current column), -1 = bend
+            // left. The DOWN walk (right-end plays extending from the opening)
+            // bends RIGHT so it fans away from the UP walk (left-end plays),
+            // which bends LEFT. The two walks spread symmetrically from the
+            // center opening and don't crowd into the same columns.
+            public int BendDirection;
         }
 
         /// <summary>
@@ -289,54 +321,33 @@ namespace Pose.Game
             float tileH;
             float tileCenterX;
             float tileCenterY;
-            bool isElbow = false;
-            // Captures GoingDown at the moment of the bend so we can decide
-            // pip swap polarity. Down-walk bends swap (LEFT visual = RightPip
-            // because the next chain tile is to the LEFT of the elbow);
-            // up-walk bends DON'T swap (LEFT visual = LeftPip because the
-            // next chain tile is to the LEFT *and* has a lower chain index).
-            bool elbowFromDownWalk = false;
 
             if (willBend)
             {
-                isElbow = true;
                 isLandscape = true;
                 tileH = TileView.ShortDim;
-                elbowFromDownWalk = state.GoingDown;
 
                 // Capture the previous column's last-tile center Y BEFORE
                 // we overwrite state.LastTileCenterY with the bridge's Y.
-                // The new column's first regular tile lands at this Y so
-                // it's level with the previous column's last tile (forming
-                // the top edge of the upside-down-U bend).
+                // The new column's first regular tile lands FLUSH against
+                // the bridge's outer edge (with a small TileSpacing gap so
+                // the divider line is visible).
                 float prevColLastCenterY = state.LastTileCenterY;
 
-                // Real-game bridge: the chain line passes THROUGH the
-                // bridge's center, so the bridge sits at the SAME Y as the
-                // column's last tile (just to its side, never on top of /
-                // below it). It's perpendicular (landscape) so the long
-                // edge is horizontal, "inside" the previous column tile's
-                // vertical extent — the column tile is LongDim tall but
-                // the bridge is only ShortDim tall, so the bridge floats
-                // in the middle of the column's vertical band.
-                //
-                //   col K-1 (portrait, 60×120)        bridge (landscape,
-                //   at (col K X, prevColLastCenterY)  120×60) at
-                //                                    (midpoint X,
-                //                                     prevColLastCenterY)
-                //
-                // The bridge's right edge meets col K-1's left edge; its
-                // left edge meets col K+1's right edge. All three tiles
-                // form a horizontal end-to-end run at the same Y.
-                float colCenterCurrent = ColumnCenterX(state.Col);
-                float colCenterNext = ColumnCenterX(state.Col + 1);
-                tileCenterX = (colCenterCurrent + colCenterNext) / 2f;
+                // Real-game perpendicular bridge: the bridge tile (landscape)
+                // sits ENTIRELY to the bend-direction side of the outgoing
+                // column, with its adjacent edge meeting col K's outer edge
+                // — no horizontal overlap, no overhang. The next column
+                // (K+1) sits directly under the bridge's matching-pip half,
+                // hanging from / rising to the bridge in the snake's NEW
+                // direction. Down-walk bends RIGHT, up-walk bends LEFT.
+                tileCenterX = ColumnCenterX(state.Col, state.BendDirection)
+                    + state.BendDirection * BridgeXOffsetMagnitude;
                 // Shift the bridge toward the OUTER edge of the column
                 // (the edge in the snake direction): bottom of col K-1
                 // for a down-walk bend, top of col K-1 for an up-walk
-                // bend. This closes the gap between the bridge and the
-                // column's outer edge so the bend reads as a flush
-                // inverted-U / U cap, not a bar floating mid-column.
+                // bend. The bridge's outer edge then aligns flush with
+                // col K-1's outer edge in Y.
                 //
                 // (LongDim - ShortDim) / 2 = (120 - 60) / 2 = 30 px shift.
                 float bridgeShift = (TileView.LongDim - TileView.ShortDim) / 2f;
@@ -349,28 +360,31 @@ namespace Pose.Game
                 state.LastTileCenterY = tileCenterY;
                 state.PortraitPipsFlipped = !state.PortraitPipsFlipped;
 
-                // Position the new column's first regular tile at the SAME
-                // Y center as the previous column's last tile so the two
-                // align as the U's top edge. The bridge sits below (or
-                // above) both of them as the U's cap.
+                // Position the new column's first regular tile next to the
+                // bridge's outer-direction edge, with a TileSpacing gap so
+                // the divider line between bridge and col K+1 is visible
+                // (Giselle: "the line separation from col 1 tile and the
+                // bridge tile isn't there"). prevColLastCenterY equals
+                // bridge top or bottom edge; we offset by TileSpacing in
+                // the snake's new direction.
                 if (state.GoingDown)
                 {
                     // Now going down. NextEdgeY (down) = top edge of next
-                    // tile = prevCol last center - LongDim/2.
-                    state.NextEdgeY = prevColLastCenterY - TileView.LongDim / 2f;
+                    // tile = bridge bottom + spacing.
+                    state.NextEdgeY = prevColLastCenterY + TileSpacing;
                 }
                 else
                 {
                     // Now going up. NextEdgeY (up) = bottom edge of next
-                    // tile = prevCol last center + LongDim/2.
-                    state.NextEdgeY = prevColLastCenterY + TileView.LongDim / 2f;
+                    // tile = bridge top - spacing.
+                    state.NextEdgeY = prevColLastCenterY - TileSpacing;
                 }
             }
             else
             {
                 isLandscape = isDouble;
                 tileH = tentativeH;
-                tileCenterX = ColumnCenterX(state.Col);
+                tileCenterX = ColumnCenterX(state.Col, state.BendDirection);
                 tileCenterY = state.GoingDown
                     ? state.NextEdgeY + tileH / 2f
                     : state.NextEdgeY - tileH / 2f;
@@ -390,26 +404,13 @@ namespace Pose.Game
             if (isLandscape)
             {
                 // Landscape tiles: first panel = LEFT side, second = RIGHT side.
-                // For doubles (the IsDouble case) both pips are equal so any
-                // assignment is correct. For ELBOW tiles forced into landscape
-                // the swap depends on which walk direction triggered the bend:
-                //   - Down-walk bend: next chain tile lives in the new column
-                //     to the LEFT (higher chain index). The pip facing that
-                //     next tile is RightPip, so LEFT visual = RightPip → SWAP.
-                //   - Up-walk bend: next walk-order tile (lower chain index)
-                //     lives in the new column to the LEFT, but as the chain-
-                //     order PREDECESSOR. The pip facing that predecessor is
-                //     LeftPip, so LEFT visual = LeftPip → DON'T SWAP.
-                if (isElbow && elbowFromDownWalk)
-                {
-                    firstPip = pt.RightPip;
-                    secondPip = pt.LeftPip;
-                }
-                else
-                {
-                    firstPip = pt.LeftPip;
-                    secondPip = pt.RightPip;
-                }
+                // With DOWN walk bending RIGHT and UP walk bending LEFT, the
+                // bridge's chain-successor pip (the matching pip for the
+                // next column) naturally sits on the side facing col K+1
+                // without needing a swap. No swap for doubles either since
+                // both pips are the same.
+                firstPip = pt.LeftPip;
+                secondPip = pt.RightPip;
             }
             else
             {
@@ -440,7 +441,7 @@ namespace Pose.Game
 
         private static Vector2 DropZoneCenter(WalkState state, float innerH, bool atTop)
         {
-            float colX = ColumnCenterX(state.Col);
+            float colX = ColumnCenterX(state.Col, state.BendDirection);
             float zoneY = state.GoingDown
                 ? state.NextEdgeY + DropZoneHeight / 2f
                 : state.NextEdgeY - DropZoneHeight / 2f;
@@ -450,13 +451,14 @@ namespace Pose.Game
         /// <summary>
         /// Column center X relative to the tiles container's TOP-CENTER
         /// anchor. Column 0 is the horizontal center (X=0); subsequent
-        /// columns step leftward by <see cref="ColumnCenterSpacing"/> so
-        /// the bridge tile from column N (centered on N's X, LongDim wide)
-        /// meets the right edge of column N+1's portrait tiles exactly.
+        /// columns step by <see cref="ColumnCenterSpacing"/> in the
+        /// direction the walk bends. <paramref name="bendDirection"/> is
+        /// +1 for the DOWN walk (fans right) and -1 for the UP walk (fans
+        /// left), so the two halves of the chain don't share columns.
         /// </summary>
-        private static float ColumnCenterX(int col)
+        private static float ColumnCenterX(int col, int bendDirection)
         {
-            return -(col * ColumnCenterSpacing);
+            return bendDirection * col * ColumnCenterSpacing;
         }
 
         private static void PositionDropZone(EndDropZone zone, Vector2 center)
