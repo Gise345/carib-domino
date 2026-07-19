@@ -40,6 +40,22 @@ namespace Pose.Net
         public event Action<MatchState>? MatchDealt;
 
         /// <summary>
+        /// Fires when an agreed rematch has been dealt on this client, carrying
+        /// the fresh <see cref="MatchState"/>. Distinct from
+        /// <see cref="MatchDealt"/> so the UI can tear down round-over
+        /// presentation rather than redo first-deal setup (seating, lobby
+        /// dismissal) that is already correct.
+        /// </summary>
+        public event Action<MatchState>? RoundStarted;
+
+        /// <summary>
+        /// Fires whenever <see cref="LocalWantsRematch"/> or
+        /// <see cref="OpponentWantsRematch"/> changes, so the round-over UI can
+        /// reflect who has opted in.
+        /// </summary>
+        public event Action? RematchVotesChanged;
+
+        /// <summary>
         /// Fires after each replicated move has been applied to
         /// <see cref="CurrentState"/>. Payload is (newState, appliedMove).
         /// </summary>
@@ -65,6 +81,18 @@ namespace Pose.Net
 
         /// <summary>This client's index into <c>CurrentState.Players</c> (0 host, 1 joiner).</summary>
         public int LocalPlayerIndex { get; private set; } = -1;
+
+        /// <summary>True once this client has opted into a rematch of the finished round.</summary>
+        public bool LocalWantsRematch => ReadRematchVote(LocalPlayerIndex);
+
+        /// <summary>True once the opponent has opted into a rematch of the finished round.</summary>
+        public bool OpponentWantsRematch => ReadRematchVote(1 - LocalPlayerIndex);
+
+        /// <summary>
+        /// True once the opponent has left the Photon session. Rematch is
+        /// impossible from here — the UI should offer only back-to-lobby.
+        /// </summary>
+        public bool OpponentHasLeft => _opponentLeftFired;
 
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
@@ -115,10 +143,13 @@ namespace Pose.Net
             if (_match != null)
             {
                 _match.DealReadyChanged -= OnDealReady;
+                _match.RoundStartedChanged -= OnRoundStarted;
+                _match.RematchVotesChanged -= OnRematchVotesChanged;
                 _match.MoveAppliedChanged -= OnMoveAppliedChanged;
                 if (_match.Object != null && _match.Object.HasStateAuthority)
                 {
                     _match.MoveValidator = null;
+                    _match.NextSeedProvider = null;
                 }
             }
         }
@@ -158,12 +189,20 @@ namespace Pose.Net
             }
         }
 
+        /// <summary>
+        /// Seed derived from a high-resolution clock — different per round,
+        /// deterministic-enough for the spike. M4's settlement validator will
+        /// replace this with a server-issued seed for trust-boundary reasons:
+        /// a client-chosen seed lets a malicious host reroll its own hand.
+        /// </summary>
+        private static ulong NewSeed()
+        {
+            return unchecked((ulong)DateTime.UtcNow.Ticks);
+        }
+
         private void SpawnAsHost()
         {
-            // Seed derived from a high-resolution clock — different per session,
-            // deterministic-enough for the spike. M4's settlement validator will
-            // replace this with a server-issued seed for trust-boundary reasons.
-            ulong seed = unchecked((ulong)DateTime.UtcNow.Ticks);
+            ulong seed = NewSeed();
 
             NetworkObject obj = _runner!.Spawn(
                 _matchPrefab,
@@ -184,6 +223,8 @@ namespace Pose.Net
             }
             _match = match;
             _match.DealReadyChanged += OnDealReady;
+            _match.RoundStartedChanged += OnRoundStarted;
+            _match.RematchVotesChanged += OnRematchVotesChanged;
             _match.MoveAppliedChanged += OnMoveAppliedChanged;
 
             if (!_match.Object.HasStateAuthority)
@@ -201,9 +242,52 @@ namespace Pose.Net
 
         private void OnDealReady()
         {
-            if (_match == null)
+            MatchState? state = DealCurrentRound();
+            if (state == null)
             {
                 return;
+            }
+
+            // Install the host-side callbacks now rather than in
+            // OnNetworkedMatchSpawned: the validator needs a CurrentState to
+            // validate against, and no rematch can be requested before the
+            // first deal lands anyway.
+            if (_match!.Object.HasStateAuthority)
+            {
+                _match.MoveValidator = ValidateNetworkedMove;
+                _match.NextSeedProvider = NewSeed;
+            }
+
+            MatchDealt?.Invoke(state);
+        }
+
+        private void OnRoundStarted()
+        {
+            MatchState? state = DealCurrentRound();
+            if (state == null)
+            {
+                return;
+            }
+
+            RoundStarted?.Invoke(state);
+        }
+
+        private void OnRematchVotesChanged()
+        {
+            RematchVotesChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Re-derives the local <see cref="MatchState"/> from the currently
+        /// replicated seed and player names. Used for both the first deal and
+        /// every rematch — the inputs are the only thing that changed, so the
+        /// deal path is identical. Returns null if the match object went away.
+        /// </summary>
+        private MatchState? DealCurrentRound()
+        {
+            if (_match == null)
+            {
+                return null;
             }
 
             string p1 = _match.Player1Id.ToString();
@@ -211,8 +295,8 @@ namespace Pose.Net
             ulong seed = _match.Seed;
 
             Debug.Log(
-                $"[OnlineMatchController] Deal ready — seed={seed}, " +
-                $"p1=\"{p1}\", p2=\"{p2}\"");
+                $"[OnlineMatchController] Dealing round {_match.RoundNumber} — " +
+                $"seed={seed}, p1=\"{p1}\", p2=\"{p2}\"");
 
             PlayerId[] players = { new(p1), new(p2) };
             Partnership partnership = Partnership.CutThroat(players);
@@ -226,17 +310,44 @@ namespace Pose.Net
             LocalPlayerIndex = _match.Object.HasStateAuthority ? 0 : 1;
             LocalPlayer = state.Players[LocalPlayerIndex];
 
-            // Install the move validator on the host so RPC_SubmitMove can
-            // reject illegal submissions before appending to the log. Done
-            // here (not in OnNetworkedMatchSpawned) because we need
-            // CurrentState to validate against.
-            if (_match.Object.HasStateAuthority)
+            LogDeal(state);
+            return state;
+        }
+
+        /// <summary>
+        /// Opts the local player into a rematch of the finished round. Both
+        /// players must call this before the host re-deals, so a single tap
+        /// never restarts the match under the opponent. Returns false when a
+        /// rematch isn't offerable — round still running, opponent already
+        /// gone, or we already voted.
+        /// </summary>
+        public bool TryRequestRematch()
+        {
+            if (_match == null || CurrentState == null || LocalPlayerIndex < 0)
             {
-                _match.MoveValidator = ValidateNetworkedMove;
+                return false;
+            }
+            if (!CurrentState.IsOver || _opponentLeftFired || LocalWantsRematch)
+            {
+                return false;
             }
 
-            LogDeal(state);
-            MatchDealt?.Invoke(state);
+            _match.RPC_RequestRematch((byte)LocalPlayerIndex);
+            return true;
+        }
+
+        private bool ReadRematchVote(int playerIndex)
+        {
+            if (_match == null)
+            {
+                return false;
+            }
+            return playerIndex switch
+            {
+                0 => _match.Player1WantsRematch,
+                1 => _match.Player2WantsRematch,
+                _ => false,
+            };
         }
 
         /// <summary>

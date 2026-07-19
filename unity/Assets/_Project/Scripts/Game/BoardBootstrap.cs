@@ -65,6 +65,7 @@ namespace Pose.Game
         private HandView? _topHandView;
         private HandView? _leftHandView;
         private GameStatusView? _statusView;
+        private EndOverlayView? _endOverlay;
         private Coroutine? _botRoutine;
         private bool _firstBotMove = true;
 
@@ -84,6 +85,16 @@ namespace Pose.Game
         // state.
         private bool _resultSubmitted;
 
+        // Latched when the online opponent leaves the Photon session. The
+        // opponent-left overlay outranks the round-over overlay: there is
+        // nobody left to rematch with, so the only offer is back-to-lobby.
+        private bool _opponentLeft;
+
+        // Bumped per offline "Play again" so each practice round deals a
+        // different hand. Derived from SpikeSeed rather than a system RNG so
+        // any given round remains reproducible from (SpikeSeed, index).
+        private int _offlineRoundIndex;
+
         private void Start()
         {
             GameSettings.Apply();
@@ -91,6 +102,7 @@ namespace Pose.Game
             ConfigureRoot();
             BuildSpatialLayout();
             BuildHomeButton();
+            BuildEndOverlay();
 
             // Kick off Firebase init (auto-creates the singleton GameObject if
             // it doesn't already exist), then wait for sign-in before dealing.
@@ -299,7 +311,10 @@ namespace Pose.Game
             GameObject go = new("OnlineMatchController");
             _onlineMatchController = go.AddComponent<OnlineMatchController>();
             _onlineMatchController.MatchDealt += OnOnlineMatchDealt;
+            _onlineMatchController.RoundStarted += OnOnlineRoundStarted;
             _onlineMatchController.MoveApplied += OnOnlineMoveApplied;
+            _onlineMatchController.RematchVotesChanged += OnRematchVotesChanged;
+            _onlineMatchController.OpponentLeft += OnOpponentLeft;
             _onlineMatchController.Setup(
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
@@ -330,9 +345,38 @@ namespace Pose.Game
             Render();
         }
 
+        private void OnOnlineRoundStarted(MatchState state)
+        {
+            // A rematch was agreed and re-dealt. Seating and backgrounds are
+            // already correct from the first deal; we just reset per-round
+            // state and take the overlay down.
+            _state = state;
+            _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
+            _resultSubmitted = false;
+            TileView.ClearSelection();
+            _endOverlay?.Hide();
+            Render();
+        }
+
         private void OnOnlineMoveApplied(MatchState state, Move move)
         {
             _state = state;
+            Render();
+        }
+
+        private void OnRematchVotesChanged()
+        {
+            // Re-render the overlay so a "your opponent wants a rematch" hint
+            // (or our own "waiting…" state) reflects the latest votes.
+            if (_endOverlay != null && _endOverlay.IsShowing)
+            {
+                Render();
+            }
+        }
+
+        private void OnOpponentLeft()
+        {
+            _opponentLeft = true;
             Render();
         }
 
@@ -367,14 +411,33 @@ namespace Pose.Game
         {
             _isOnline = false;
             _localPlayer = HumanPlayer;
+            _offlineRoundIndex = 0;
             SeatPlayersForOffline();
             ApplyRootSprite(_boardBackgroundSprite);
+
+            DealOfflineRound();
+        }
+
+        /// <summary>
+        /// Deals a fresh offline practice round. Called for the first deal and
+        /// for each "Play again". Seating and background are already in place
+        /// from <see cref="StartGame"/>, so this only re-deals and re-renders.
+        /// </summary>
+        private void DealOfflineRound()
+        {
+            _resultSubmitted = false;
+            _firstBotMove = true;
+            TileView.ClearSelection();
+            _endOverlay?.Hide();
+
+            ulong seed = SpikeSeed + (ulong)_offlineRoundIndex;
+            _offlineRoundIndex++;
 
             _state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(4),
                 Players,
                 Partnership.CutThroat(Players),
-                new SeededRandomSource(SpikeSeed));
+                new SeededRandomSource(seed));
 
             Render();
             ScheduleBotIfNeeded();
@@ -774,6 +837,11 @@ namespace Pose.Game
                 SubmitRoundResultIfPossible(state);
             }
 
+            // Present (or dismiss) the end-of-round / opponent-left overlay.
+            // Kept after the status/hand render so the board behind the
+            // dimmed backdrop shows the final position.
+            RefreshEndOverlay(state);
+
             // The opening tile is forced (single legal move). Give the local
             // player 3 seconds to ritualistically tap it, then auto-pose so
             // online play doesn't stall on an AFK host. Idempotent — the
@@ -1113,6 +1181,93 @@ namespace Pose.Game
             tmp.raycastTarget = false;
         }
 
+        // ---- End-of-round / opponent-left overlay ------------------------
+
+        private void BuildEndOverlay()
+        {
+            GameObject go = new("EndOverlay", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _endOverlay = go.AddComponent<EndOverlayView>();
+            _endOverlay.PrimaryClicked += OnOverlayPrimary;
+            _endOverlay.SecondaryClicked += OnOverlaySecondary;
+        }
+
+        /// <summary>
+        /// Reconciles the overlay with the current state on every Render. Shows
+        /// the opponent-left prompt (highest priority), then the round-over
+        /// prompt, and hides the overlay whenever a round is in progress.
+        /// </summary>
+        private void RefreshEndOverlay(MatchState state)
+        {
+            if (_endOverlay == null)
+            {
+                return;
+            }
+
+            if (_isOnline && _opponentLeft)
+            {
+                _endOverlay.Show(
+                    title: L10n.Get("end_opponent_left"),
+                    subtitle: null,
+                    primaryLabel: null,
+                    primaryInteractable: false,
+                    secondaryLabel: L10n.Get("btn_back_to_lobby"));
+                return;
+            }
+
+            if (!state.IsOver)
+            {
+                _endOverlay.Hide();
+                return;
+            }
+
+            string title = FormatStatus(state, isLocalTurn: false);
+            string secondary = L10n.Get("btn_back_to_lobby");
+
+            if (!_isOnline)
+            {
+                _endOverlay.Show(
+                    title,
+                    subtitle: null,
+                    primaryLabel: L10n.Get("btn_play_again"),
+                    primaryInteractable: true,
+                    secondaryLabel: secondary);
+                return;
+            }
+
+            // Online: rematch requires both players. Reflect our own vote as a
+            // disabled "waiting…" button, and surface the opponent's vote as a
+            // subtitle nudge.
+            bool localVoted = _onlineMatchController!.LocalWantsRematch;
+            bool opponentVoted = _onlineMatchController.OpponentWantsRematch;
+            _endOverlay.Show(
+                title,
+                subtitle: opponentVoted ? L10n.Get("end_opponent_wants_rematch") : null,
+                primaryLabel: localVoted
+                    ? L10n.Get("btn_rematch_waiting")
+                    : L10n.Get("btn_rematch"),
+                primaryInteractable: !localVoted,
+                secondaryLabel: secondary);
+        }
+
+        private void OnOverlayPrimary()
+        {
+            if (_isOnline)
+            {
+                // Rematch. The overlay updates to "waiting…" via RematchVotesChanged;
+                // the re-deal itself arrives through OnOnlineRoundStarted.
+                _onlineMatchController?.TryRequestRematch();
+                return;
+            }
+
+            DealOfflineRound();
+        }
+
+        private void OnOverlaySecondary()
+        {
+            ReturnToLobby();
+        }
+
         private void OnHomePressed()
         {
             Debug.Log("[BoardBootstrap] Home pressed — returning to lobby.");
@@ -1174,7 +1329,10 @@ namespace Pose.Game
             if (_onlineMatchController != null)
             {
                 _onlineMatchController.MatchDealt -= OnOnlineMatchDealt;
+                _onlineMatchController.RoundStarted -= OnOnlineRoundStarted;
                 _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
+                _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
+                _onlineMatchController.OpponentLeft -= OnOpponentLeft;
                 _onlineMatchController.ShutdownAndReturnToLobby();
                 Destroy(_onlineMatchController.gameObject);
                 _onlineMatchController = null;
@@ -1183,9 +1341,11 @@ namespace Pose.Game
             // Wipe the board: empty chain + empty hands.
             _state = null;
             _isOnline = false;
+            _opponentLeft = false;
             _localPlayer = HumanPlayer;
             _resultSubmitted = false;
             _firstBotMove = true;
+            _endOverlay?.Hide();
             TileView.ClearSelection();
 
             _handViewByPlayer.Clear();

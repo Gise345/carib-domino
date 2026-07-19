@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using Fusion;
+using Pose.Core;
 using UnityEngine;
 
 namespace Pose.Net
@@ -21,17 +22,25 @@ namespace Pose.Net
     ///   <see cref="Player1Id"/>.
     /// - Client (second player) sees the spawn via <see cref="Spawned"/>, then
     ///   sends their display name to the host via
-    ///   <see cref="RPC_RegisterPlayer2"/>. Host writes <see cref="Player2Id"/>
-    ///   and flips <see cref="DealReady"/> to true.
-    /// - Both clients poll <see cref="DealReady"/> in <see cref="Render"/> and
-    ///   fire <see cref="DealReadyChanged"/> on the rising edge.
+    ///   <see cref="RPC_RegisterPlayer2"/>. Host writes <see cref="Player2Id"/>,
+    ///   sets <see cref="RoundNumber"/> to 1, and flips <see cref="DealReady"/>.
     /// - Once dealing is done, either client submits moves via
     ///   <see cref="RPC_SubmitMove"/>. Host validates with Pose.Core's
     ///   IsLegal (installed as <see cref="MoveValidator"/> by the controller),
     ///   appends to <see cref="Moves"/>, and bumps <see cref="MoveCount"/>.
-    ///   Both clients watch <see cref="MoveCount"/> in <see cref="Render"/>
-    ///   and fire <see cref="MoveAppliedChanged"/> for the new index range
-    ///   so the controller can replay.
+    ///
+    /// Rematch (M3.6). <see cref="DealReady"/> latches true for the lifetime of
+    /// the match and means "both players registered". Which round is current is
+    /// carried by <see cref="RoundNumber"/>. Both players must opt in — each
+    /// calls <see cref="RPC_RequestRematch"/>, the host records their vote, and
+    /// only when both are in does it re-seed, truncate the move log, and
+    /// increment the round. See <c>docs/DECISIONS/0005-in-place-online-rematch.md</c>.
+    ///
+    /// All edge detection over the replicated fields (deal landed / round
+    /// advanced / which move indices are new) is delegated to the Unity-free
+    /// <see cref="MatchSignalTracker"/> so it can be unit-tested without Fusion.
+    /// This matters because a rematch resets <see cref="MoveCount"/> to zero,
+    /// which a naive monotonic detector would swallow.
     /// </summary>
     public sealed class NetworkedMatch : NetworkBehaviour
     {
@@ -39,9 +48,13 @@ namespace Pose.Net
         /// Maximum moves that can fit in the networked log. A double-six 2P
         /// round is bounded above by 28 placements plus a handful of passes;
         /// 64 leaves comfortable headroom and stays a power of two for
-        /// Fusion's NetworkArray layout.
+        /// Fusion's NetworkArray layout. The log is per-round — a rematch
+        /// truncates it — so this bound is not cumulative across rounds.
         /// </summary>
         public const int MaxMoves = 64;
+
+        private const byte HostPlayerIndex = 0;
+        private const byte JoinerPlayerIndex = 1;
 
         /// <summary>
         /// Static event raised every time a NetworkedMatch's <c>Spawned()</c>
@@ -51,18 +64,31 @@ namespace Pose.Net
         public static event Action<NetworkedMatch>? AnySpawned;
 
         /// <summary>
-        /// Fires on the rising edge of <see cref="DealReady"/> on either side
-        /// of the connection. Listener should read the networked fields and
-        /// run <c>Dealer.Deal</c> locally.
+        /// Fires once, when the initial deal becomes available on this client.
+        /// Listener should read the networked fields and run <c>Dealer.Deal</c>.
         /// </summary>
         public event Action? DealReadyChanged;
 
         /// <summary>
-        /// Fires on each client whenever <see cref="MoveCount"/> advances,
-        /// passing the new (zero-based) index range the listener should pull
-        /// from <see cref="Moves"/> and apply to its local MatchState. Range
+        /// Fires when <see cref="RoundNumber"/> advances — i.e. a rematch was
+        /// agreed and the host published a fresh <see cref="Seed"/>. Listener
+        /// re-deals from the new seed and discards the previous round's state.
+        /// </summary>
+        public event Action? RoundStartedChanged;
+
+        /// <summary>
+        /// Fires whenever either rematch vote changes, so the UI can reflect
+        /// "you asked" / "your opponent asked" without polling.
+        /// </summary>
+        public event Action? RematchVotesChanged;
+
+        /// <summary>
+        /// Fires on each client whenever the move log advances, passing the new
+        /// (zero-based) index range the listener should pull from
+        /// <see cref="Moves"/> and apply to its local MatchState. Range
         /// semantics are [from, to) — iterate
-        /// <c>for (int i = from; i &lt; to; i++)</c>.
+        /// <c>for (int i = from; i &lt; to; i++)</c>. Indices are relative to
+        /// the current round.
         /// </summary>
         public event Action<int, int>? MoveAppliedChanged;
 
@@ -74,6 +100,19 @@ namespace Pose.Net
         [Networked] public int MoveCount { get; set; }
 
         /// <summary>
+        /// 0 before the first deal, 1 for the first round, incrementing once per
+        /// agreed rematch. Paired with a fresh <see cref="Seed"/> and a
+        /// <see cref="MoveCount"/> of 0 in the same replicated snapshot.
+        /// </summary>
+        [Networked] public int RoundNumber { get; set; }
+
+        /// <summary>Host's standing rematch vote for the finished round.</summary>
+        [Networked] public bool Player1WantsRematch { get; set; }
+
+        /// <summary>Joiner's standing rematch vote for the finished round.</summary>
+        [Networked] public bool Player2WantsRematch { get; set; }
+
+        /// <summary>
         /// Set by the host's <see cref="OnlineMatchController"/> at spawn time
         /// so <see cref="RPC_SubmitMove"/> can validate against the current
         /// authoritative state before appending. The signature is a
@@ -82,8 +121,19 @@ namespace Pose.Net
         /// </summary>
         public Func<NetworkedMove, bool>? MoveValidator { get; set; }
 
-        private bool _lastDealReady;
-        private int _lastMoveCount;
+        /// <summary>
+        /// Supplies the seed for each rematch round. Installed by the host's
+        /// <see cref="OnlineMatchController"/> for the same reason as
+        /// <see cref="MoveValidator"/> — seed policy is the controller's
+        /// business, not the transport's. M4 replaces the local implementation
+        /// with a server-issued seed without touching this class.
+        /// </summary>
+        public Func<ulong>? NextSeedProvider { get; set; }
+
+        private readonly MatchSignalTracker _signals = new();
+
+        private bool _lastPlayer1WantsRematch;
+        private bool _lastPlayer2WantsRematch;
 
         public override void Spawned()
         {
@@ -96,25 +146,30 @@ namespace Pose.Net
 
         public override void Render()
         {
-            // Rising-edge detection — fires DealReadyChanged once when the
-            // networked flag transitions false → true on this client. Cheaper
-            // than an OnChanged callback and works the same on host + joiner.
-            if (DealReady && !_lastDealReady)
+            MatchSignal signal = _signals.Observe(DealReady, RoundNumber, MoveCount);
+
+            // Deal/round first, moves second: the listener must have a
+            // MatchState to apply moves onto. DealStarted and RoundStarted are
+            // mutually exclusive by construction.
+            if (signal.DealStarted)
             {
-                _lastDealReady = true;
                 DealReadyChanged?.Invoke();
             }
-
-            // Likewise for the move log — host only ever appends, so a
-            // strict > check is enough. Hand the new index range to the
-            // controller in one shot rather than one event per move so a
-            // burst (e.g. just-joined client catching up) is a single call.
-            if (MoveCount > _lastMoveCount)
+            if (signal.RoundStarted)
             {
-                int from = _lastMoveCount;
-                int to = MoveCount;
-                _lastMoveCount = to;
-                MoveAppliedChanged?.Invoke(from, to);
+                RoundStartedChanged?.Invoke();
+            }
+            if (signal.HasMoves)
+            {
+                MoveAppliedChanged?.Invoke(signal.MovesFrom, signal.MovesTo);
+            }
+
+            if (Player1WantsRematch != _lastPlayer1WantsRematch
+                || Player2WantsRematch != _lastPlayer2WantsRematch)
+            {
+                _lastPlayer1WantsRematch = Player1WantsRematch;
+                _lastPlayer2WantsRematch = Player2WantsRematch;
+                RematchVotesChanged?.Invoke();
             }
         }
 
@@ -123,7 +178,7 @@ namespace Pose.Net
         /// host. Source = All so the joiner (who isn't the StateAuthority) can
         /// invoke it; target = StateAuthority so only the host actually writes
         /// the networked fields. Setting <see cref="DealReady"/> here triggers
-        /// both clients' <see cref="Render"/> rising-edge detection.
+        /// both clients' <see cref="Render"/> edge detection.
         /// </summary>
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         public void RPC_RegisterPlayer2(string playerId, RpcInfo info = default)
@@ -136,7 +191,16 @@ namespace Pose.Net
             {
                 return;
             }
+            if (DealReady)
+            {
+                // A duplicate registration (retried RPC, reconnect) must not
+                // re-latch the deal or clobber Player2Id mid-match.
+                Debug.LogWarning(
+                    "[NetworkedMatch] RPC_RegisterPlayer2 ignored — deal already ready.");
+                return;
+            }
             Player2Id = playerId;
+            RoundNumber = 1;
             DealReady = true;
             Debug.Log($"[NetworkedMatch] RPC: Player2 registered as {playerId}");
         }
@@ -179,6 +243,78 @@ namespace Pose.Net
             }
             Moves.Set(MoveCount, move);
             MoveCount++;
+        }
+
+        /// <summary>
+        /// Either client calls this to opt into a rematch of the finished round.
+        /// The host records the vote; the round only advances once both players
+        /// have voted, so neither player can restart the match under the other.
+        /// Votes are cleared as part of advancing, and are idempotent — a
+        /// double-tap re-asserts the same vote rather than toggling it off.
+        /// </summary>
+        /// <param name="playerIndex">0 for the host, 1 for the joiner.</param>
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        public void RPC_RequestRematch(byte playerIndex, RpcInfo info = default)
+        {
+            if (!Object.HasStateAuthority)
+            {
+                return;
+            }
+            if (!DealReady)
+            {
+                Debug.LogWarning(
+                    "[NetworkedMatch] RPC_RequestRematch dropped — no deal yet.");
+                return;
+            }
+
+            switch (playerIndex)
+            {
+                case HostPlayerIndex:
+                    Player1WantsRematch = true;
+                    break;
+                case JoinerPlayerIndex:
+                    Player2WantsRematch = true;
+                    break;
+                default:
+                    Debug.LogWarning(
+                        $"[NetworkedMatch] RPC_RequestRematch dropped — bad " +
+                        $"playerIndex {playerIndex}.");
+                    return;
+            }
+
+            Debug.Log(
+                $"[NetworkedMatch] Rematch vote from player {playerIndex} " +
+                $"(p1={Player1WantsRematch}, p2={Player2WantsRematch})");
+
+            if (Player1WantsRematch && Player2WantsRematch)
+            {
+                StartNextRound();
+            }
+        }
+
+        /// <summary>
+        /// Host-only. Publishes a fresh seed, truncates the move log, clears the
+        /// rematch votes and advances the round — all within one tick, so every
+        /// client observes them together and re-deals against a consistent
+        /// snapshot.
+        /// </summary>
+        private void StartNextRound()
+        {
+            if (NextSeedProvider == null)
+            {
+                Debug.LogWarning(
+                    "[NetworkedMatch] Rematch stalled — host has no NextSeedProvider " +
+                    "installed. Votes retained; will advance once it is.");
+                return;
+            }
+
+            Seed = NextSeedProvider();
+            MoveCount = 0;
+            Player1WantsRematch = false;
+            Player2WantsRematch = false;
+            RoundNumber++;
+
+            Debug.Log($"[NetworkedMatch] Rematch agreed — round {RoundNumber}, seed={Seed}");
         }
     }
 }

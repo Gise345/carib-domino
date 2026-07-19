@@ -15,12 +15,36 @@ MonoBehaviour:
   m_TableCollectionName: GameStrings
   m_TableCollectionNameGuidString: 6a315531c35fbde439a1ecb287bab07f
   m_Entries:
+  - m_Id: 50470000000001
+    m_Key: btn_back_to_lobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000002
+    m_Key: btn_play_again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000003
+    m_Key: btn_rematch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000004
+    m_Key: btn_rematch_waiting
+    m_Metadata:
+      m_Items: []
   - m_Id: 50446029807616
     m_Key: chain_empty
     m_Metadata:
       m_Items: []
   - m_Id: 50447518785536
     m_Key: chain_open_ends
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000005
+    m_Key: end_opponent_left
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000006
+    m_Key: end_opponent_wants_rematch
     m_Metadata:
       m_Items: []
   - m_Id: 50444624715776

@@ -24,6 +24,30 @@ MonoBehaviour:
 '
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000001
+    m_Localized: Back to lobby
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000002
+    m_Localized: Play again
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000003
+    m_Localized: Rematch
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000004
+    m_Localized: "Waiting for opponent…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000005
+    m_Localized: Your opponent left the match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000006
+    m_Localized: Your opponent wants a rematch
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Localized: "Signing in to Firebase\u2026\r\n"
     m_Metadata:
