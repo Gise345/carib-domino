@@ -248,3 +248,6 @@ $RECYCLE.BIN/
 # spurious diffs. See commit f7d1413.
 unity/Assets/AddressableAssetsData/link.xml
 unity/Assets/AddressableAssetsData/link.xml.meta
+
+# Unity/JVM crash dumps
+unity/hs_err_pid*.log
