@@ -7,11 +7,10 @@ namespace Pose.Core.Tests
     /// <summary>
     /// Geometry invariants for the chain layout walker. These are the checks
     /// that kept regressing while the walker lived in a MonoBehaviour and could
-    /// only be eyeballed on a device: a bend must connect whether the outgoing
-    /// column ended on a portrait tile (half-width 30) or a landscape double
-    /// (half-width 60), and no two tiles may overlap. A doubles-free chain lands
-    /// every bend on a portrait tile; the alternating-doubles chain lands them
-    /// on doubles — so exercising both covers both corner cases.
+    /// only be eyeballed on a device: consecutive tiles must touch, no two tiles
+    /// may overlap, and each bend bridge must align with the outgoing column's
+    /// last tile. Every in-run tile (doubles included) stands portrait; the only
+    /// landscape tile is a bend bridge.
     /// </summary>
     public class ChainLayoutTests
     {
@@ -89,13 +88,14 @@ namespace Pose.Core.Tests
             return chain;
         }
 
-        private static List<int> BridgeIndices(Chain chain, ChainSlot[] slots)
+        private static List<int> BridgeIndices(ChainSlot[] slots)
         {
+            // With doubles rendered portrait, the only landscape tiles are the
+            // bend bridges.
             List<int> bridges = new();
             for (int i = 0; i < slots.Length; i++)
             {
-                // A bridge is a non-double rendered landscape (a forced elbow).
-                if (slots[i].Landscape && !chain.Tiles[i].Tile.IsDouble)
+                if (slots[i].Landscape)
                 {
                     bridges.Add(i);
                 }
@@ -127,12 +127,11 @@ namespace Pose.Core.Tests
             }
         }
 
-        private static void AssertBridgesAligned(Chain chain, ChainSlot[] slots)
+        private static void AssertBridgesAligned(ChainSlot[] slots)
         {
             // Each bridge must sit at the SAME center-Y as the outgoing column's
-            // last tile (the tile immediately before it), regardless of that
-            // tile's orientation — the "double at a bend doesn't line up" bug.
-            foreach (int i in BridgeIndices(chain, slots))
+            // last tile (the tile immediately before it).
+            foreach (int i in BridgeIndices(slots))
             {
                 Assert.That(
                     slots[i].CenterY, Is.EqualTo(slots[i - 1].CenterY).Within(Eps),
@@ -150,7 +149,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesAligned(chain, slots);
+            AssertBridgesAligned(slots);
         }
 
         [Test]
@@ -161,7 +160,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesAligned(chain, slots);
+            AssertBridgesAligned(slots);
         }
 
         [Test]
@@ -172,47 +171,39 @@ namespace Pose.Core.Tests
                 ChainSlot[] slots = ChainLayout.Compute(chain, 0, Default).Slots;
                 AssertNoOverlap(slots);
                 AssertConsecutiveTouch(slots, Default);
-                AssertBridgesAligned(chain, slots);
+                AssertBridgesAligned(slots);
             }
         }
 
         [Test]
-        public void PortraitOnlyChain_ProducesPortraitEndedBends()
+        public void Cramped_ProducesBends()
         {
-            // Guards AssertBridgesAligned above from passing vacuously for the
-            // portrait case.
-            Chain chain = PortraitOnlyChain(24);
-            ChainSlot[] slots = ChainLayout.Compute(chain, 0, Cramped).Slots;
-
-            List<int> bridges = BridgeIndices(chain, slots);
-            Assert.That(bridges, Is.Not.Empty, "no bends were produced");
-            foreach (int i in bridges)
-            {
-                Assert.That(
-                    slots[i - 1].Landscape, Is.False,
-                    $"expected a portrait tile before bridge {i}");
-            }
-        }
-
-        [Test]
-        public void AlternatingDoublesChain_ProducesDoubleEndedBends()
-        {
-            // Guards the double case — the misalignment regression lived here.
+            // Guards AssertBridgesAligned from passing vacuously.
             Chain chain = AlternatingDoublesChain(24);
             ChainSlot[] slots = ChainLayout.Compute(chain, 0, Cramped).Slots;
 
-            List<int> bridges = BridgeIndices(chain, slots);
-            Assert.That(bridges, Is.Not.Empty, "no bends were produced");
+            Assert.That(BridgeIndices(slots), Is.Not.Empty, "no bends were produced");
+        }
 
-            bool anyDoubleEnded = false;
-            foreach (int i in bridges)
+        [Test]
+        public void DoublesRenderPortraitInStraightRun()
+        {
+            // The requested behaviour: a double lies in-line like a regular
+            // tile, not crosswise. Use a bend-free chain so every tile is an
+            // in-run tile (no bridges), then assert nothing is landscape.
+            Chain chain = AlternatingDoublesChain(6);
+            ChainSlot[] slots = ChainLayout.Compute(chain, 0, Default).Slots;
+
+            bool sawDouble = false;
+            for (int i = 0; i < slots.Length; i++)
             {
-                if (slots[i - 1].Landscape)
+                if (chain.Tiles[i].Tile.IsDouble)
                 {
-                    anyDoubleEnded = true;
+                    sawDouble = true;
                 }
+                Assert.That(slots[i].Landscape, Is.False, $"tile {i} should be portrait");
             }
-            Assert.That(anyDoubleEnded, Is.True, "no bend landed on a double");
+            Assert.That(sawDouble, Is.True, "test built no double to check");
         }
 
         [Test]

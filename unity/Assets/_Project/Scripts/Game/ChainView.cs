@@ -20,8 +20,9 @@ namespace Pose.Game
     /// top-down layout units) and maps each to an anchored position by
     /// negating Y and offsetting by <see cref="HeadRoom"/>.
     ///
-    /// Doubles and the bend "bridge" tiles render landscape (perpendicular to
-    /// the chain direction), forming the cross visual a real table shows.
+    /// In-run tiles all render portrait, doubles included, so a double reads
+    /// like a regular tile. Only the bend "bridge" tile renders landscape
+    /// (perpendicular), to turn the corner.
     ///
     /// Pip rendering uses <see cref="PlacedTile.LeftPip"/> /
     /// <see cref="PlacedTile.RightPip"/> rather than the canonical Tile.A/B
