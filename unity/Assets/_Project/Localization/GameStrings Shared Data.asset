@@ -31,6 +31,22 @@ MonoBehaviour:
     m_Key: btn_rematch_waiting
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000007
+    m_Key: btn_start_now
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000008
+    m_Key: btn_keep_waiting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000009
+    m_Key: waiting_for_players
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000010
+    m_Key: waiting_short_start
+    m_Metadata:
+      m_Items: []
   - m_Id: 50446029807616
     m_Key: chain_empty
     m_Metadata:

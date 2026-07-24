@@ -55,11 +55,17 @@ namespace Pose.Net
             DontDestroyOnLoad(gameObject);
         }
 
-        public Task<bool> CreateRoom(string code) => ConnectShared(code, "create");
+        /// <summary>
+        /// Creates a room capped at <paramref name="playerCount"/> seats so no
+        /// more than the host's chosen number of players can join.
+        /// </summary>
+        public Task<bool> CreateRoom(string code, int playerCount) =>
+            ConnectShared(code, "create", playerCount);
 
-        public Task<bool> JoinRoom(string code) => ConnectShared(code, "join");
+        /// <summary>Joins an existing room; the room's capacity was set by the host.</summary>
+        public Task<bool> JoinRoom(string code) => ConnectShared(code, "join", playerCount: 0);
 
-        private async Task<bool> ConnectShared(string code, string operation)
+        private async Task<bool> ConnectShared(string code, string operation, int playerCount)
         {
             if (IsConnected)
             {
@@ -76,6 +82,9 @@ namespace Pose.Net
                 {
                     GameMode = GameMode.Shared,
                     SessionName = code,
+                    // Only the creator sets capacity; joiners pass 0 (unset) and
+                    // inherit whatever the host established for the session.
+                    PlayerCount = playerCount > 0 ? playerCount : null,
                 };
 
                 StartGameResult result = await _runner.StartGame(args);

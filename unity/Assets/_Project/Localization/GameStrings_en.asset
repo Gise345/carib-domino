@@ -48,6 +48,22 @@ MonoBehaviour:
     m_Localized: Your opponent wants a rematch
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000007
+    m_Localized: Start now
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000008
+    m_Localized: Keep waiting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000009
+    m_Localized: "{0} of {1} players joined…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000010
+    m_Localized: "Only {0} players joined — start with {0}?"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Localized: "Signing in to Firebase\u2026\r\n"
     m_Metadata:

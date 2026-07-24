@@ -261,6 +261,16 @@ namespace Pose.Game
         private OnlineMatchController? _onlineMatchController;
         private Coroutine? _autoPoseRoutine;
         private Coroutine? _autoPassRoutine;
+        private Coroutine? _waitingTimerRoutine;
+
+        // Seconds the host waits for the room to fill before offering to start
+        // short with whoever is present.
+        private const float WaitingTimeoutSeconds = 120f;
+
+        // What the shared EndOverlayView is currently presenting, so its two
+        // buttons dispatch to the right action.
+        private enum OverlayMode { RoundOver, OpponentLeft, ShortStart }
+        private OverlayMode _overlayMode = OverlayMode.RoundOver;
 
         private void ShowLobby()
         {
@@ -288,9 +298,11 @@ namespace Pose.Game
             StartGame();
         }
 
-        private void OnOnlineRoomActive(string roomCode)
+        private void OnOnlineRoomActive(string roomCode, int playerCount)
         {
-            Debug.Log($"[BoardBootstrap] Online room active: {roomCode} — starting OnlineMatchController");
+            Debug.Log(
+                $"[BoardBootstrap] Online room active: {roomCode} (count={playerCount}) — " +
+                "starting OnlineMatchController");
 
             if (_networkedMatchPrefab == null)
             {
@@ -314,14 +326,25 @@ namespace Pose.Game
             _onlineMatchController.RoundStarted += OnOnlineRoundStarted;
             _onlineMatchController.MoveApplied += OnOnlineMoveApplied;
             _onlineMatchController.RematchVotesChanged += OnRematchVotesChanged;
+            _onlineMatchController.WaitingChanged += OnWaitingChanged;
             _onlineMatchController.OpponentLeft += OnOpponentLeft;
             _onlineMatchController.Setup(
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
-                localPlayerId);
-            // The lobby stays on screen showing "Waiting for opponent /
-            // Connected to room <code>" until the deal lands — at which point
-            // OnOnlineMatchDealt destroys it and the board takes over.
+                localPlayerId,
+                playerCount);
+
+            // Host of a 3+ player room: start a fill-timeout so we don't wait
+            // forever for the last seat. The joiner path (playerCount 0) and 2P
+            // rooms don't arm it — 2P can't start with fewer than 2.
+            if (_onlineMatchController.IsHost && playerCount >= 3)
+            {
+                _waitingTimerRoutine = StartCoroutine(WaitingTimeoutRoutine());
+            }
+
+            // The lobby stays on screen showing the waiting status until the
+            // deal lands — OnOnlineMatchDealt then destroys it and the board
+            // takes over.
         }
 
         // ---- Online deal + move hooks (M3.4) ------------------------------
@@ -333,6 +356,14 @@ namespace Pose.Game
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
             SeatPlayersForOnline(state.Players, _localPlayer);
             ApplyRootSprite(_boardBackgroundSprite);
+
+            // The room started (filled or short-started): stop the fill timer
+            // and clear any short-start prompt.
+            StopWaitingTimer();
+            if (_overlayMode == OverlayMode.ShortStart)
+            {
+                _endOverlay?.Hide();
+            }
 
             // Lobby served its purpose; hand off to the board.
             if (_lobbyView != null)
@@ -378,6 +409,59 @@ namespace Pose.Game
         {
             _opponentLeft = true;
             Render();
+        }
+
+        // ---- Pre-deal waiting + short-start (M3.7) ------------------------
+
+        private void OnWaitingChanged()
+        {
+            // Reflect fill progress on the lobby while we wait for seats.
+            if (_lobbyView == null || _onlineMatchController == null)
+            {
+                return;
+            }
+            int have = _onlineMatchController.RegisteredCount;
+            int want = _onlineMatchController.TargetPlayerCount;
+            _lobbyView.SetWaitingStatus(L10n.Get("waiting_for_players", have, want));
+        }
+
+        private IEnumerator WaitingTimeoutRoutine()
+        {
+            yield return new WaitForSeconds(WaitingTimeoutSeconds);
+            _waitingTimerRoutine = null;
+
+            // Only prompt if we're still waiting (not yet dealt) and have enough
+            // players for a valid short game.
+            if (_isOnline || _onlineMatchController == null)
+            {
+                yield break;
+            }
+            int have = _onlineMatchController.RegisteredCount;
+            int want = _onlineMatchController.TargetPlayerCount;
+            if (have >= 2 && have < want)
+            {
+                ShowShortStartPrompt(have);
+            }
+        }
+
+        private void ShowShortStartPrompt(int currentCount)
+        {
+            _overlayMode = OverlayMode.ShortStart;
+            _endOverlay?.Show(
+                title: L10n.Get("waiting_short_start", currentCount),
+                subtitle: null,
+                primaryLabel: L10n.Get("btn_start_now"),
+                primaryInteractable: true,
+                secondaryLabel: L10n.Get("btn_keep_waiting"));
+        }
+
+        private void StopWaitingTimer()
+        {
+            if (_waitingTimerRoutine != null)
+            {
+                StopCoroutine(_waitingTimerRoutine);
+                _waitingTimerRoutine = null;
+            }
         }
 
         private void UnsubscribeFromLobby()
@@ -1023,21 +1107,49 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// Online 2P: local player at the bottom, opponent at the top, side
-        /// seats hidden. This is symmetric — each phone sees themselves below
-        /// regardless of who hosted.
+        /// Online 2–4P: the local player sits at the bottom and the others are
+        /// placed around the table in turn order via
+        /// <see cref="SeatArrangement"/>. Unused seats are hidden. Symmetric —
+        /// each device sees itself below regardless of who hosted.
         /// </summary>
         private void SeatPlayersForOnline(IReadOnlyList<PlayerId> players, PlayerId local)
         {
             _handViewByPlayer.Clear();
-            PlayerId remote = players[0].Equals(local) ? players[1] : players[0];
-            _handViewByPlayer[local] = _bottomHandView!;
-            _handViewByPlayer[remote] = _topHandView!;
-            _bottomHandView!.gameObject.SetActive(true);
-            _topHandView!.gameObject.SetActive(true);
+
+            int localIndex = 0;
+            for (int i = 0; i < players.Count; i++)
+            {
+                if (players[i].Equals(local))
+                {
+                    localIndex = i;
+                    break;
+                }
+            }
+
+            SeatPosition[] seats = SeatArrangement.Arrange(players.Count, localIndex);
+
+            // Start all seats hidden; activate the ones we use.
+            _bottomHandView!.gameObject.SetActive(false);
             _rightHandView!.gameObject.SetActive(false);
+            _topHandView!.gameObject.SetActive(false);
             _leftHandView!.gameObject.SetActive(false);
+
+            for (int i = 0; i < players.Count; i++)
+            {
+                HandView seat = HandViewForSeat(seats[i]);
+                _handViewByPlayer[players[i]] = seat;
+                seat.gameObject.SetActive(true);
+            }
         }
+
+        private HandView HandViewForSeat(SeatPosition seat) => seat switch
+        {
+            SeatPosition.Bottom => _bottomHandView!,
+            SeatPosition.Right => _rightHandView!,
+            SeatPosition.Top => _topHandView!,
+            SeatPosition.Left => _leftHandView!,
+            _ => _bottomHandView!,
+        };
 
         private RectTransform CreateRegion(
             string name,
@@ -1206,6 +1318,7 @@ namespace Pose.Game
 
             if (_isOnline && _opponentLeft)
             {
+                _overlayMode = OverlayMode.OpponentLeft;
                 _endOverlay.Show(
                     title: L10n.Get("end_opponent_left"),
                     subtitle: null,
@@ -1221,6 +1334,7 @@ namespace Pose.Game
                 return;
             }
 
+            _overlayMode = OverlayMode.RoundOver;
             string title = FormatStatus(state, isLocalTurn: false);
             string secondary = L10n.Get("btn_back_to_lobby");
 
@@ -1252,19 +1366,39 @@ namespace Pose.Game
 
         private void OnOverlayPrimary()
         {
-            if (_isOnline)
+            switch (_overlayMode)
             {
-                // Rematch. The overlay updates to "waiting…" via RematchVotesChanged;
-                // the re-deal itself arrives through OnOnlineRoundStarted.
-                _onlineMatchController?.TryRequestRematch();
-                return;
-            }
+                case OverlayMode.ShortStart:
+                    // Host accepted a short game — deal with who's present. The
+                    // deal lands via OnOnlineMatchDealt, which hides this prompt.
+                    _onlineMatchController?.StartWithCurrentPlayers();
+                    break;
 
-            DealOfflineRound();
+                case OverlayMode.RoundOver when _isOnline:
+                    // Rematch. Overlay updates to "waiting…" via RematchVotesChanged;
+                    // the re-deal arrives through OnOnlineRoundStarted.
+                    _onlineMatchController?.TryRequestRematch();
+                    break;
+
+                case OverlayMode.RoundOver:
+                    DealOfflineRound();
+                    break;
+
+                // OpponentLeft has no primary button.
+            }
         }
 
         private void OnOverlaySecondary()
         {
+            if (_overlayMode == OverlayMode.ShortStart)
+            {
+                // Keep waiting — dismiss and re-arm the fill timer.
+                _endOverlay?.Hide();
+                StopWaitingTimer();
+                _waitingTimerRoutine = StartCoroutine(WaitingTimeoutRoutine());
+                return;
+            }
+
             ReturnToLobby();
         }
 
@@ -1323,6 +1457,7 @@ namespace Pose.Game
                 StopCoroutine(_botRoutine);
                 _botRoutine = null;
             }
+            StopWaitingTimer();
 
             // Tear down the online session (if any). This also drops Photon
             // room membership so the other player gets OnPlayerLeft.
@@ -1332,6 +1467,7 @@ namespace Pose.Game
                 _onlineMatchController.RoundStarted -= OnOnlineRoundStarted;
                 _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
                 _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
+                _onlineMatchController.WaitingChanged -= OnWaitingChanged;
                 _onlineMatchController.OpponentLeft -= OnOpponentLeft;
                 _onlineMatchController.ShutdownAndReturnToLobby();
                 Destroy(_onlineMatchController.gameObject);

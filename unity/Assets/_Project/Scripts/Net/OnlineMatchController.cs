@@ -8,20 +8,21 @@ using UnityEngine;
 namespace Pose.Net
 {
     /// <summary>
-    /// Orchestrates the 2-player online Cut-Throat round. Created by
+    /// Orchestrates the 2-, 3- or 4-player online Cut-Throat round. Created by
     /// <see cref="Pose.Game.BoardBootstrap"/> once the lobby reports an
     /// online room is active. On <see cref="Setup"/>:
     /// <list type="bullet">
-    ///   <item>If we're the only player in the session → we're host. Spawn
-    ///         <see cref="NetworkedMatch"/> with a fresh seed and our display
-    ///         name in <c>Player1Id</c>.</item>
+    ///   <item>If we're the shared-mode master client → we're host. Spawn
+    ///         <see cref="NetworkedMatch"/> with a fresh seed and the target
+    ///         player count, seating ourselves at index 0.</item>
     ///   <item>If a NetworkedMatch already exists (host spawned it before we
-    ///         joined) → we're client. Send our display name to the host via
-    ///         <see cref="NetworkedMatch.RPC_RegisterPlayer2"/>.</item>
+    ///         joined) → we're a joiner. Claim a seat via
+    ///         <see cref="NetworkedMatch.RPC_RegisterPlayer"/>.</item>
     /// </list>
     /// Both sides subscribe to <see cref="NetworkedMatch.DealReadyChanged"/>;
-    /// when it fires, each client runs <c>Dealer.Deal</c> locally against the
-    /// synced inputs and gets the same <see cref="MatchState"/> (M3.3).
+    /// when every seat is filled it fires, each client runs <c>Dealer.Deal</c>
+    /// locally against the synced inputs and gets the same
+    /// <see cref="MatchState"/>.
     ///
     /// M3.4 adds move sync. After the deal, the host installs a move
     /// validator on the NetworkedMatch so its <see cref="NetworkedMatch.RPC_SubmitMove"/>
@@ -56,6 +57,12 @@ namespace Pose.Net
         public event Action? RematchVotesChanged;
 
         /// <summary>
+        /// Fires while waiting in the pre-deal lobby whenever the number of
+        /// seated players changes, so the UI can show "3 of 4 joined…".
+        /// </summary>
+        public event Action? WaitingChanged;
+
+        /// <summary>
         /// Fires after each replicated move has been applied to
         /// <see cref="CurrentState"/>. Payload is (newState, appliedMove).
         /// </summary>
@@ -79,34 +86,69 @@ namespace Pose.Net
         /// <summary>This client's PlayerId in the dealt round.</summary>
         public PlayerId? LocalPlayer { get; private set; }
 
-        /// <summary>This client's index into <c>CurrentState.Players</c> (0 host, 1 joiner).</summary>
+        /// <summary>
+        /// This client's seat index into <c>CurrentState.Players</c>. The host is
+        /// seat 0; joiners take 1, 2, 3 in the order they registered. Derived
+        /// from the seat's owning <see cref="PlayerRef"/>, not join luck.
+        /// </summary>
         public int LocalPlayerIndex { get; private set; } = -1;
 
         /// <summary>True once this client has opted into a rematch of the finished round.</summary>
         public bool LocalWantsRematch => ReadRematchVote(LocalPlayerIndex);
 
-        /// <summary>True once the opponent has opted into a rematch of the finished round.</summary>
-        public bool OpponentWantsRematch => ReadRematchVote(1 - LocalPlayerIndex);
+        /// <summary>
+        /// True once ANY other seated player has opted into a rematch — the
+        /// round-over UI surfaces this as a nudge; the re-deal still needs all
+        /// seats to vote.
+        /// </summary>
+        public bool OpponentWantsRematch
+        {
+            get
+            {
+                if (_match == null || LocalPlayerIndex < 0)
+                {
+                    return false;
+                }
+                int others = _match.RematchVoteMask & ~(1 << LocalPlayerIndex) & ((1 << _match.PlayerCount) - 1);
+                return others != 0;
+            }
+        }
 
         /// <summary>
-        /// True once the opponent has left the Photon session. Rematch is
-        /// impossible from here — the UI should offer only back-to-lobby.
+        /// True once a player has left the Photon session. With more than two
+        /// players a leave still ends the match (continuing minus a hand is
+        /// deferred) — the UI offers only back-to-lobby.
         /// </summary>
         public bool OpponentHasLeft => _opponentLeftFired;
+
+        /// <summary>How many players have taken a seat so far (pre-deal waiting).</summary>
+        public int RegisteredCount => _match?.RegisteredCount ?? 0;
+
+        /// <summary>The target player count for this room (host's pick).</summary>
+        public int TargetPlayerCount => _match?.PlayerCount ?? 0;
+
+        /// <summary>True if this client is the room host (shared-mode master client).</summary>
+        public bool IsHost => _runner != null && _runner.IsSharedModeMasterClient;
 
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
+        private int _targetPlayerCount = 2;
         private NetworkedMatch? _match;
 
         private int _lastSeenPlayerCount;
         private bool _opponentLeftFired;
 
-        public void Setup(NetworkObject matchPrefab, NetworkRunner runner, string localPlayerId)
+        /// <param name="targetPlayerCount">
+        /// The room size chosen at Create time (2–4). Used only when this client
+        /// is the host; joiners read the count from the replicated match.
+        /// </param>
+        public void Setup(NetworkObject matchPrefab, NetworkRunner runner, string localPlayerId, int targetPlayerCount)
         {
             _matchPrefab = matchPrefab;
             _runner = runner;
             _localPlayerId = string.IsNullOrEmpty(localPlayerId) ? "anon" : localPlayerId;
+            _targetPlayerCount = Mathf.Clamp(targetPlayerCount, 2, NetworkedMatch.MaxPlayers);
 
             NetworkedMatch.AnySpawned += OnNetworkedMatchSpawned;
 
@@ -145,6 +187,7 @@ namespace Pose.Net
                 _match.DealReadyChanged -= OnDealReady;
                 _match.RoundStartedChanged -= OnRoundStarted;
                 _match.RematchVotesChanged -= OnRematchVotesChanged;
+                _match.RegisteredCountChanged -= OnRegisteredCountChanged;
                 _match.MoveAppliedChanged -= OnMoveAppliedChanged;
                 if (_match.Object != null && _match.Object.HasStateAuthority)
                 {
@@ -209,10 +252,14 @@ namespace Pose.Net
                 inputAuthority: _runner.LocalPlayer);
             _match = obj.GetComponent<NetworkedMatch>();
             _match.Seed = seed;
-            _match.Player1Id = _localPlayerId;
+            _match.PlayerCount = _targetPlayerCount;
+            // Seat the host at index 0, keyed by its own PlayerRef.
+            _match.PlayerIds.Set(0, _localPlayerId);
+            _match.SeatPlayerRefs.Set(0, _runner.LocalPlayer.PlayerId);
+            _match.RegisteredCount = 1;
             Debug.Log(
-                $"[OnlineMatchController] Spawned as HOST. " +
-                $"seed={seed}, player1={_localPlayerId}");
+                $"[OnlineMatchController] Spawned as HOST. seed={seed}, " +
+                $"count={_targetPlayerCount}, player0={_localPlayerId}");
         }
 
         private void OnNetworkedMatchSpawned(NetworkedMatch match)
@@ -225,19 +272,19 @@ namespace Pose.Net
             _match.DealReadyChanged += OnDealReady;
             _match.RoundStartedChanged += OnRoundStarted;
             _match.RematchVotesChanged += OnRematchVotesChanged;
+            _match.RegisteredCountChanged += OnRegisteredCountChanged;
             _match.MoveAppliedChanged += OnMoveAppliedChanged;
 
             if (!_match.Object.HasStateAuthority)
             {
-                // We're the joining client — tell the host our display name.
+                // We're a joining client — claim a seat on the host.
                 Debug.Log(
-                    $"[OnlineMatchController] Detected host match, joining as " +
-                    $"Player2 with id={_localPlayerId}");
-                _match.RPC_RegisterPlayer2(_localPlayerId);
+                    $"[OnlineMatchController] Detected host match, registering as \"{_localPlayerId}\".");
+                _match.RPC_RegisterPlayer(_localPlayerId);
             }
 
-            // Host case (HasStateAuthority): we already set Player1Id / Seed in
-            // SpawnAsHost. We just wait for the joiner's RPC to flip DealReady.
+            // Host case (HasStateAuthority): we already seated ourselves and set
+            // Seed / PlayerCount in SpawnAsHost. We just wait for seats to fill.
         }
 
         private void OnDealReady()
@@ -277,41 +324,88 @@ namespace Pose.Net
             RematchVotesChanged?.Invoke();
         }
 
+        private void OnRegisteredCountChanged()
+        {
+            WaitingChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Starts the round now with whoever has joined (host only). Trims the
+        /// target count to the current seat count. No-op if the deal already
+        /// landed or fewer than two players are present.
+        /// </summary>
+        public void StartWithCurrentPlayers()
+        {
+            _match?.StartWithCurrentPlayers();
+        }
+
         /// <summary>
         /// Re-derives the local <see cref="MatchState"/> from the currently
-        /// replicated seed and player names. Used for both the first deal and
-        /// every rematch — the inputs are the only thing that changed, so the
-        /// deal path is identical. Returns null if the match object went away.
+        /// replicated seed, player count and names. Used for both the first deal
+        /// and every rematch — the inputs are the only thing that changed.
+        /// Returns null if the match object went away or the seats aren't ready.
         /// </summary>
         private MatchState? DealCurrentRound()
         {
-            if (_match == null)
+            if (_match == null || _runner == null)
             {
                 return null;
             }
 
-            string p1 = _match.Player1Id.ToString();
-            string p2 = _match.Player2Id.ToString();
+            int count = _match.PlayerCount;
+            if (count < 2 || count > NetworkedMatch.MaxPlayers)
+            {
+                Debug.LogError($"[OnlineMatchController] Cannot deal — bad player count {count}.");
+                return null;
+            }
+
             ulong seed = _match.Seed;
+            PlayerId[] players = new PlayerId[count];
+            for (int i = 0; i < count; i++)
+            {
+                players[i] = new PlayerId(_match.PlayerIds.Get(i).ToString());
+            }
 
             Debug.Log(
                 $"[OnlineMatchController] Dealing round {_match.RoundNumber} — " +
-                $"seed={seed}, p1=\"{p1}\", p2=\"{p2}\"");
+                $"seed={seed}, players=[{string.Join(", ", players)}]");
 
-            PlayerId[] players = { new(p1), new(p2) };
             Partnership partnership = Partnership.CutThroat(players);
             MatchState state = Dealer.Deal(
-                DealConfig.CutThroatDoubleSix(2),
+                DealConfig.CutThroatDoubleSix(count),
                 players,
                 partnership,
                 new SeededRandomSource(seed));
 
             CurrentState = state;
-            LocalPlayerIndex = _match.Object.HasStateAuthority ? 0 : 1;
+            LocalPlayerIndex = FindLocalSeat(count);
+            if (LocalPlayerIndex < 0)
+            {
+                Debug.LogError("[OnlineMatchController] Local player has no seat in the dealt round.");
+                return null;
+            }
             LocalPlayer = state.Players[LocalPlayerIndex];
 
             LogDeal(state);
             return state;
+        }
+
+        /// <summary>
+        /// Finds this client's seat by matching the local <see cref="PlayerRef"/>
+        /// against the seat owners the host recorded — robust against duplicate
+        /// display names.
+        /// </summary>
+        private int FindLocalSeat(int count)
+        {
+            int localRef = _runner!.LocalPlayer.PlayerId;
+            for (int i = 0; i < count; i++)
+            {
+                if (_match!.SeatPlayerRefs.Get(i) == localRef)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         /// <summary>
@@ -338,16 +432,11 @@ namespace Pose.Net
 
         private bool ReadRematchVote(int playerIndex)
         {
-            if (_match == null)
+            if (_match == null || playerIndex < 0 || playerIndex >= _match.PlayerCount)
             {
                 return false;
             }
-            return playerIndex switch
-            {
-                0 => _match.Player1WantsRematch,
-                1 => _match.Player2WantsRematch,
-                _ => false,
-            };
+            return (_match.RematchVoteMask & (1 << playerIndex)) != 0;
         }
 
         /// <summary>

@@ -47,12 +47,15 @@ namespace Pose.Game
         private const float ButtonHeight = 80f;
 
         public event Action? PracticeChosen;
-        public event Action<string>? OnlineRoomActive;
+
+        /// <summary>Fires with the room code and, for the creator, the chosen player count (2–4). Joiners pass 0.</summary>
+        public event Action<string, int>? OnlineRoomActive;
 
         // The three action buttons (kept around so we can disable / hide them
         // when transitioning to the connected state).
         private GameObject? _practiceButton;
         private GameObject? _createButton;
+        private GameObject? _countPickerRow;
         private GameObject? _joinButton;
         private GameObject? _joinInputRow;
 
@@ -121,6 +124,8 @@ namespace Pose.Game
             CreateTitle();
             _practiceButton = CreateButton("Practice vs Bots", OnPracticeClicked);
             _createButton = CreateButton("Create Room", OnCreateClicked);
+            _countPickerRow = CreateCountPickerRow();
+            _countPickerRow.SetActive(false);
             _joinButton = CreateButton("Join Room", OnJoinClicked);
             _joinInputRow = CreateJoinInputRow();
             _joinInputRow.SetActive(false);
@@ -258,6 +263,34 @@ namespace Pose.Game
             return row;
         }
 
+        private GameObject CreateCountPickerRow()
+        {
+            GameObject row = new("CountPickerRow", typeof(RectTransform));
+            row.transform.SetParent(transform, worldPositionStays: false);
+
+            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 12f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            LayoutElement rowLayout = row.AddComponent<LayoutElement>();
+            rowLayout.preferredWidth = ButtonWidth;
+            rowLayout.preferredHeight = ButtonHeight;
+
+            for (int count = 2; count <= 4; count++)
+            {
+                int chosen = count; // capture per-iteration for the closure
+                GameObject btn = CreateButton($"{count}P", () => StartCreate(chosen));
+                btn.transform.SetParent(row.transform, worldPositionStays: false);
+                btn.GetComponent<LayoutElement>().preferredWidth = 120f;
+            }
+
+            return row;
+        }
+
         private TextMeshProUGUI CreateCodeDisplay()
         {
             GameObject go = new("CodeDisplay", typeof(RectTransform));
@@ -313,7 +346,18 @@ namespace Pose.Game
             PracticeChosen?.Invoke();
         }
 
-        private async void OnCreateClicked()
+        private void OnCreateClicked()
+        {
+            if (_busy)
+            {
+                return;
+            }
+            // First click reveals the 2/3/4 player-count picker; the picked
+            // count kicks off the actual create via StartCreate.
+            _countPickerRow!.SetActive(!_countPickerRow.activeSelf);
+        }
+
+        private async void StartCreate(int playerCount)
         {
             if (_busy)
             {
@@ -329,11 +373,11 @@ namespace Pose.Game
             _statusText.color = BodyTextColor;
 
             EnsurePhotonBootstrap();
-            bool ok = await PhotonBootstrap.Instance!.CreateRoom(code);
+            bool ok = await PhotonBootstrap.Instance!.CreateRoom(code, playerCount);
             if (ok)
             {
-                _statusText.text = $"Room {code} — waiting for opponent…";
-                OnlineRoomActive?.Invoke(code);
+                _statusText.text = $"Room {code} — waiting for players…";
+                OnlineRoomActive?.Invoke(code, playerCount);
             }
             else
             {
@@ -390,7 +434,7 @@ namespace Pose.Game
                 _codeDisplay!.gameObject.SetActive(true);
                 _codeDisplay.text = code;
                 _statusText.text = $"Connected to room {code}.";
-                OnlineRoomActive?.Invoke(code);
+                OnlineRoomActive?.Invoke(code, 0); // count comes from the host
             }
             else
             {
@@ -405,8 +449,22 @@ namespace Pose.Game
         {
             _practiceButton!.SetActive(visible);
             _createButton!.SetActive(visible);
+            _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);
             _joinButton!.SetActive(visible);
             _joinInputRow!.SetActive(visible && _joinInputRow.activeSelf);
+        }
+
+        /// <summary>
+        /// Updates the lobby's status line while the room fills. Called by
+        /// <see cref="BoardBootstrap"/> as players join (e.g. "3 of 4 joined…").
+        /// </summary>
+        public void SetWaitingStatus(string text)
+        {
+            if (_statusText != null)
+            {
+                _statusText.text = text;
+                _statusText.color = BodyTextColor;
+            }
         }
 
         private static void EnsurePhotonBootstrap()
