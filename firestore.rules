@@ -47,6 +47,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // /matches/{matchId} — per-round server-issued seed record (M4.2).
+    //
+    // Written only by the `startMatch` Cloud Function (Admin SDK) and read only
+    // by the settlement function at replay time. The seed reaches clients
+    // through startMatch's return value, never by reading this doc — so clients
+    // have no read or write access at all. This is what makes the seed
+    // unguessable/unpickable by a client (ADR 0007).
+    // -----------------------------------------------------------------------
+    match /matches/{matchId} {
+      allow read, write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.

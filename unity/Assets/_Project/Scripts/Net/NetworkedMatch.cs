@@ -72,6 +72,15 @@ namespace Pose.Net
         public event Action<int, int>? MoveAppliedChanged;
 
         [Networked] public ulong Seed { get; set; }
+
+        /// <summary>
+        /// The server-issued match id this round's <see cref="Seed"/> was recorded
+        /// under (M4.2). Replicated so any client can reference it when submitting
+        /// the round log for settlement (M4.3). Empty when the seed was generated
+        /// locally as a fallback (server unreachable) — such rounds can't settle.
+        /// </summary>
+        [Networked] public NetworkString<_32> MatchId { get; set; }
+
         [Networked, Capacity(MaxPlayers)] public NetworkArray<NetworkString<_32>> PlayerIds => default;
         [Networked, Capacity(MaxPlayers)] public NetworkArray<int> SeatPlayerRefs => default;
         [Networked] public int PlayerCount { get; set; }
@@ -97,9 +106,6 @@ namespace Pose.Net
         /// a direct Pose.Core dependency so this file doesn't drag in the engine.
         /// </summary>
         public Func<NetworkedMove, bool>? MoveValidator { get; set; }
-
-        /// <summary>Supplies the seed for each rematch round (host only). M4's seam for a server-issued seed.</summary>
-        public Func<ulong>? NextSeedProvider { get; set; }
 
         private readonly MatchSignalTracker _signals = new();
         private int _lastRematchVoteMask;
@@ -282,30 +288,30 @@ namespace Pose.Net
             RematchVoteMask |= 1 << playerIndex;
             Debug.Log($"[NetworkedMatch] Rematch vote from seat {playerIndex} (mask={RematchVoteMask}).");
 
-            if (AllRematchVotesIn)
-            {
-                StartNextRound();
-            }
+            // The host controller watches the votes; when they are all in it
+            // fetches a fresh server seed and calls AdvanceRound. We do NOT
+            // advance here because the seed fetch is asynchronous (M4.2).
         }
 
         /// <summary>
-        /// Host-only. Publishes a fresh seed, truncates the move log, clears the
-        /// rematch votes and advances the round — all in one tick so every client
-        /// re-deals against a consistent snapshot.
+        /// Host-only. Publishes a fresh (server-issued) seed and match id,
+        /// truncates the move log, clears the rematch votes and advances the
+        /// round — all in one tick so every client re-deals against a consistent
+        /// snapshot. Called by the controller once every seat has voted for a
+        /// rematch and a new seed has been fetched.
         /// </summary>
-        private void StartNextRound()
+        public void AdvanceRound(ulong seed, string matchId)
         {
-            if (NextSeedProvider == null)
+            if (!Object.HasStateAuthority)
             {
-                Debug.LogWarning("[NetworkedMatch] Rematch stalled — host has no NextSeedProvider.");
                 return;
             }
-
-            Seed = NextSeedProvider();
+            Seed = seed;
+            MatchId = matchId;
             MoveCount = 0;
             RematchVoteMask = 0;
             RoundNumber++;
-            Debug.Log($"[NetworkedMatch] Rematch agreed — round {RoundNumber}, seed={Seed}.");
+            Debug.Log($"[NetworkedMatch] Rematch agreed — round {RoundNumber}, seed={seed}, match={matchId}.");
         }
     }
 }

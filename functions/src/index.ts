@@ -1,7 +1,11 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
 
-// Settlement pipeline (M2.3 stub; full replay validation in M4).
+// Server-issued seed (M4.2): clients fetch the deal seed here so they can't
+// pick a loaded hand. See ADR 0007.
+export { startMatch } from './matchmaking/startMatch';
+
+// Settlement pipeline (M2.3 stub; full replay validation in M4.3).
 export { submitMatchResult } from './settlement/submitMatchResult';
 
 /**

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Fusion;
 using Pose.Core;
 using UnityEngine;
@@ -138,6 +139,13 @@ namespace Pose.Net
 
         private int _lastSeenPlayerCount;
         private bool _opponentLeftFired;
+        private bool _advancingRematch;
+
+        /// <summary>
+        /// The server-issued match id for the current round, or empty if the seed
+        /// was a local fallback. M4.3's settlement submits the round log under this.
+        /// </summary>
+        public string CurrentMatchId => _match?.MatchId.ToString() ?? string.Empty;
 
         /// <param name="targetPlayerCount">
         /// The room size chosen at Create time (2–4). Used only when this client
@@ -175,7 +183,7 @@ namespace Pose.Net
             // completed.
             if (_runner.IsSharedModeMasterClient)
             {
-                SpawnAsHost();
+                _ = SpawnAsHostAsync();
             }
         }
 
@@ -192,7 +200,6 @@ namespace Pose.Net
                 if (_match.Object != null && _match.Object.HasStateAuthority)
                 {
                     _match.MoveValidator = null;
-                    _match.NextSeedProvider = null;
                 }
             }
         }
@@ -233,32 +240,62 @@ namespace Pose.Net
         }
 
         /// <summary>
-        /// Seed derived from a high-resolution clock — different per round,
-        /// deterministic-enough for the spike. M4's settlement validator will
-        /// replace this with a server-issued seed for trust-boundary reasons:
-        /// a client-chosen seed lets a malicious host reroll its own hand.
+        /// Fallback seed derived from a high-resolution clock. Used ONLY when the
+        /// server-issued seed can't be fetched (e.g. the startMatch function
+        /// isn't deployed yet). A fallback round carries an empty match id and so
+        /// can't settle — M4.3 rejects it. Not for competitive integrity: a
+        /// client-chosen seed lets a malicious host reroll its own hand, which is
+        /// exactly what the server seed prevents (ADR 0007).
         /// </summary>
-        private static ulong NewSeed()
+        private static ulong FallbackSeed()
         {
             return unchecked((ulong)DateTime.UtcNow.Ticks);
         }
 
-        private void SpawnAsHost()
+        /// <summary>
+        /// Host init: fetch a server-issued seed FIRST, then spawn the match with
+        /// it. Fetching before the spawn means that by the time any joiner can
+        /// register, the seed and match id are already set — no gating on a
+        /// late-arriving seed. On failure, degrades to a local fallback seed so
+        /// online play still works before the function is deployed.
+        /// </summary>
+        private async Task SpawnAsHostAsync()
         {
-            ulong seed = NewSeed();
+            ulong seed;
+            string matchId;
+            try
+            {
+                MatchService.IssuedSeed issued = await MatchService.StartMatch(_targetPlayerCount);
+                seed = issued.Seed;
+                matchId = issued.MatchId;
+            }
+            catch (Exception e)
+            {
+                seed = FallbackSeed();
+                matchId = string.Empty;
+                Debug.LogWarning(
+                    "[OnlineMatchController] startMatch failed — using a LOCAL fallback seed. " +
+                    "This round cannot be settled (no server seed). " +
+                    $"{e.GetType().Name}: {e.Message}");
+            }
 
-            NetworkObject obj = _runner!.Spawn(
-                _matchPrefab,
-                inputAuthority: _runner.LocalPlayer);
+            // The runner may have been torn down while we awaited (back-to-lobby).
+            if (_runner == null || !_runner.IsRunning)
+            {
+                return;
+            }
+
+            NetworkObject obj = _runner.Spawn(_matchPrefab, inputAuthority: _runner.LocalPlayer);
             _match = obj.GetComponent<NetworkedMatch>();
             _match.Seed = seed;
+            _match.MatchId = matchId;
             _match.PlayerCount = _targetPlayerCount;
             // Seat the host at index 0, keyed by its own PlayerRef.
             _match.PlayerIds.Set(0, _localPlayerId);
             _match.SeatPlayerRefs.Set(0, _runner.LocalPlayer.PlayerId);
             _match.RegisteredCount = 1;
             Debug.Log(
-                $"[OnlineMatchController] Spawned as HOST. seed={seed}, " +
+                $"[OnlineMatchController] Spawned as HOST. seed={seed}, match={matchId}, " +
                 $"count={_targetPlayerCount}, player0={_localPlayerId}");
         }
 
@@ -284,7 +321,8 @@ namespace Pose.Net
             }
 
             // Host case (HasStateAuthority): we already seated ourselves and set
-            // Seed / PlayerCount in SpawnAsHost. We just wait for seats to fill.
+            // Seed / MatchId / PlayerCount in SpawnAsHostAsync. We just wait for
+            // seats to fill.
         }
 
         private void OnDealReady()
@@ -295,14 +333,12 @@ namespace Pose.Net
                 return;
             }
 
-            // Install the host-side callbacks now rather than in
-            // OnNetworkedMatchSpawned: the validator needs a CurrentState to
-            // validate against, and no rematch can be requested before the
-            // first deal lands anyway.
+            // Install the host-side move validator now rather than in
+            // OnNetworkedMatchSpawned: it needs a CurrentState to validate
+            // against, and no move can be submitted before the first deal lands.
             if (_match!.Object.HasStateAuthority)
             {
                 _match.MoveValidator = ValidateNetworkedMove;
-                _match.NextSeedProvider = NewSeed;
             }
 
             MatchDealt?.Invoke(state);
@@ -322,6 +358,48 @@ namespace Pose.Net
         private void OnRematchVotesChanged()
         {
             RematchVotesChanged?.Invoke();
+
+            // Host drives the re-deal: once every seat has voted, fetch a fresh
+            // server seed and advance the round. Done here (not inside the RPC)
+            // because the seed fetch is asynchronous. The guard prevents a second
+            // fetch while the first is in flight.
+            if (_match != null
+                && _match.Object.HasStateAuthority
+                && _match.AllRematchVotesIn
+                && !_advancingRematch)
+            {
+                _advancingRematch = true;
+                _ = AdvanceRematchAsync();
+            }
+        }
+
+        private async Task AdvanceRematchAsync()
+        {
+            // Use the round's ACTUAL player count (a short-start may have trimmed
+            // it below the original target) so the recorded match matches the deal.
+            int count = _match?.PlayerCount ?? _targetPlayerCount;
+            ulong seed;
+            string matchId;
+            try
+            {
+                MatchService.IssuedSeed issued = await MatchService.StartMatch(count);
+                seed = issued.Seed;
+                matchId = issued.MatchId;
+            }
+            catch (Exception e)
+            {
+                seed = FallbackSeed();
+                matchId = string.Empty;
+                Debug.LogWarning(
+                    "[OnlineMatchController] startMatch (rematch) failed — using a LOCAL fallback seed. " +
+                    $"{e.GetType().Name}: {e.Message}");
+            }
+
+            if (_match != null && _match.Object != null && _match.Object.HasStateAuthority)
+            {
+                _match.AdvanceRound(seed, matchId);
+            }
+            _advancingRematch = false;
         }
 
         private void OnRegisteredCountChanged()

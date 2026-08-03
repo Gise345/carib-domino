@@ -1,6 +1,6 @@
 # ADR 0007 — Match settlement: server-side replay validation + server-issued seed
 
-- **Status:** Accepted (M4.1 landed; M4.2/M4.3 planned)
+- **Status:** Accepted (M4.1 + M4.2 landed; M4.3 planned)
 - **Date:** 2026-08-03
 - **Deciders:** Giselle Johnson (Founder/CTO, INVOVIBE TECH LTD)
 - **Extends:** ADR 0006 (N-player online), `docs/ARCHITECTURE.md` §4 (trust model), §5 (RNG)
