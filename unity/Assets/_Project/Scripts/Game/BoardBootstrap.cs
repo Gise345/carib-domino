@@ -283,10 +283,10 @@ namespace Pose.Game
             StartGame();
         }
 
-        private void OnOnlineRoomActive(string roomCode, int playerCount)
+        private void OnOnlineRoomActive(string roomCode, int playerCount, GameMode mode)
         {
             Debug.Log(
-                $"[BoardBootstrap] Online room active: {roomCode} (count={playerCount}) — " +
+                $"[BoardBootstrap] Online room active: {roomCode} (count={playerCount}, mode={mode}) — " +
                 "starting OnlineMatchController");
 
             if (_networkedMatchPrefab == null)
@@ -319,12 +319,15 @@ namespace Pose.Game
                 PhotonBootstrap.Instance.Runner,
                 localPlayerId,
                 localUid,
-                playerCount);
+                playerCount,
+                mode);
 
-            // Host of a 3+ player room: start a fill-timeout so we don't wait
-            // forever for the last seat. The joiner path (playerCount 0) and 2P
-            // rooms don't arm it — 2P can't start with fewer than 2.
-            if (_onlineMatchController.IsHost && playerCount >= 3)
+            // Host of a 3+ player Cut-Throat room: start a fill-timeout so we
+            // don't wait forever for the last seat. The joiner path (playerCount
+            // 0) and 2P rooms don't arm it — 2P can't start with fewer than 2.
+            // Jamaican Partner is excluded: it needs exactly 4, so a short start
+            // would deal an invalid table.
+            if (_onlineMatchController.IsHost && playerCount >= 3 && mode == GameMode.CutThroat)
             {
                 _waitingTimerRoutine = StartCoroutine(WaitingTimeoutRoutine());
             }
@@ -884,6 +887,9 @@ namespace Pose.Game
                 // Online: opponent's tiles render as backs (we know HOW MANY,
                 // not WHICH). Offline (hot-seat): all hands visible.
                 bool showBacks = _isOnline && !isLocal;
+                // Team games tint each name-plate by team (local team vs the
+                // opposing team); Cut-Throat clears back to white.
+                hv.SetAccentColor(TeamAccentColor(state, p));
                 hv.Setup(p.Value, isCurrent, state.Hands[p], predicate, showBacks);
             }
 
@@ -920,7 +926,7 @@ namespace Pose.Game
                 MatchOutcome? outcome = _rules.GetOutcome(state);
                 if (outcome != null)
                 {
-                    return FormatOutcome(outcome);
+                    return FormatOutcome(outcome, state);
                 }
             }
 
@@ -929,7 +935,7 @@ namespace Pose.Game
                 : L10n.Get("status_waiting_for", state.CurrentPlayer.Value);
         }
 
-        private static string FormatOutcome(MatchOutcome outcome)
+        private string FormatOutcome(MatchOutcome outcome, MatchState state)
         {
             string reasonKey = outcome.Reason switch
             {
@@ -945,11 +951,51 @@ namespace Pose.Game
                 return L10n.Get("status_round_over_draw", reason);
             }
 
+            // Partner games (a team with more than one member) frame the result
+            // from the local player's team perspective rather than naming a single
+            // winner. Cut-Throat (solo teams) keeps the individual-winner text.
+            if (IsTeamGame(state) && outcome.WinningTeamId != null)
+            {
+                bool localWon = state.Partnership.GetTeamOf(_localPlayer) == outcome.WinningTeamId.Value;
+                return L10n.Get(
+                    localWon ? "status_round_over_team_win" : "status_round_over_team_loss",
+                    reason,
+                    outcome.WinnerScore);
+            }
+
             return L10n.Get(
                 "status_round_over_winner",
                 reason,
                 outcome.WinnerId!.Value.Value,
                 outcome.WinnerScore);
+        }
+
+        private static bool IsTeamGame(MatchState state)
+        {
+            foreach (Team team in state.Partnership.Teams)
+            {
+                if (team.Members.Count > 1)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Name-plate tints for partner games, from the local player's view: their
+        // own team reads warm gold, the opposing team cool blue. Cut-Throat has no
+        // teams to distinguish, so it stays plain white.
+        private static readonly Color LocalTeamColor = new(1.0f, 0.85f, 0.35f);
+        private static readonly Color OpponentTeamColor = new(0.45f, 0.80f, 1.0f);
+
+        private Color TeamAccentColor(MatchState state, PlayerId player)
+        {
+            if (!IsTeamGame(state))
+            {
+                return Color.white;
+            }
+            bool sameTeam = state.Partnership.GetTeamOf(player) == state.Partnership.GetTeamOf(_localPlayer);
+            return sameTeam ? LocalTeamColor : OpponentTeamColor;
         }
 
         // ---- Layout scaffolding -------------------------------------------

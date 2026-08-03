@@ -44,6 +44,25 @@ namespace Pose.Game
         private TextMeshProUGUI? _nameLabel;
         private RectTransform? _tilesContainer;
 
+        // Name-plate tint, re-applied on every Setup so it survives a hand
+        // rebuild. White by default; team games (Jamaican Partner) set a per-team
+        // colour via SetAccentColor.
+        private Color _accentColor = Color.white;
+
+        /// <summary>
+        /// Sets the seat's name-plate colour, used to signal team membership in
+        /// partner games. Takes effect on the next <see cref="Setup"/>; pass
+        /// <see cref="Color.white"/> to clear (the Cut-Throat default).
+        /// </summary>
+        public void SetAccentColor(Color color)
+        {
+            _accentColor = color;
+            if (_nameLabel != null)
+            {
+                _nameLabel.color = color;
+            }
+        }
+
         public void Init(HandOrientation handOrientation, TileOrientation tileOrientation)
         {
             if (_layoutBuilt)
@@ -65,6 +84,7 @@ namespace Pose.Game
 
             _nameLabel!.text = isCurrent ? $"{playerName} *" : playerName;
             _nameLabel.fontStyle = isCurrent ? FontStyles.Bold : FontStyles.Normal;
+            _nameLabel.color = _accentColor;
 
             for (int i = _tilesContainer!.childCount - 1; i >= 0; i--)
             {

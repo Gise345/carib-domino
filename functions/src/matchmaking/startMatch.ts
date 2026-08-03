@@ -13,9 +13,14 @@ if (getApps().length === 0) {
  * Input for `startMatch`: just the table size. The seed is NOT accepted from the
  * client — that is the whole point (ADR 0007).
  */
-const StartMatchSchema = z.object({
-  playerCount: z.number().int().min(2).max(4),
-});
+const StartMatchSchema = z
+  .object({
+    playerCount: z.number().int().min(2).max(4),
+    mode: z.enum(['cutthroat', 'partner']).default('cutthroat'),
+  })
+  .refine((v) => v.mode !== 'partner' || v.playerCount === 4, {
+    message: 'Jamaican Partner requires exactly 4 players.',
+  });
 
 /**
  * Callable that issues a server-generated seed for one round and records it, so
@@ -52,6 +57,7 @@ export const startMatch = onCall(
       seed,
       hostUid: uid,
       playerCount: parsed.data.playerCount,
+      mode: parsed.data.mode,
       settled: false,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -60,6 +66,7 @@ export const startMatch = onCall(
       matchId: ref.id,
       hostUid: uid,
       playerCount: parsed.data.playerCount,
+      mode: parsed.data.mode,
     });
 
     return { matchId: ref.id, seed };

@@ -37,7 +37,8 @@ namespace Pose.Net
     /// </summary>
     public sealed class OnlineMatchController : MonoBehaviour
     {
-        private readonly CutThroatRules _rules = new();
+        // Set per deal from the match's GameMode — Cut-Throat or Jamaican Partner.
+        private IRuleEngine _rules = new CutThroatRules();
 
         /// <summary>Fires once when the initial deal completes on this client.</summary>
         public event Action<MatchState>? MatchDealt;
@@ -137,6 +138,7 @@ namespace Pose.Net
         private string _localPlayerId = string.Empty;
         private string _localUid = string.Empty;
         private int _targetPlayerCount = 2;
+        private GameMode _targetMode = GameMode.CutThroat;
         private NetworkedMatch? _match;
 
         private int _lastSeenPlayerCount;
@@ -164,13 +166,18 @@ namespace Pose.Net
             NetworkRunner runner,
             string localPlayerId,
             string localUid,
-            int targetPlayerCount)
+            int targetPlayerCount,
+            GameMode mode)
         {
             _matchPrefab = matchPrefab;
             _runner = runner;
             _localPlayerId = string.IsNullOrEmpty(localPlayerId) ? "anon" : localPlayerId;
             _localUid = localUid;
-            _targetPlayerCount = Mathf.Clamp(targetPlayerCount, 2, NetworkedMatch.MaxPlayers);
+            _targetMode = mode;
+            // Jamaican Partner is always exactly 4 players.
+            _targetPlayerCount = mode == GameMode.Partner
+                ? NetworkedMatch.MaxPlayers
+                : Mathf.Clamp(targetPlayerCount, 2, NetworkedMatch.MaxPlayers);
 
             NetworkedMatch.AnySpawned += OnNetworkedMatchSpawned;
 
@@ -322,7 +329,7 @@ namespace Pose.Net
             string matchId;
             try
             {
-                MatchService.IssuedSeed issued = await MatchService.StartMatch(_targetPlayerCount);
+                MatchService.IssuedSeed issued = await MatchService.StartMatch(_targetPlayerCount, _targetMode);
                 seed = issued.Seed;
                 matchId = issued.MatchId;
             }
@@ -346,6 +353,7 @@ namespace Pose.Net
             _match = obj.GetComponent<NetworkedMatch>();
             _match.Seed = seed;
             _match.MatchId = matchId;
+            _match.GameMode = _targetMode;
             _match.PlayerCount = _targetPlayerCount;
             // Seat the host at index 0, keyed by its own PlayerRef.
             _match.PlayerIds.Set(0, _localPlayerId);
@@ -436,11 +444,12 @@ namespace Pose.Net
             // Use the round's ACTUAL player count (a short-start may have trimmed
             // it below the original target) so the recorded match matches the deal.
             int count = _match?.PlayerCount ?? _targetPlayerCount;
+            GameMode mode = _match?.GameMode ?? _targetMode;
             ulong seed;
             string matchId;
             try
             {
-                MatchService.IssuedSeed issued = await MatchService.StartMatch(count);
+                MatchService.IssuedSeed issued = await MatchService.StartMatch(count, mode);
                 seed = issued.Seed;
                 matchId = issued.MatchId;
             }
@@ -506,7 +515,20 @@ namespace Pose.Net
                 $"[OnlineMatchController] Dealing round {_match.RoundNumber} — " +
                 $"seed={seed}, players=[{string.Join(", ", players)}]");
 
-            Partnership partnership = Partnership.CutThroat(players);
+            GameMode mode = _match.GameMode;
+            Partnership partnership;
+            if (mode == GameMode.Partner)
+            {
+                // Jamaican Partner: seats 0 & 2 vs seats 1 & 3.
+                partnership = Partnership.AlternatingPairs(players[0], players[1], players[2], players[3]);
+                _rules = new JamaicanPartnerRules();
+            }
+            else
+            {
+                partnership = Partnership.CutThroat(players);
+                _rules = new CutThroatRules();
+            }
+
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(count),
                 players,

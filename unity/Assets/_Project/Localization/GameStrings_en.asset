@@ -88,6 +88,14 @@ MonoBehaviour:
     m_Localized: "Round over \u2014 {0}, {1} wins +{2}\r\n"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000012
+    m_Localized: "Round over \u2014 {0}, your team wins +{1}\r\n"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000013
+    m_Localized: "Round over \u2014 {0}, your team loses (\u2212{1})\r\n"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

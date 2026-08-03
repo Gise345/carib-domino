@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Firebase.Functions;
+using Pose.Core;
 
 namespace Pose.Net
 {
@@ -40,7 +41,7 @@ namespace Pose.Net
         /// the caller decides how to degrade (the online controller falls back to
         /// a local seed during the pre-deploy gap).
         /// </summary>
-        public static async Task<IssuedSeed> StartMatch(int playerCount)
+        public static async Task<IssuedSeed> StartMatch(int playerCount, GameMode mode)
         {
             FirebaseFunctions functions = FirebaseFunctions.DefaultInstance
                 ?? throw new InvalidOperationException("Firebase Functions SDK not initialised.");
@@ -48,6 +49,7 @@ namespace Pose.Net
             Dictionary<string, object> payload = new()
             {
                 ["playerCount"] = playerCount,
+                ["mode"] = mode == GameMode.Partner ? "partner" : "cutthroat",
             };
 
             HttpsCallableReference fn = functions.GetHttpsCallable("startMatch");

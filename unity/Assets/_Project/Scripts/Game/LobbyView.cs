@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Pose.Core;
 using Pose.Net;
 using TMPro;
 using UnityEngine;
@@ -48,13 +49,18 @@ namespace Pose.Game
 
         public event Action? PracticeChosen;
 
-        /// <summary>Fires with the room code and, for the creator, the chosen player count (2–4). Joiners pass 0.</summary>
-        public event Action<string, int>? OnlineRoomActive;
+        /// <summary>
+        /// Fires with the room code and, for the creator, the chosen player count
+        /// (2–4) and game mode. Joiners pass count 0 and <see cref="GameMode.CutThroat"/>
+        /// as placeholders — the real values arrive from the host over the network.
+        /// </summary>
+        public event Action<string, int, GameMode>? OnlineRoomActive;
 
-        // The three action buttons (kept around so we can disable / hide them
-        // when transitioning to the connected state).
+        // The action buttons and pickers (kept around so we can disable / hide
+        // them when transitioning to the connected state).
         private GameObject? _practiceButton;
         private GameObject? _createButton;
+        private GameObject? _modePickerRow;
         private GameObject? _countPickerRow;
         private GameObject? _joinButton;
         private GameObject? _joinInputRow;
@@ -124,6 +130,8 @@ namespace Pose.Game
             CreateTitle();
             _practiceButton = CreateButton("Practice vs Bots", OnPracticeClicked);
             _createButton = CreateButton("Create Room", OnCreateClicked);
+            _modePickerRow = CreateModePickerRow();
+            _modePickerRow.SetActive(false);
             _countPickerRow = CreateCountPickerRow();
             _countPickerRow.SetActive(false);
             _joinButton = CreateButton("Join Room", OnJoinClicked);
@@ -283,10 +291,38 @@ namespace Pose.Game
             for (int count = 2; count <= 4; count++)
             {
                 int chosen = count; // capture per-iteration for the closure
-                GameObject btn = CreateButton($"{count}P", () => StartCreate(chosen));
+                GameObject btn = CreateButton($"{count}P", () => StartCreate(chosen, GameMode.CutThroat));
                 btn.transform.SetParent(row.transform, worldPositionStays: false);
                 btn.GetComponent<LayoutElement>().preferredWidth = 120f;
             }
+
+            return row;
+        }
+
+        private GameObject CreateModePickerRow()
+        {
+            GameObject row = new("ModePickerRow", typeof(RectTransform));
+            row.transform.SetParent(transform, worldPositionStays: false);
+
+            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 12f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            LayoutElement rowLayout = row.AddComponent<LayoutElement>();
+            rowLayout.preferredWidth = ButtonWidth;
+            rowLayout.preferredHeight = ButtonHeight;
+
+            GameObject cutThroat = CreateButton("Cut-Throat", OnCutThroatModeClicked);
+            cutThroat.transform.SetParent(row.transform, worldPositionStays: false);
+            cutThroat.GetComponent<LayoutElement>().preferredWidth = 194f;
+
+            GameObject partner = CreateButton("Partner (4)", OnPartnerModeClicked);
+            partner.transform.SetParent(row.transform, worldPositionStays: false);
+            partner.GetComponent<LayoutElement>().preferredWidth = 194f;
 
             return row;
         }
@@ -352,12 +388,39 @@ namespace Pose.Game
             {
                 return;
             }
-            // First click reveals the 2/3/4 player-count picker; the picked
-            // count kicks off the actual create via StartCreate.
-            _countPickerRow!.SetActive(!_countPickerRow.activeSelf);
+            // First click reveals the mode picker (Cut-Throat / Partner). Picking
+            // Cut-Throat then reveals the 2/3/4 count picker; picking Partner
+            // starts a 4-player game straight away.
+            bool show = !_modePickerRow!.activeSelf;
+            _modePickerRow.SetActive(show);
+            if (!show)
+            {
+                _countPickerRow!.SetActive(false);
+            }
         }
 
-        private async void StartCreate(int playerCount)
+        private void OnCutThroatModeClicked()
+        {
+            if (_busy)
+            {
+                return;
+            }
+            // Cut-Throat supports 2–4 players — reveal the count picker.
+            _countPickerRow!.SetActive(true);
+        }
+
+        private void OnPartnerModeClicked()
+        {
+            if (_busy)
+            {
+                return;
+            }
+            // Jamaican Partner is always 4 players — no count to pick.
+            _countPickerRow!.SetActive(false);
+            StartCreate(NetworkedMatch.MaxPlayers, GameMode.Partner);
+        }
+
+        private async void StartCreate(int playerCount, GameMode mode)
         {
             if (_busy)
             {
@@ -377,7 +440,7 @@ namespace Pose.Game
             if (ok)
             {
                 _statusText.text = $"Room {code} — waiting for players…";
-                OnlineRoomActive?.Invoke(code, playerCount);
+                OnlineRoomActive?.Invoke(code, playerCount, mode);
             }
             else
             {
@@ -434,7 +497,8 @@ namespace Pose.Game
                 _codeDisplay!.gameObject.SetActive(true);
                 _codeDisplay.text = code;
                 _statusText.text = $"Connected to room {code}.";
-                OnlineRoomActive?.Invoke(code, 0); // count comes from the host
+                // Count and mode come from the host over the network.
+                OnlineRoomActive?.Invoke(code, 0, GameMode.CutThroat);
             }
             else
             {
@@ -449,6 +513,7 @@ namespace Pose.Game
         {
             _practiceButton!.SetActive(visible);
             _createButton!.SetActive(visible);
+            _modePickerRow!.SetActive(visible && _modePickerRow.activeSelf);
             _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);
             _joinButton!.SetActive(visible);
             _joinInputRow!.SetActive(visible && _joinInputRow.activeSelf);

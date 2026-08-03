@@ -81,6 +81,14 @@ namespace Pose.Net
         /// </summary>
         [Networked] public NetworkString<_32> MatchId { get; set; }
 
+        /// <summary>
+        /// The ruleset this match is played under (M3.8). Set by the host at spawn
+        /// and replicated so every client deals with the matching rules +
+        /// partnership. The server independently records it at startMatch time, so
+        /// settlement never trusts this value (ADR 0009).
+        /// </summary>
+        [Networked] public GameMode GameMode { get; set; }
+
         [Networked, Capacity(MaxPlayers)] public NetworkArray<NetworkString<_32>> PlayerIds => default;
         [Networked, Capacity(MaxPlayers)] public NetworkArray<int> SeatPlayerRefs => default;
         [Networked] public int PlayerCount { get; set; }
