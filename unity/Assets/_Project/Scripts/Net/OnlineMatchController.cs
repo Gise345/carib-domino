@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 using Fusion;
 using Pose.Core;
 using UnityEngine;
+// Both Fusion and Pose.Core declare a GameMode; this file only means the
+// gameplay ruleset, so bind the bare name to ours (Fusion's is used only in
+// PhotonBootstrap).
+using GameMode = Pose.Core.GameMode;
 
 namespace Pose.Net
 {

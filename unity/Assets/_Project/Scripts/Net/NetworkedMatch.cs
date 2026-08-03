@@ -3,6 +3,9 @@ using System;
 using Fusion;
 using Pose.Core;
 using UnityEngine;
+// Disambiguate from Fusion.GameMode — here GameMode always means the gameplay
+// ruleset (Pose.Core.GameMode).
+using GameMode = Pose.Core.GameMode;
 
 namespace Pose.Net
 {
