@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Dev tool (NOT shipped): generates the cross-language parity fixtures that
+    keep the TypeScript settlement rule engine (functions/src/rules) in lockstep
+    with the canonical C# engine (unity/.../Core). It compiles the Unity-free
+    Pose.Core sources directly and emits JSON the Vitest suite replays.
+
+    Run it via dotnet run on this project, passing an output directory arg
+    (functions/test/fixtures). See functions/test/fixtures/README.md and ADR 0007.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Pose.Tools.ReplayFixtures</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The canonical engine. Core is Unity-free by design, so it compiles here. -->
+    <Compile Include="../../unity/Assets/_Project/Scripts/Core/State/**/*.cs" />
+    <Compile Include="../../unity/Assets/_Project/Scripts/Core/Rules/**/*.cs" />
+    <Compile Include="../../unity/Assets/_Project/Scripts/Core/Utils/**/*.cs" />
+  </ItemGroup>
+
+</Project>
