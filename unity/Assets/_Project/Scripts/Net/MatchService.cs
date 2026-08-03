@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Firebase.Functions;
@@ -52,18 +53,20 @@ namespace Pose.Net
             HttpsCallableReference fn = functions.GetHttpsCallable("startMatch");
             HttpsCallableResult result = await fn.CallAsync(payload);
 
-            if (result.Data is not IDictionary<object, object> data)
+            // The Firebase Functions Unity SDK returns a callable's object result
+            // as a Dictionary<string, object> — index it via the non-generic
+            // IDictionary so the exact concrete map type doesn't matter.
+            if (result.Data is not IDictionary data)
             {
-                throw new InvalidOperationException("startMatch returned an unexpected payload shape.");
+                throw new InvalidOperationException(
+                    $"startMatch returned an unexpected payload shape: {result.Data?.GetType().Name ?? "null"}.");
             }
 
-            string matchId = data.TryGetValue("matchId", out object? idObj) && idObj is string id
-                ? id
-                : throw new InvalidOperationException("startMatch response missing matchId.");
+            string matchId = data["matchId"] as string
+                ?? throw new InvalidOperationException("startMatch response missing matchId.");
 
-            string seedStr = data.TryGetValue("seed", out object? seedObj) && seedObj is string s
-                ? s
-                : throw new InvalidOperationException("startMatch response missing seed.");
+            string seedStr = data["seed"] as string
+                ?? throw new InvalidOperationException("startMatch response missing seed.");
 
             if (!ulong.TryParse(seedStr, out ulong seed))
             {
