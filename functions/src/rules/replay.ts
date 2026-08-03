@@ -17,9 +17,12 @@ import { Tile } from './tile';
 export interface ReplayMove {
   readonly playerIndex: number;
   readonly kind: 'place' | 'pass' | 'resign';
-  readonly low?: number;
-  readonly high?: number;
-  readonly end?: ChainEnd;
+  // `| undefined` (not just `?`) so a Zod-parsed payload — where absent optional
+  // fields surface as explicit `undefined` under exactOptionalPropertyTypes — is
+  // assignable here.
+  readonly low?: number | undefined;
+  readonly high?: number | undefined;
+  readonly end?: ChainEnd | undefined;
 }
 
 /**

@@ -111,6 +111,38 @@ namespace Pose.Net
         private int _lastRematchVoteMask;
         private int _lastRegisteredCount;
 
+        // Host-local: Firebase uid per seat, self-reported by each player at
+        // registration (host at seat 0; joiners via RPC_RegisterPlayer). Used
+        // only by the host to attribute settlement results (M4.3). NOT networked
+        // — only the host submits. A client reports its OWN seat's uid; a
+        // modified client could report a false uid, a gap a server-side roster
+        // closes (ADR 0007).
+        private readonly string[] _seatUids = new string[MaxPlayers];
+
+        /// <summary>Host-side: records the Firebase uid a seat reported. No-op off the host.</summary>
+        public void RecordSeatUid(int seat, string uid)
+        {
+            if (Object.HasStateAuthority && seat >= 0 && seat < MaxPlayers)
+            {
+                _seatUids[seat] = uid ?? string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Host-side: the reported Firebase uids for the current <see cref="PlayerCount"/>
+        /// seats (empty string where unknown). Used to attribute settlement results.
+        /// </summary>
+        public string[] HostSeatUids()
+        {
+            int n = Mathf.Clamp(PlayerCount, 0, MaxPlayers);
+            string[] result = new string[n];
+            for (int i = 0; i < n; i++)
+            {
+                result[i] = _seatUids[i] ?? string.Empty;
+            }
+            return result;
+        }
+
         /// <summary>True once every seated player has voted for a rematch.</summary>
         public bool AllRematchVotesIn =>
             PlayerCount > 0 && (RematchVoteMask & SeatMask(PlayerCount)) == SeatMask(PlayerCount);
@@ -161,7 +193,7 @@ namespace Pose.Net
         /// so every client can later identify its own seat.
         /// </summary>
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-        public void RPC_RegisterPlayer(string playerId, RpcInfo info = default)
+        public void RPC_RegisterPlayer(string playerId, string uid, RpcInfo info = default)
         {
             if (!Object.HasStateAuthority)
             {
@@ -191,6 +223,7 @@ namespace Pose.Net
 
             PlayerIds.Set(seat, playerId);
             SeatPlayerRefs.Set(seat, info.Source.PlayerId);
+            RecordSeatUid(seat, uid);
             RegisteredCount = seat + 1;
             Debug.Log($"[NetworkedMatch] Seated \"{playerId}\" at index {seat} ({RegisteredCount}/{PlayerCount}).");
 

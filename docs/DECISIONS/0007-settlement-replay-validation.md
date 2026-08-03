@@ -1,6 +1,6 @@
 # ADR 0007 — Match settlement: server-side replay validation + server-issued seed
 
-- **Status:** Accepted (M4.1 + M4.2 landed; M4.3 planned)
+- **Status:** Accepted (M4.1 + M4.2 + M4.3 landed)
 - **Date:** 2026-08-03
 - **Deciders:** Giselle Johnson (Founder/CTO, INVOVIBE TECH LTD)
 - **Extends:** ADR 0006 (N-player online), `docs/ARCHITECTURE.md` §4 (trust model), §5 (RNG)
@@ -49,15 +49,30 @@ the seed. The host distributes the returned seed via the existing Photon
 `NetworkedMatch.Seed` field; `OnlineMatchController.NewSeed` / `NextSeedProvider`
 (the seam left in ADR 0005/0006) are replaced by the fetched value.
 
-### M4.3 — settlement (planned)
+### M4.3 — settlement (landed)
 
-`submitRoundLog` (replacing the trusting `submitMatchResult`) takes the match id
-+ the client's move log, looks up **the server's own stored seed** (never the
-client's), replays via the M4.1 engine, and writes stats for the verified
-caller — rejecting logs whose moves are illegal, out of turn, or don't finish
-the round. Because the server owns the seed, the client can lie about neither the
-seed nor the outcome. **Offline practice stops writing competitive stats**
-entirely (no move log, no integrity guarantee — it's practice).
+`submitRoundLog` **replaces** the trusting `submitMatchResult` (which is deleted
+— leaving a client-trusting stats writer deployed would itself be an
+inflation hole). It takes the match id + players + per-seat uids + the move log,
+looks up **the server's own stored seed** (never the client's), replays via the
+M4.1 engine, writes each seat's recomputed result, and marks the match settled —
+all in one transaction (idempotent; rejects logs that are illegal, out of turn,
+or don't finish the round). Because the server owns the seed and recomputes the
+outcome, the client can lie about neither the seed, the result, nor the score.
+**Offline practice no longer writes stats** — no move log, no integrity
+guarantee, it's practice.
+
+**Who submits, and the residual trust gap.** Only the **host** submits (it is
+the one party bound to the match server-side — `startMatch` recorded its uid).
+The host reports the seat→uid mapping, gathered from each joiner self-reporting
+its uid at registration (`RPC_RegisterPlayer`). So the *outcome and score* are
+fully server-authoritative, but the *attribution of a result to a uid* still
+trusts the host/clients. A modified host could misattribute a seat's result to a
+different uid, and a modified joiner could report a false uid for its own seat.
+Closing this needs a server-side roster — each client authenticating its seat to
+the server directly — which is deferred to a matchmaking/anti-cheat slice and
+**must land before wallets/real ELO**. Until then, the exposure is stats only, on
+a modified client.
 
 ### Randomness: trusted server RNG now; provably-fair later
 

@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Fusion;
@@ -134,12 +135,14 @@ namespace Pose.Net
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
+        private string _localUid = string.Empty;
         private int _targetPlayerCount = 2;
         private NetworkedMatch? _match;
 
         private int _lastSeenPlayerCount;
         private bool _opponentLeftFired;
         private bool _advancingRematch;
+        private bool _settlementSubmitted;
 
         /// <summary>
         /// The server-issued match id for the current round, or empty if the seed
@@ -151,11 +154,22 @@ namespace Pose.Net
         /// The room size chosen at Create time (2–4). Used only when this client
         /// is the host; joiners read the count from the replicated match.
         /// </param>
-        public void Setup(NetworkObject matchPrefab, NetworkRunner runner, string localPlayerId, int targetPlayerCount)
+        /// <param name="localUid">
+        /// This client's Firebase uid, reported to the host at registration so
+        /// settlement (M4.3) can attribute this seat's result. Empty is tolerated
+        /// (that seat simply won't have stats written).
+        /// </param>
+        public void Setup(
+            NetworkObject matchPrefab,
+            NetworkRunner runner,
+            string localPlayerId,
+            string localUid,
+            int targetPlayerCount)
         {
             _matchPrefab = matchPrefab;
             _runner = runner;
             _localPlayerId = string.IsNullOrEmpty(localPlayerId) ? "anon" : localPlayerId;
+            _localUid = localUid;
             _targetPlayerCount = Mathf.Clamp(targetPlayerCount, 2, NetworkedMatch.MaxPlayers);
 
             NetworkedMatch.AnySpawned += OnNetworkedMatchSpawned;
@@ -293,6 +307,7 @@ namespace Pose.Net
             // Seat the host at index 0, keyed by its own PlayerRef.
             _match.PlayerIds.Set(0, _localPlayerId);
             _match.SeatPlayerRefs.Set(0, _runner.LocalPlayer.PlayerId);
+            _match.RecordSeatUid(0, _localUid);
             _match.RegisteredCount = 1;
             Debug.Log(
                 $"[OnlineMatchController] Spawned as HOST. seed={seed}, match={matchId}, " +
@@ -317,7 +332,7 @@ namespace Pose.Net
                 // We're a joining client — claim a seat on the host.
                 Debug.Log(
                     $"[OnlineMatchController] Detected host match, registering as \"{_localPlayerId}\".");
-                _match.RPC_RegisterPlayer(_localPlayerId);
+                _match.RPC_RegisterPlayer(_localPlayerId, _localUid);
             }
 
             // Host case (HasStateAuthority): we already seated ourselves and set
@@ -456,6 +471,7 @@ namespace Pose.Net
                 new SeededRandomSource(seed));
 
             CurrentState = state;
+            _settlementSubmitted = false; // fresh round — allow one settlement submit
             LocalPlayerIndex = FindLocalSeat(count);
             if (LocalPlayerIndex < 0)
             {
@@ -575,6 +591,67 @@ namespace Pose.Net
                         $"[OnlineMatchController] move {i} apply failed " +
                         $"(possible desync): {e.Message}");
                 }
+            }
+
+            TrySubmitSettlement();
+        }
+
+        /// <summary>
+        /// When the round finishes, the host submits the move log for server-side
+        /// settlement (M4.3). Only the host submits (the one seat the server can
+        /// bind to the match), only once per round, and only for a server-issued
+        /// match (a fallback round has no match id and can't settle).
+        /// </summary>
+        private void TrySubmitSettlement()
+        {
+            if (_match == null || CurrentState == null || !CurrentState.IsOver || _settlementSubmitted)
+            {
+                return;
+            }
+            if (!_match.Object.HasStateAuthority)
+            {
+                return; // only the host submits
+            }
+            string matchId = _match.MatchId.ToString();
+            if (string.IsNullOrEmpty(matchId))
+            {
+                Debug.LogWarning("[OnlineMatchController] Round has no server match id — skipping settlement.");
+                return;
+            }
+
+            _settlementSubmitted = true;
+
+            List<string> players = new(CurrentState.Players.Count);
+            foreach (PlayerId p in CurrentState.Players)
+            {
+                players.Add(p.Value);
+            }
+            string[] seatUids = _match.HostSeatUids();
+            List<NetworkedMove> moves = new(_match.MoveCount);
+            for (int i = 0; i < _match.MoveCount; i++)
+            {
+                moves.Add(_match.Moves.Get(i));
+            }
+
+            _ = SubmitSettlementAsync(matchId, players, seatUids, moves);
+        }
+
+        private static async Task SubmitSettlementAsync(
+            string matchId,
+            List<string> players,
+            IReadOnlyList<string> seatUids,
+            List<NetworkedMove> moves)
+        {
+            try
+            {
+                await SettlementService.SubmitRoundLog(matchId, players, seatUids, moves);
+                Debug.Log($"[OnlineMatchController] Settlement submitted for match {matchId}.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError(
+                    $"[OnlineMatchController] Settlement submit failed for {matchId}: " +
+                    $"{e.GetType().Name}: {e.Message}");
             }
         }
 

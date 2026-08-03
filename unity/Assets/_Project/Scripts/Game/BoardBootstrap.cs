@@ -80,11 +80,6 @@ namespace Pose.Game
         // applying moves locally.
         private bool _isOnline;
 
-        // Flag so we only fire the settlement Cloud Function once per round,
-        // not on every subsequent Render call that observes the same finished
-        // state.
-        private bool _resultSubmitted;
-
         // Latched when the online opponent leaves the Photon session. The
         // opponent-left overlay outranks the round-over overlay: there is
         // nobody left to rematch with, so the only offer is back-to-lobby.
@@ -203,16 +198,6 @@ namespace Pose.Game
             go.AddComponent<ProfileService>();
         }
 
-        private static void EnsureStatsService()
-        {
-            if (StatsService.Instance != null)
-            {
-                return;
-            }
-            GameObject go = new("StatsService");
-            go.AddComponent<StatsService>();
-        }
-
         private void OnProfileReady()
         {
             UnsubscribeFromProfile();
@@ -220,9 +205,9 @@ namespace Pose.Game
             Debug.Log(
                 $"[BoardBootstrap] Profile ready: \"{profile.DisplayName}\" " +
                 $"({(ProfileService.Instance.IsNewProfile ? "new" : "returning")} player)");
-            // Stats submission goes through a Cloud Function; ensure the
-            // client-side StatsService exists before the round ends.
-            EnsureStatsService();
+            // Stats are settled server-side from the online round log (M4.3);
+            // there is no client-side stats submission to set up here, and
+            // offline practice no longer counts toward stats.
             // M3.2: Photon connection is no longer auto-started here. The
             // LobbyView (built in Start()) drives Create / Join when the
             // player chooses an online mode.
@@ -319,6 +304,7 @@ namespace Pose.Game
             }
 
             string localPlayerId = ProfileService.Instance?.Profile?.DisplayName ?? "anon";
+            string localUid = FirebaseBootstrap.Instance?.Uid ?? string.Empty;
 
             GameObject go = new("OnlineMatchController");
             _onlineMatchController = go.AddComponent<OnlineMatchController>();
@@ -332,6 +318,7 @@ namespace Pose.Game
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
                 localPlayerId,
+                localUid,
                 playerCount);
 
             // Host of a 3+ player room: start a fill-timeout so we don't wait
@@ -383,7 +370,6 @@ namespace Pose.Game
             // state and take the overlay down.
             _state = state;
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
-            _resultSubmitted = false;
             TileView.ClearSelection();
             _endOverlay?.Hide();
             Render();
@@ -509,7 +495,6 @@ namespace Pose.Game
         /// </summary>
         private void DealOfflineRound()
         {
-            _resultSubmitted = false;
             _firstBotMove = true;
             TileView.ClearSelection();
             _endOverlay?.Hide();
@@ -907,19 +892,10 @@ namespace Pose.Game
                 passEnabled: isLocalTurn && currentPlayerHasPass,
                 isOver: state.IsOver);
 
-            // Once per round, when state.IsOver becomes true, submit the
-            // result to the settlement Cloud Function. The flag avoids
-            // resubmitting on subsequent Renders that may fire for the same
-            // finished state (e.g. drag-end animations).
-            //
-            // Online rounds skip this — M2.3's submit path is single-player
-            // only; the online settlement validator (M4) takes its inputs
-            // from the move log + seed, not the client.
-            if (state.IsOver && !_resultSubmitted && !_isOnline)
-            {
-                _resultSubmitted = true;
-                SubmitRoundResultIfPossible(state);
-            }
+            // Stats are settled server-side (M4.3): the online host submits the
+            // round log to submitRoundLog, which replays it and writes the
+            // recomputed result. There is no client-side stats write here, and
+            // offline practice deliberately does not count toward stats.
 
             // Present (or dismiss) the end-of-round / opponent-left overlay.
             // Kept after the status/hand render so the board behind the
@@ -935,22 +911,6 @@ namespace Pose.Game
             // grace, then auto-submit. The Pass button itself remains 1-tap
             // since pass is only legal when there's no alternative anyway.
             ScheduleAutoPassIfNeeded();
-        }
-
-        private void SubmitRoundResultIfPossible(MatchState state)
-        {
-            MatchOutcome? outcome = _rules.GetOutcome(state);
-            if (outcome == null)
-            {
-                return;
-            }
-            if (StatsService.Instance == null)
-            {
-                Debug.LogWarning(
-                    "[BoardBootstrap] StatsService missing — skipping result submit.");
-                return;
-            }
-            StatsService.Instance.SubmitRoundResult(outcome, HumanPlayer);
         }
 
         private string FormatStatus(MatchState state, bool isLocalTurn)
@@ -1479,7 +1439,6 @@ namespace Pose.Game
             _isOnline = false;
             _opponentLeft = false;
             _localPlayer = HumanPlayer;
-            _resultSubmitted = false;
             _firstBotMove = true;
             _endOverlay?.Hide();
             TileView.ClearSelection();

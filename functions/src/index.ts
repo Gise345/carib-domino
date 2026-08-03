@@ -5,8 +5,10 @@ import { logger } from 'firebase-functions/v2';
 // pick a loaded hand. See ADR 0007.
 export { startMatch } from './matchmaking/startMatch';
 
-// Settlement pipeline (M2.3 stub; full replay validation in M4.3).
-export { submitMatchResult } from './settlement/submitMatchResult';
+// Settlement (M4.3): the server replays the round from its issued seed + the
+// submitted move log and writes the recomputed result. Replaces the old
+// submitMatchResult, which trusted the client's claimed outcome. ADR 0007.
+export { submitRoundLog } from './settlement/submitRoundLog';
 
 /**
  * Health check callable function — returns server time and a static OK marker.
