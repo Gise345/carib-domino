@@ -69,4 +69,27 @@ export class Partnership {
     }
     return new Partnership(teams);
   }
+
+  /**
+   * Jamaican Partner: positions 0+2 form team_a, positions 1+3 form team_b
+   * (partners across the table). All four players must be distinct. Port of
+   * `Partnership.AlternatingPairs`.
+   */
+  static alternatingPairs(p1: PlayerId, p2: PlayerId, p3: PlayerId, p4: PlayerId): Partnership {
+    const seen = new Set<PlayerId>([p1]);
+    if (!add(seen, p2) || !add(seen, p3) || !add(seen, p4)) {
+      throw new Error('AlternatingPairs requires four distinct players.');
+    }
+    const teamA: Team = { id: 'team_a', members: [p1, p3] };
+    const teamB: Team = { id: 'team_b', members: [p2, p4] };
+    return new Partnership([teamA, teamB]);
+  }
+}
+
+function add(set: Set<PlayerId>, value: PlayerId): boolean {
+  if (set.has(value)) {
+    return false;
+  }
+  set.add(value);
+  return true;
 }

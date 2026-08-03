@@ -2,11 +2,14 @@ import { ChainEnd } from './chainEnd';
 import { cutThroatDoubleSix } from './dealConfig';
 import { CutThroatRules } from './cutThroatRules';
 import { deal } from './dealer';
+import { GameMode } from './gameMode';
 import { PlayerId } from './ids';
+import { JamaicanPartnerRules } from './jamaicanPartnerRules';
 import { MatchOutcome } from './matchOutcome';
 import { Move, passMove, placeMove, resignMove } from './move';
 import { Partnership } from './partnership';
 import { SeededRandomSource } from './prng';
+import { RuleEngine } from './ruleEngine';
 import { Tile } from './tile';
 
 /**
@@ -26,20 +29,45 @@ export interface ReplayMove {
 }
 
 /**
- * Everything the server needs to reconstruct a Cut-Throat round: the (server-
- * issued) seed as a decimal string, the players in seat order, and the move log.
+ * Everything the server needs to reconstruct a round: the (server-issued) seed
+ * as a decimal string, the game mode (which selects ruleset + partnership), the
+ * players in seat order, and the move log.
  */
 export interface ReplayInput {
   readonly seed: string;
+  readonly mode: GameMode;
   readonly players: readonly PlayerId[];
   readonly moves: readonly ReplayMove[];
 }
 
 /**
+ * The partnership for a mode: solo teams for Cut-Throat, alternating pairs
+ * (0+2 / 1+3) for Jamaican Partner. The mode is server-recorded, so the caller
+ * can't change the outcome by lying about it (ADR 0009).
+ */
+export function partnershipFor(mode: GameMode, players: readonly PlayerId[]): Partnership {
+  if (mode === 'partner') {
+    if (players.length !== 4) {
+      throw new Error('Jamaican Partner requires exactly 4 players.');
+    }
+    const [a, b, c, d] = players;
+    if (a === undefined || b === undefined || c === undefined || d === undefined) {
+      throw new Error('Jamaican Partner requires 4 named players.');
+    }
+    return Partnership.alternatingPairs(a, b, c, d);
+  }
+  return Partnership.cutThroat(players);
+}
+
+function ruleEngineFor(mode: GameMode, maxPip: number): RuleEngine {
+  return mode === 'partner' ? new JamaicanPartnerRules(maxPip) : new CutThroatRules(maxPip);
+}
+
+/**
  * Deals from the seed and applies every logged move through the canonical rule
- * engine, returning the authoritative outcome. Throws if any move is illegal,
- * out of turn, or references a bad seat — i.e. the submitted log could not have
- * happened — or if the log doesn't actually finish the round.
+ * engine for the given mode, returning the authoritative outcome. Throws if any
+ * move is illegal, out of turn, or references a bad seat — i.e. the submitted
+ * log could not have happened — or if the log doesn't finish the round.
  *
  * This is the trust anchor for settlement: the server never believes a claimed
  * result, it recomputes one from raw inputs (ADR 0007).
@@ -47,11 +75,11 @@ export interface ReplayInput {
 export function replayRound(input: ReplayInput): MatchOutcome {
   const playerCount = input.players.length;
   const config = cutThroatDoubleSix(playerCount);
-  const partnership = Partnership.cutThroat(input.players);
+  const partnership = partnershipFor(input.mode, input.players);
   const rng = new SeededRandomSource(BigInt(input.seed));
 
   let state = deal(config, input.players, partnership, rng);
-  const rules = new CutThroatRules(config.maxPip);
+  const rules = ruleEngineFor(input.mode, config.maxPip);
 
   for (const [i, m] of input.moves.entries()) {
     state = rules.apply(state, toMove(m, input.players, i));

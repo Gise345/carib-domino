@@ -67,13 +67,16 @@ describe('CutThroatRules basics', () => {
 
 describe('replayRound validation', () => {
   it('throws when the log does not finish the round', () => {
-    expect(() => replayRound({ seed: '42', players: ['p0', 'p1'], moves: [] })).toThrow();
+    expect(() =>
+      replayRound({ seed: '42', mode: 'cutthroat', players: ['p0', 'p1'], moves: [] }),
+    ).toThrow();
   });
 
   it('throws on an out-of-range seat', () => {
     expect(() =>
       replayRound({
         seed: '42',
+        mode: 'cutthroat',
         players: ['p0', 'p1'],
         moves: [{ playerIndex: 5, kind: 'pass' }],
       }),
@@ -85,6 +88,7 @@ describe('replayRound validation', () => {
     expect(() =>
       replayRound({
         seed: '42',
+        mode: 'cutthroat',
         players: ['p0', 'p1'],
         moves: [{ playerIndex: 0, kind: 'place', low: 0, high: 1, end: 'left' }],
       }),

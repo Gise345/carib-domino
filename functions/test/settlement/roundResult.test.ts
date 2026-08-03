@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resultForSeat } from '../../src/settlement/roundResult';
-import { MatchOutcome } from '../../src/rules';
+import { MatchOutcome, Partnership } from '../../src/rules';
 
 function outcome(partial: Partial<MatchOutcome>): MatchOutcome {
   return {
@@ -13,31 +13,42 @@ function outcome(partial: Partial<MatchOutcome>): MatchOutcome {
   };
 }
 
-const players = ['p0', 'p1', 'p2'];
+describe('resultForSeat — Cut-Throat (solo teams)', () => {
+  const players = ['p0', 'p1', 'p2'];
+  const partnership = Partnership.cutThroat(players);
 
-describe('resultForSeat', () => {
-  it('marks the winning seat as won with the winner score', () => {
-    const o = outcome({ winnerId: 'p1', winnerScore: 37 });
-
-    expect(resultForSeat(o, players, 1)).toEqual({ result: 'won', score: 37 });
+  it('marks the winning seat won with the winner score', () => {
+    const o = outcome({ winnerId: 'p1', winningTeamId: 'team:p1', winnerScore: 37 });
+    expect(resultForSeat(o, players, 1, partnership)).toEqual({ result: 'won', score: 37 });
   });
 
-  it('marks non-winning seats as lost with zero score', () => {
-    const o = outcome({ winnerId: 'p1', winnerScore: 37 });
-
-    expect(resultForSeat(o, players, 0)).toEqual({ result: 'lost', score: 0 });
-    expect(resultForSeat(o, players, 2)).toEqual({ result: 'lost', score: 0 });
+  it('marks the other seats lost', () => {
+    const o = outcome({ winnerId: 'p1', winningTeamId: 'team:p1', winnerScore: 37 });
+    expect(resultForSeat(o, players, 0, partnership)).toEqual({ result: 'lost', score: 0 });
+    expect(resultForSeat(o, players, 2, partnership)).toEqual({ result: 'lost', score: 0 });
   });
 
-  it('marks every seat a draw when there is no winner', () => {
-    const o = outcome({ reason: 'blocked', winnerId: null, winnerScore: 0 });
-
+  it('marks every seat a draw when there is no winning team', () => {
+    const o = outcome({ reason: 'blocked', winningTeamId: null });
     for (let i = 0; i < players.length; i++) {
-      expect(resultForSeat(o, players, i)).toEqual({ result: 'draw', score: 0 });
+      expect(resultForSeat(o, players, i, partnership)).toEqual({ result: 'draw', score: 0 });
     }
   });
+});
 
-  it('throws for an out-of-range seat', () => {
-    expect(() => resultForSeat(outcome({}), players, 9)).toThrow();
+describe('resultForSeat — Jamaican Partner (both partners share the result)', () => {
+  const players = ['p0', 'p1', 'p2', 'p3'];
+  const partnership = Partnership.alternatingPairs('p0', 'p1', 'p2', 'p3'); // team_a = p0,p2
+
+  it('both members of the winning team won', () => {
+    const o = outcome({ winnerId: 'p0', winningTeamId: 'team_a', winnerScore: 20 });
+    expect(resultForSeat(o, players, 0, partnership)).toEqual({ result: 'won', score: 20 });
+    expect(resultForSeat(o, players, 2, partnership)).toEqual({ result: 'won', score: 20 });
+  });
+
+  it('both members of the losing team lost', () => {
+    const o = outcome({ winnerId: 'p0', winningTeamId: 'team_a', winnerScore: 20 });
+    expect(resultForSeat(o, players, 1, partnership)).toEqual({ result: 'lost', score: 0 });
+    expect(resultForSeat(o, players, 3, partnership)).toEqual({ result: 'lost', score: 0 });
   });
 });

@@ -72,32 +72,49 @@ namespace Pose.Tools.ReplayFixtures
             Random chooser = new(20260803);
             List<object> replays = new();
 
-            // A spread of normal games across 2/3/4 players and many deals, so
-            // domino / block / draw endings all show up.
+            // Cut-Throat: a spread of normal games across 2/3/4 players and many
+            // deals, so domino / block / draw endings all show up.
             foreach (int playerCount in new[] { 2, 3, 4 })
             {
                 for (int g = 0; g < 40; g++)
                 {
                     ulong seed = unchecked((ulong)(0x100000000UL + (uint)chooser.Next()) * (ulong)(playerCount * 31 + g + 1));
-                    replays.Add(PlayGame(seed, playerCount, chooser, forceResignAfter: -1));
+                    replays.Add(PlayGame(seed, playerCount, chooser, forceResignAfter: -1, "cutthroat"));
                 }
             }
 
-            // A batch of forced-resign games (2P and 3+P branches).
+            // Cut-Throat forced-resign games (2P and 3+P branches).
             foreach (int playerCount in new[] { 2, 3, 4 })
             {
                 for (int g = 0; g < 8; g++)
                 {
                     ulong seed = unchecked((ulong)(0x900000000UL + (uint)chooser.Next()) * (ulong)(playerCount * 17 + g + 1));
                     int resignAfter = chooser.Next(1, 8);
-                    replays.Add(PlayGame(seed, playerCount, chooser, resignAfter));
+                    replays.Add(PlayGame(seed, playerCount, chooser, resignAfter, "cutthroat"));
                 }
+            }
+
+            // Jamaican Partner (4 players, 2 teams): normal games — team domino /
+            // team block / cross-team draw all show up.
+            for (int g = 0; g < 40; g++)
+            {
+                ulong seed = unchecked((ulong)(0xA00000000UL + (uint)chooser.Next()) * (ulong)(g + 7));
+                replays.Add(PlayGame(seed, 4, chooser, forceResignAfter: -1, "partner"));
+            }
+
+            // Jamaican Partner forced-resign games (a resign loses the whole team).
+            for (int g = 0; g < 12; g++)
+            {
+                ulong seed = unchecked((ulong)(0xB00000000UL + (uint)chooser.Next()) * (ulong)(g + 13));
+                int resignAfter = chooser.Next(1, 8);
+                replays.Add(PlayGame(seed, 4, chooser, resignAfter, "partner"));
             }
 
             return new { replays };
         }
 
-        private static object PlayGame(ulong seed, int playerCount, Random chooser, int forceResignAfter)
+        private static object PlayGame(
+            ulong seed, int playerCount, Random chooser, int forceResignAfter, string mode)
         {
             PlayerId[] players = new PlayerId[playerCount];
             for (int i = 0; i < playerCount; i++)
@@ -106,9 +123,13 @@ namespace Pose.Tools.ReplayFixtures
             }
 
             DealConfig config = DealConfig.CutThroatDoubleSix(playerCount);
-            Partnership partnership = Partnership.CutThroat(players);
+            Partnership partnership = mode == "partner"
+                ? Partnership.AlternatingPairs(players[0], players[1], players[2], players[3])
+                : Partnership.CutThroat(players);
+            IRuleEngine rules = mode == "partner"
+                ? new JamaicanPartnerRules(config.MaxPip)
+                : new CutThroatRules(config.MaxPip);
             MatchState state = Dealer.Deal(config, players, partnership, new SeededRandomSource(seed));
-            CutThroatRules rules = new(config.MaxPip);
 
             List<object> moves = new();
             int applied = 0;
@@ -135,6 +156,7 @@ namespace Pose.Tools.ReplayFixtures
             return new
             {
                 seed = seed.ToString(CultureInfo.InvariantCulture),
+                mode,
                 players = PlayerValues(players),
                 moves,
                 expected = EncodeOutcome(outcome, players),

@@ -3,7 +3,7 @@ import { logger } from 'firebase-functions/v2';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Transaction } from 'firebase-admin/firestore';
 import { z } from 'zod';
-import { replayRound, ReplayMove } from '../rules';
+import { GameMode, partnershipFor, replayRound, ReplayMove } from '../rules';
 import { resultForSeat } from './roundResult';
 
 if (getApps().length === 0) {
@@ -86,17 +86,22 @@ export const submitRoundLog = onCall(
       if (typeof seed !== 'string') {
         throw new HttpsError('failed-precondition', 'Match has no recorded seed.');
       }
+      // The mode is read from the SERVER's match doc, never the client — so the
+      // client can't change the settled outcome by lying about the ruleset
+      // (ADR 0009). Docs written before modes existed default to Cut-Throat.
+      const mode: GameMode = data['mode'] === 'partner' ? 'partner' : 'cutthroat';
 
       // Recompute the authoritative outcome. A bad log means the submission
       // could not have happened — reject it rather than write anything.
-      const outcome = replay(seed, players, moves);
+      const outcome = replay(seed, mode, players, moves);
+      const partnership = partnershipFor(mode, players);
 
       for (let i = 0; i < players.length; i++) {
         const seatUid = seatUids[i];
         if (seatUid === undefined || seatUid === '') {
           continue;
         }
-        const { result, score } = resultForSeat(outcome, players, i);
+        const { result, score } = resultForSeat(outcome, players, i, partnership);
         txn.set(db.collection('stats').doc(seatUid), buildStatsUpdate(result, score), {
           merge: true,
         });
@@ -111,9 +116,9 @@ export const submitRoundLog = onCall(
   },
 );
 
-function replay(seed: string, players: string[], moves: ReplayMove[]) {
+function replay(seed: string, mode: GameMode, players: string[], moves: ReplayMove[]) {
   try {
-    return replayRound({ seed, players, moves });
+    return replayRound({ seed, mode, players, moves });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'replay failed';
     throw new HttpsError('invalid-argument', `Round log did not validate: ${message}`);

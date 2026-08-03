@@ -1,4 +1,4 @@
-import { MatchOutcome, PlayerId } from '../rules';
+import { MatchOutcome, Partnership, PlayerId } from '../rules';
 
 /** A single seat's result, derived from the server-recomputed outcome. */
 export interface SeatResult {
@@ -8,28 +8,28 @@ export interface SeatResult {
 
 /**
  * Resolves what the player at `seatIndex` earned this round from the
- * authoritative outcome. A draw (tied block) is a draw for everyone; otherwise
- * the seat matching the winner won and the rest lost. Score is the winner's pip
- * haul; 0 for losers and draws — the same shape the old client-trusting path
- * wrote, but now computed server-side from a replayed game.
+ * authoritative outcome, by TEAM. A draw is a draw for everyone; otherwise every
+ * seat whose team is the winning team won (both partners in Jamaican Partner),
+ * and the rest lost. Score is the winner's pip haul; 0 for losers and draws.
  *
- * Cut-Throat only for now (solo teams, so winner identity == winning seat). Team
- * variants will resolve via the winning team id.
+ * Team-based comparison generalises cleanly: for Cut-Throat, each seat is its own
+ * solo team, so this reduces to "did this seat win".
  */
 export function resultForSeat(
   outcome: MatchOutcome,
   players: readonly PlayerId[],
   seatIndex: number,
+  partnership: Partnership,
 ): SeatResult {
   const player = players[seatIndex];
   if (player === undefined) {
     throw new RangeError(`Seat ${String(seatIndex)} is out of range.`);
   }
 
-  if (outcome.winnerId === null) {
+  if (outcome.winningTeamId === null) {
     return { result: 'draw', score: 0 };
   }
-  if (outcome.winnerId === player) {
+  if (partnership.getTeamOf(player) === outcome.winningTeamId) {
     return { result: 'won', score: outcome.winnerScore };
   }
   return { result: 'lost', score: 0 };
