@@ -60,6 +60,21 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // /testerSignups/{hash} — soft-launch tester signups from the marketing
+    // site (caribbeandominos.com). ADR 0009.
+    //
+    // Written only by the `testerSignup` Cloud Function (Admin SDK), keyed by
+    // sha256 of the normalised email so a repeat submission merges instead of
+    // taking a second seat. The web form has no Firebase SDK and no Firestore
+    // credentials at all — it POSTs to the function through a Hosting rewrite.
+    // Nothing here is ever client-readable: the collection holds contact
+    // details for real people.
+    // -----------------------------------------------------------------------
+    match /testerSignups/{signupId} {
+      allow read, write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.

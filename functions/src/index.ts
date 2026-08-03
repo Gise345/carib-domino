@@ -10,6 +10,10 @@ export { startMatch } from './matchmaking/startMatch';
 // submitMatchResult, which trusted the client's claimed outcome. ADR 0007.
 export { submitRoundLog } from './settlement/submitRoundLog';
 
+// Marketing site (caribbeandominos.com) tester signups. Public HTTPS endpoint
+// behind the Hosting rewrite /api/tester-signup. See ADR 0009.
+export { testerSignup } from './web/testerSignup';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

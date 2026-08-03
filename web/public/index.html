@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pose: Caribbean Dominoes — Soft launch September 1</title>
+<meta name="description" content="Caribbean dominoes, built for the slam. Jamaica Partner and Cut-Throat at soft launch, September 1 — testers only. Cuban, Mexican Train and more to follow.">
+<meta name="theme-color" content="#0B1410">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://caribbeandominos.com/">
+<meta property="og:title" content="Pose: Caribbean Dominoes">
+<meta property="og:description" content="On the yard is different. Soft launch September 1 — testers only.">
+<meta property="og:image" content="https://caribbeandominos.com/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="canonical" href="https://caribbeandominos.com/">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/og.jpg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="image" href="/assets/yard.webp" media="(min-width: 641px)">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<!-- ───────────────────────── nav ───────────────────────── -->
+<header class="nav" id="nav">
+  <div class="nav__inner">
+    <a class="nav__brand" href="#top" aria-label="Pose: Caribbean Dominoes, back to top">
+      <svg class="nav__tile" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="4" y="1.5" width="16" height="21" rx="2.5" fill="#EFE6D2"/>
+        <line x1="4" y1="12" x2="20" y2="12" stroke="#0B1410" stroke-width="1.1"/>
+        <circle cx="9" cy="6.5" r="1.5" fill="#0B1410"/><circle cx="15" cy="6.5" r="1.5" fill="#0B1410"/>
+        <circle cx="12" cy="17.5" r="1.5" fill="#0B1410"/>
+      </svg>
+      <span>Pose</span>
+    </a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#launch">Soft launch</a>
+      <a href="#feel">The feel</a>
+      <a href="#rules">Jamaica rules</a>
+      <a href="#roadmap">What's next</a>
+    </nav>
+    <a class="btn btn--gold btn--sm" href="#testers">Become a tester</a>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ───────────────────────── hero ───────────────────────── -->
+<section class="hero" id="top">
+  <div class="hero__scene" aria-hidden="true">
+    <div class="hero__sky"></div>
+    <div class="hero__photo" data-parallax="0.18"></div>
+    <div class="hero__haze"></div>
+
+    <!-- string lights -->
+    <div class="lights lights--a" data-parallax="0.05">
+      <svg class="lights__wire" viewBox="0 0 1200 90" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 8 Q300 78 600 40 T1200 12" fill="none" stroke="#2b2318" stroke-width="2.5"/>
+      </svg>
+      <span class="bulb" style="--x:8%;  --y:30%; --d:0s"></span>
+      <span class="bulb" style="--x:20%; --y:52%; --d:.7s"></span>
+      <span class="bulb" style="--x:33%; --y:62%; --d:1.9s"></span>
+      <span class="bulb" style="--x:46%; --y:57%; --d:.3s"></span>
+      <span class="bulb" style="--x:59%; --y:44%; --d:2.4s"></span>
+      <span class="bulb" style="--x:72%; --y:33%; --d:1.2s"></span>
+      <span class="bulb" style="--x:85%; --y:25%; --d:3.1s"></span>
+      <span class="bulb" style="--x:96%; --y:18%; --d:.9s"></span>
+    </div>
+
+    <!-- bunting -->
+    <div class="bunting" data-parallax="0.09">
+      <svg class="bunting__wire" viewBox="0 0 1200 60" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0 4 Q600 58 1200 6" fill="none" stroke="#3a2f1f" stroke-width="3"/>
+      </svg>
+      <div class="bunting__flags" id="buntingFlags"></div>
+    </div>
+
+    <div class="fireflies" id="fireflies"></div>
+    <div class="hero__vignette"></div>
+    <div class="hero__table" data-parallax="-0.10"></div>
+  </div>
+
+  <div class="hero__content">
+    <p class="hero__eyebrow"><span class="rule"></span>INVOVIBE TECH LTD<span class="rule"></span></p>
+
+    <h1 class="wordmark">
+      <span class="wordmark__pose" data-text="POSE">POSE</span>
+      <span class="wordmark__sub">Caribbean Dominoes</span>
+    </h1>
+
+    <p class="hero__tagline">On the yard is different.</p>
+
+    <div class="badge">
+      <span class="badge__dot" aria-hidden="true"></span>
+      Soft launch · September 1 · Testers only
+    </div>
+
+    <div class="countdown" role="group" aria-label="Time until soft launch">
+      <div class="countdown__unit"><span class="countdown__num" id="cd-d">--</span><span class="countdown__lbl">Days</span></div>
+      <span class="countdown__sep" aria-hidden="true">:</span>
+      <div class="countdown__unit"><span class="countdown__num" id="cd-h">--</span><span class="countdown__lbl">Hrs</span></div>
+      <span class="countdown__sep" aria-hidden="true">:</span>
+      <div class="countdown__unit"><span class="countdown__num" id="cd-m">--</span><span class="countdown__lbl">Min</span></div>
+      <span class="countdown__sep" aria-hidden="true">:</span>
+      <div class="countdown__unit"><span class="countdown__num" id="cd-s">--</span><span class="countdown__lbl">Sec</span></div>
+    </div>
+    <p class="countdown__note" id="cd-note">Doors open 1 September 2026</p>
+
+    <div class="hero__cta">
+      <a class="btn btn--gold" href="#testers">Become a tester</a>
+      <a class="btn btn--ghost" href="#rules">Read the rules</a>
+    </div>
+  </div>
+
+  <a class="scrollcue" href="#launch" aria-label="Scroll to soft launch details">
+    <span class="scrollcue__mouse" aria-hidden="true"></span>
+  </a>
+</section>
+
+<!-- ───────────────────────── soft launch ───────────────────────── -->
+<section class="section section--band" id="launch">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="kicker">September 1</p>
+      <h2 class="h2">This is not the launch.</h2>
+      <p class="lede">
+        On 1 September we open a <strong>closed soft launch</strong> — a small room of testers,
+        not the public. No storefront, no ads, no leaderboards worth chasing yet. Just the
+        table, the tiles, and people willing to tell us exactly where it falls short.
+      </p>
+    </div>
+
+    <div class="cards cards--3">
+      <article class="card reveal">
+        <div class="card__ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v13"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/>
+          </svg>
+        </div>
+        <h3 class="card__h">What you get</h3>
+        <p>Early builds on <strong>Google Play internal testing</strong> and <strong>Apple TestFlight</strong>.
+           Jamaica Partner and Cut-Throat, online and offline against bots. Your name in the credits
+           if you stick with us to launch.</p>
+      </article>
+
+      <article class="card reveal">
+        <div class="card__ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 12h8"/><path d="M12 8v8"/><circle cx="12" cy="12" r="9"/>
+          </svg>
+        </div>
+        <h3 class="card__h">What we need</h3>
+        <p>Play like you would on the yard, then tell us what felt wrong. Rules that don't match
+           how you play at home are the single most valuable thing you can report.</p>
+      </article>
+
+      <article class="card reveal">
+        <div class="card__ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>
+          </svg>
+        </div>
+        <h3 class="card__h">How long</h3>
+        <p>Roughly eight weeks of testing before we widen access. Seats are limited because
+           every tester gets read, and there are only so many hours in a week.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── the feel ───────────────────────── -->
+<section class="section section--dark" id="feel">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="kicker">The feel</p>
+      <h2 class="h2">The slam is the point.</h2>
+      <p class="lede">
+        Nobody <em>places</em> a domino. You land it. The table takes it. Everything we've built
+        is in service of that one moment — and of making the moments around it quiet enough
+        that it lands.
+      </p>
+    </div>
+
+    <div class="feel">
+      <article class="feel__item reveal">
+        <span class="feel__num" aria-hidden="true">01</span>
+        <h3 class="feel__h">Weight</h3>
+        <p>Every tile has mass. It doesn't glide into position — it drops, hits, and settles.
+           You should feel the tile land through the screen.</p>
+      </article>
+      <article class="feel__item reveal">
+        <span class="feel__num" aria-hidden="true">02</span>
+        <h3 class="feel__h">Escalation</h3>
+        <p>The board isn't scenery. It takes damage across a round. Early plays leave hairline
+           marks. Big plays crack it. The round-winning tile destroys it — then it reforms.</p>
+      </article>
+      <article class="feel__item reveal">
+        <span class="feel__num" aria-hidden="true">03</span>
+        <h3 class="feel__h">Restraint</h3>
+        <p>Destruction only reads as a payoff if most moves are quiet. A standard play is a
+           modest thump. The spectacle is rationed on purpose.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────── rules ───────────────────────── -->
+<section class="section section--wood" id="rules">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="kicker">At soft launch</p>
+      <h2 class="h2">Jamaica rules.</h2>
+      <p class="lede">
+        Partner dominoes as it's actually played — four to a table, two to a team, no drawing,
+        no mercy. This is the exact ruleset running in the build.
+      </p>
+    </div>
+
+    <div class="chain reveal" aria-hidden="true">
+      <span class="dom" data-t="6-6"></span>
+      <span class="dom" data-t="6-3"></span>
+      <span class="dom" data-t="3-1"></span>
+      <span class="dom" data-t="1-1"></span>
+      <span class="dom" data-t="1-5"></span>
+      <span class="dom" data-t="5-0"></span>
+    </div>
+
+    <ol class="rules">
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">1</span>
+        <div>
+          <h3 class="rules__h">The table</h3>
+          <p>Four players, two teams of two. Partners sit opposite each other, so the player
+             to your left and right are both opponents. You win together or not at all.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">2</span>
+        <div>
+          <h3 class="rules__h">The deal</h3>
+          <p>A full double-six set — 28 tiles, seven each, the whole deck dealt out.
+             <strong>There is no boneyard.</strong> Nothing is held back, so every tile on the
+             table is in somebody's hand and counting cards is the game.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">3</span>
+        <div>
+          <h3 class="rules__h">The lead</h3>
+          <p>Whoever holds the highest double leads with it — double-six goes down first if
+             it's out. If nobody was dealt a double, the highest tile by pip count leads
+             instead. Play moves around the table from there.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">4</span>
+        <div>
+          <h3 class="rules__h">The play</h3>
+          <p>On your turn, match a tile to one of the two open ends of the chain. Can't match
+             either end? You pass, and everyone knows what you don't have. Because there's no
+             boneyard, a pass is information — and good partners read it.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">5</span>
+        <div>
+          <h3 class="rules__h">Ending the round</h3>
+          <p>Two ways out. <strong>Domino</strong> — you play your last tile and the round is
+             yours. <strong>Block</strong> — all four players pass in a row and the board is
+             dead with tiles still in hand.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">6</span>
+        <div>
+          <h3 class="rules__h">Scoring</h3>
+          <p>Domino your hand and your <em>team</em> takes the round, scoring every pip still
+             sitting in the opposing team's hands. On a block, the single lowest hand at the
+             table wins the round for their team — and if the lowest hand is tied across both
+             teams, nobody takes it. The round is a draw.</p>
+        </div>
+      </li>
+      <li class="rules__item reveal">
+        <span class="rules__n" aria-hidden="true">7</span>
+        <div>
+          <h3 class="rules__h">Leaving the table</h3>
+          <p>Walk out mid-round — quit or drop connection — and it's a resign. Your whole team
+             forfeits and the opposing team scores your side's remaining pips. Partners depend
+             on each other, so leaving has to cost something.</p>
+        </div>
+      </li>
+    </ol>
+
+    <p class="rules__foot reveal">
+      Playing three-handed or on your own? <strong>Cut-Throat</strong> ships alongside it at
+      soft launch — same play, same lead, every player for themselves, two to four at the table.
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────────────── roadmap ───────────────────────── -->
+<section class="section section--dark" id="roadmap">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="kicker">What's next</p>
+      <h2 class="h2">The rest of the region is coming.</h2>
+      <p class="lede">
+        Jamaica is where we start, not where we stop. Every island and every table plays it a
+        little differently, and we intend to ship those differences properly rather than
+        flatten them into one generic ruleset.
+      </p>
+    </div>
+
+    <div class="road">
+      <article class="road__col reveal">
+        <p class="road__tag road__tag--live">September 1</p>
+        <ul class="road__list">
+          <li class="road__li road__li--on">Jamaica Partner<span>4 players · 2 teams</span></li>
+          <li class="road__li road__li--on">Jamaica Cut-Throat<span>2–4 players · solo</span></li>
+        </ul>
+      </article>
+
+      <article class="road__col reveal">
+        <p class="road__tag">Coming later</p>
+        <ul class="road__list">
+          <li class="road__li">Cuban<span>Double-nine · partner</span></li>
+          <li class="road__li">Mexican Train<span>Double-twelve · hub</span></li>
+          <li class="road__li">Trinidadian<span>Partner variant</span></li>
+          <li class="road__li">Puerto Rican<span>Partner variant</span></li>
+        </ul>
+      </article>
+
+      <article class="road__col reveal">
+        <p class="road__tag">On the list</p>
+        <ul class="road__list">
+          <li class="road__li">Domino Latino</li>
+          <li class="road__li">All Fives</li>
+          <li class="road__li">Block &amp; Draw</li>
+          <li class="road__li">More as we get them right</li>
+        </ul>
+      </article>
+    </div>
+
+    <p class="road__foot reveal">
+      Eleven rulesets are planned for full launch. Dates aren't fixed — a variant ships when
+      players from that island tell us it plays right, and not before.
+    </p>
+  </div>
+</section>
+
+<!-- ───────────────────────── testers ───────────────────────── -->
+<section class="section section--signup" id="testers">
+  <div class="wrap wrap--narrow">
+    <div class="reveal">
+      <p class="kicker">Limited seats</p>
+      <h2 class="h2">Pull up a chair.</h2>
+      <p class="lede">
+        Leave your email and pick your platform. We'll send build instructions before
+        1 September. No newsletter, no marketing blasts — just the test.
+      </p>
+    </div>
+
+    <form class="form reveal" id="signupForm" novalidate>
+      <div class="field">
+        <label class="field__label" for="email">Email address</label>
+        <input class="field__input" type="email" id="email" name="email"
+               autocomplete="email" inputmode="email" required
+               placeholder="you@example.com" aria-describedby="email-err">
+        <p class="field__err" id="email-err" role="alert" hidden></p>
+      </div>
+
+      <fieldset class="field">
+        <legend class="field__label">Which build do you want?</legend>
+        <div class="picks">
+          <label class="pick">
+            <input type="checkbox" name="platforms" value="android">
+            <span class="pick__box" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 7"/></svg>
+            </span>
+            <span class="pick__txt"><strong>Android</strong><span>Play internal testing</span></span>
+          </label>
+          <label class="pick">
+            <input type="checkbox" name="platforms" value="ios">
+            <span class="pick__box" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 7"/></svg>
+            </span>
+            <span class="pick__txt"><strong>iOS</strong><span>Apple TestFlight</span></span>
+          </label>
+        </div>
+        <p class="field__err" id="platforms-err" role="alert" hidden></p>
+      </fieldset>
+
+      <div class="field">
+        <label class="field__label" for="country">Where do you play? <span class="field__opt">Optional</span></label>
+        <input class="field__input" type="text" id="country" name="country"
+               autocomplete="country-name" maxlength="60"
+               placeholder="Jamaica, Cayman, Brooklyn, London…">
+        <p class="field__hint">Helps us match testers into the same rooms at sensible hours.</p>
+      </div>
+
+      <!-- honeypot: hidden from people, catnip for bots -->
+      <div class="hp" aria-hidden="true">
+        <label for="nickname">Leave this field empty</label>
+        <input type="text" id="nickname" name="nickname" tabindex="-1" autocomplete="off">
+      </div>
+
+      <button class="btn btn--gold btn--full" type="submit" id="submitBtn">
+        <span class="btn__label">Request a seat</span>
+        <span class="btn__spin" aria-hidden="true"></span>
+      </button>
+
+      <p class="form__legal">
+        We store your email to run the test and nothing else. No third-party sharing, no ads.
+        Read the <a href="/privacy">privacy notice</a>. You can ask us to delete your
+        details at any time.
+      </p>
+
+      <p class="form__status" id="formStatus" role="status" aria-live="polite" hidden></p>
+    </form>
+  </div>
+</section>
+
+</main>
+
+<!-- ───────────────────────── footer ───────────────────────── -->
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot__grid">
+      <div>
+        <p class="foot__brand">Pose<span>: Caribbean Dominoes</span></p>
+        <p class="foot__co">A game by <strong>INVOVIBE TECH LTD</strong> · Cayman Islands</p>
+      </div>
+      <nav class="foot__links" aria-label="Footer">
+        <a href="#rules">Jamaica rules</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#testers">Become a tester</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </nav>
+    </div>
+    <p class="foot__fine">
+      In-game tokens are play money. They have no real-world value, cannot be withdrawn, and
+      cannot be transferred between players. Pose is not a gambling product.
+    </p>
+    <p class="foot__copy">© 2026 INVOVIBE TECH LTD. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="/main.js" defer></script>
+</body>
+</html>
