@@ -935,6 +935,7 @@ namespace Pose.Game
             {
                 MatchEndReason.Domino => "end_reason_domino",
                 MatchEndReason.Blocked => "end_reason_block",
+                MatchEndReason.Resigned => "end_reason_resigned",
                 _ => "end_reason_domino",
             };
             string reason = L10n.Get(reasonKey);
@@ -1279,9 +1280,14 @@ namespace Pose.Game
             if (_isOnline && _opponentLeft)
             {
                 _overlayMode = OverlayMode.OpponentLeft;
+                // When the leave ended the round (the host resigned the leaver),
+                // lead with the outcome and note the leave underneath; otherwise
+                // (e.g. the host itself left) just report the leave. Rematch is
+                // never offered — a departed opponent can't play on.
+                bool endedByLeave = state.IsOver;
                 _endOverlay.Show(
-                    title: L10n.Get("end_opponent_left"),
-                    subtitle: null,
+                    title: endedByLeave ? FormatStatus(state, isLocalTurn: false) : L10n.Get("end_opponent_left"),
+                    subtitle: endedByLeave ? L10n.Get("end_opponent_left") : null,
                     primaryLabel: null,
                     primaryInteractable: false,
                     secondaryLabel: L10n.Get("btn_back_to_lobby"));

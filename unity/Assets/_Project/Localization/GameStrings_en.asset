@@ -88,6 +88,10 @@ MonoBehaviour:
     m_Localized: "Round over \u2014 {0}, {1} wins +{2}\r\n"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000011
+    m_Localized: Resigned
+    m_Metadata:
+      m_Items: []
   - m_Id: 50442993131520
     m_Localized: Domino
     m_Metadata:

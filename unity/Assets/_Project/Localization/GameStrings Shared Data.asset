@@ -71,6 +71,10 @@ MonoBehaviour:
     m_Key: end_reason_domino
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000011
+    m_Key: end_reason_resigned
+    m_Metadata:
+      m_Items: []
   - m_Id: 50422885638144
     m_Key: pass_button
     m_Metadata:

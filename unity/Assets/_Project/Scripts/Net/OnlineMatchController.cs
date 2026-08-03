@@ -236,9 +236,52 @@ namespace Pose.Net
                 Debug.Log(
                     $"[OnlineMatchController] OpponentLeft detected " +
                     $"(player count {_lastSeenPlayerCount} -> {count})");
+                // Before surfacing the leave to the UI, end an in-progress round
+                // by resigning the departed player so it produces a real outcome
+                // and settles — a rage-quit shouldn't deny the remaining player
+                // their win.
+                ResignDepartedPlayer();
                 OpponentLeft?.Invoke();
             }
             _lastSeenPlayerCount = count;
+        }
+
+        /// <summary>
+        /// Host-side: when a seat's player has left the Photon session mid-round,
+        /// submit a resign on their behalf. One resign ends the round (the engine
+        /// awards it to the remaining player(s)), which flows through the normal
+        /// move log to round-over + settlement. No-op off the authority, before
+        /// the deal, or once the round is over. If the HOST itself left, the
+        /// remaining clients aren't the authority, so the round can't settle —
+        /// that (host migration) is a later slice.
+        /// </summary>
+        private void ResignDepartedPlayer()
+        {
+            if (_match == null || _runner == null || CurrentState == null)
+            {
+                return;
+            }
+            if (!_match.Object.HasStateAuthority || CurrentState.IsOver)
+            {
+                return;
+            }
+
+            HashSet<int> active = new();
+            foreach (PlayerRef p in _runner.ActivePlayers)
+            {
+                active.Add(p.PlayerId);
+            }
+
+            int count = _match.PlayerCount;
+            for (int seat = 0; seat < count; seat++)
+            {
+                if (!active.Contains(_match.SeatPlayerRefs.Get(seat)))
+                {
+                    Debug.Log($"[OnlineMatchController] Seat {seat} left mid-round — resigning on their behalf.");
+                    _match.RPC_SubmitMove(NetworkedMove.FromResign((byte)seat));
+                    return; // one resign ends the round
+                }
+            }
         }
 
         /// <summary>
