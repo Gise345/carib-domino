@@ -59,6 +59,8 @@ namespace Pose.Game
         // The action buttons and pickers (kept around so we can disable / hide
         // them when transitioning to the connected state).
         private GameObject? _practiceButton;
+        private GameObject? _cutThroatOnlineButton;
+        private GameObject? _onlineSizePickerRow;
         private GameObject? _createButton;
         private GameObject? _modePickerRow;
         private GameObject? _countPickerRow;
@@ -129,6 +131,9 @@ namespace Pose.Game
 
             CreateTitle();
             _practiceButton = CreateButton("Practice vs Bots", OnPracticeClicked);
+            _cutThroatOnlineButton = CreateButton("Cut Throat Online", OnCutThroatOnlineClicked);
+            _onlineSizePickerRow = CreateOnlineSizePickerRow();
+            _onlineSizePickerRow.SetActive(false);
             _createButton = CreateButton("Create Room", OnCreateClicked);
             _modePickerRow = CreateModePickerRow();
             _modePickerRow.SetActive(false);
@@ -299,6 +304,34 @@ namespace Pose.Game
             return row;
         }
 
+        private GameObject CreateOnlineSizePickerRow()
+        {
+            GameObject row = new("OnlineSizePickerRow", typeof(RectTransform));
+            row.transform.SetParent(transform, worldPositionStays: false);
+
+            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 12f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            LayoutElement rowLayout = row.AddComponent<LayoutElement>();
+            rowLayout.preferredWidth = ButtonWidth;
+            rowLayout.preferredHeight = ButtonHeight;
+
+            for (int count = 2; count <= 4; count++)
+            {
+                int chosen = count; // capture per-iteration for the closure
+                GameObject btn = CreateButton($"{count}P", () => StartOnline(chosen));
+                btn.transform.SetParent(row.transform, worldPositionStays: false);
+                btn.GetComponent<LayoutElement>().preferredWidth = 120f;
+            }
+
+            return row;
+        }
+
         private GameObject CreateModePickerRow()
         {
             GameObject row = new("ModePickerRow", typeof(RectTransform));
@@ -382,6 +415,55 @@ namespace Pose.Game
             PracticeChosen?.Invoke();
         }
 
+        private void OnCutThroatOnlineClicked()
+        {
+            if (_busy)
+            {
+                return;
+            }
+            // Reveal the 2/3/4 size picker; the picked size kicks off random
+            // matchmaking via StartOnline. Collapse the create pickers so the
+            // two flows don't stack on screen.
+            bool show = !_onlineSizePickerRow!.activeSelf;
+            _onlineSizePickerRow.SetActive(show);
+            if (show)
+            {
+                _modePickerRow!.SetActive(false);
+                _countPickerRow!.SetActive(false);
+            }
+        }
+
+        private async void StartOnline(int size)
+        {
+            if (_busy)
+            {
+                return;
+            }
+            _busy = true;
+            SetActionButtonsVisible(false);
+
+            // No room code to display — this is random matchmaking.
+            _statusText!.text = "Finding players…";
+            _statusText.color = BodyTextColor;
+
+            EnsurePhotonBootstrap();
+            bool ok = await PhotonBootstrap.Instance!.QuickMatch(size);
+            if (ok)
+            {
+                OnlineRoomActive?.Invoke(
+                    PhotonBootstrap.Instance.CurrentRoomCode ?? string.Empty,
+                    size,
+                    GameMode.CutThroat);
+            }
+            else
+            {
+                _statusText.text = $"Failed to find a match: {PhotonBootstrap.Instance.ErrorMessage}";
+                _statusText.color = StatusErrorColor;
+                _busy = false;
+                SetActionButtonsVisible(true);
+            }
+        }
+
         private void OnCreateClicked()
         {
             if (_busy)
@@ -393,7 +475,11 @@ namespace Pose.Game
             // starts a 4-player game straight away.
             bool show = !_modePickerRow!.activeSelf;
             _modePickerRow.SetActive(show);
-            if (!show)
+            if (show)
+            {
+                _onlineSizePickerRow!.SetActive(false);
+            }
+            else
             {
                 _countPickerRow!.SetActive(false);
             }
@@ -512,6 +598,8 @@ namespace Pose.Game
         private void SetActionButtonsVisible(bool visible)
         {
             _practiceButton!.SetActive(visible);
+            _cutThroatOnlineButton!.SetActive(visible);
+            _onlineSizePickerRow!.SetActive(visible && _onlineSizePickerRow.activeSelf);
             _createButton!.SetActive(visible);
             _modePickerRow!.SetActive(visible && _modePickerRow.activeSelf);
             _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);

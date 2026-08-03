@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Fusion;
 using UnityEngine;
@@ -65,7 +66,33 @@ namespace Pose.Net
         /// <summary>Joins an existing room; the room's capacity was set by the host.</summary>
         public Task<bool> JoinRoom(string code) => ConnectShared(code, "join", playerCount: 0);
 
-        private async Task<bool> ConnectShared(string code, string operation, int playerCount)
+        /// <summary>
+        /// Random matchmaking for "Cut Throat Online": joins an open Cut-Throat
+        /// table of the given size or, if none exists, creates one. No room code
+        /// — Photon groups players by the published <see cref="Pose.Core.Matchmaking"/>
+        /// properties (mode + size), and the default <c>MatchmakingMode.FillRoom</c>
+        /// fills partially-full tables before opening new ones. The session
+        /// creator becomes the shared-mode master client (host) via the same
+        /// authority check the code-room path uses.
+        /// </summary>
+        /// <param name="size">Table size, 2–4.</param>
+        public Task<bool> QuickMatch(int size)
+        {
+            Dictionary<string, SessionProperty> props = new();
+            foreach (KeyValuePair<string, string> kv in Pose.Core.Matchmaking.CutThroatProperties(size))
+            {
+                props[kv.Key] = kv.Value; // implicit string -> SessionProperty
+            }
+
+            // SessionName null → Photon assigns one and matchmakes on the props.
+            return ConnectShared(sessionName: null, "cutthroat-online", size, props);
+        }
+
+        private async Task<bool> ConnectShared(
+            string? sessionName,
+            string operation,
+            int playerCount,
+            Dictionary<string, SessionProperty>? sessionProperties = null)
         {
             if (IsConnected)
             {
@@ -81,10 +108,14 @@ namespace Pose.Net
                 StartGameArgs args = new()
                 {
                     GameMode = GameMode.Shared,
-                    SessionName = code,
-                    // Only the creator sets capacity; joiners pass 0 (unset) and
-                    // inherit whatever the host established for the session.
+                    // Null for random matchmaking — Photon assigns the name and
+                    // matches on SessionProperties; a code for private rooms.
+                    SessionName = sessionName,
+                    // Only the creator sets capacity; code-room joiners pass 0
+                    // (unset) and inherit the host's. Matchmaking players all pass
+                    // the same size, so whoever creates the session sets it.
                     PlayerCount = playerCount > 0 ? playerCount : null,
+                    SessionProperties = sessionProperties,
                 };
 
                 StartGameResult result = await _runner.StartGame(args);
@@ -92,11 +123,13 @@ namespace Pose.Net
                 if (result.Ok)
                 {
                     IsConnected = true;
-                    CurrentRoomCode = code;
+                    // Matchmaking has no caller-supplied code — read the name
+                    // Photon assigned so logs/UI have something to show.
+                    CurrentRoomCode = sessionName ?? _runner.SessionInfo?.Name;
                     Debug.Log(
                         $"[PhotonBootstrap] {operation} succeeded — connected to " +
-                        $"room {code}");
-                    Connected?.Invoke(code);
+                        $"session {CurrentRoomCode}");
+                    Connected?.Invoke(CurrentRoomCode ?? string.Empty);
                     return true;
                 }
 
