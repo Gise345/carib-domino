@@ -7,18 +7,21 @@ namespace Pose.Core
     /// snake. The opening tile anchors at the vertical center of the chain area;
     /// right-end plays walk downward and left-end plays walk upward, each fanning
     /// to opposite sides when a column overflows. At each bend a landscape
-    /// "bridge" tile turns the corner, forming a horizontal three-tile run
-    /// (last column tile → bridge → next column tile).
+    /// "bridge" tile turns the corner.
     ///
-    /// Every in-run tile stands portrait — doubles included, so a double reads
-    /// like a regular tile rather than lying crosswise. The only landscape tile
-    /// is the bend bridge, which must lie across to turn the corner.
+    /// Orientation rules:
+    /// <list type="bullet">
+    ///   <item>Regular tiles stand portrait (along the column).</item>
+    ///   <item>Doubles lie landscape (crosswise) — the traditional table look —
+    ///         EXCEPT the first tile of a column after a bend, which stands
+    ///         portrait so the new column reads as starting vertically.</item>
+    ///   <item>The bend bridge lies landscape, with its TOP edge aligned to the
+    ///         outgoing column tile's top edge (not centered on it).</item>
+    /// </list>
     ///
-    /// Extracted from the renderer specifically so the bend geometry is testable
-    /// (see Pose.Core.Tests.ChainLayoutTests). Invariants a correct layout must
-    /// hold, and which had regressed repeatedly while this lived in a
-    /// MonoBehaviour: consecutive tiles touch, no two tiles overlap, and each
-    /// bridge aligns with the outgoing column's last tile.
+    /// Extracted from the renderer so the bend geometry is testable (see
+    /// Pose.Core.Tests.ChainLayoutTests): consecutive tiles touch, no two tiles
+    /// overlap, and each bridge's top aligns with its outgoing tile's top.
     /// </summary>
     public static class ChainLayout
     {
@@ -50,11 +53,19 @@ namespace Pose.Core
             public int Col;
             public float ColX;
             public float LastTileCenterY;
+            public bool LastTileLandscape;
             public float NextEdgeY;
             public bool GoingDown;
             public int BendDirection;
             public bool PortraitPipsFlipped;
+            // True for the first regular tile of a column just after a bend — a
+            // double there stands portrait rather than lying crosswise.
+            public bool FirstTileOfColumn;
         }
+
+        private static float HalfWidth(bool landscape) => landscape ? LongDim / 2f : ShortDim / 2f;
+
+        private static float HalfHeight(bool landscape) => landscape ? ShortDim / 2f : LongDim / 2f;
 
         /// <summary>
         /// Computes slot positions for every tile in <paramref name="chain"/>.
@@ -68,13 +79,14 @@ namespace Pose.Core
             float innerH = config.VirtualHeight;
             float centerY = innerH / 2f;
 
-            // The opening stands portrait like any in-run tile (even though it
-            // is always a double), so half its height is LongDim / 2.
+            // The opening is always a double and — being the first tile of the
+            // FIRST column, not a post-bend column — lies landscape (crosswise).
             PlacedTile opening = chain.Tiles[openingIdx];
-            float openingHalfH = LongDim / 2f;
+            bool openingLandscape = opening.Tile.IsDouble;
+            float openingHalfH = HalfHeight(openingLandscape);
 
             slots[openingIdx] = new ChainSlot(
-                0f, centerY, landscape: false, opening.LeftPip, opening.RightPip);
+                0f, centerY, openingLandscape, opening.LeftPip, opening.RightPip);
 
             // Right-end plays: walk downward, bending right.
             WalkState down = new()
@@ -82,10 +94,12 @@ namespace Pose.Core
                 Col = 0,
                 ColX = 0f,
                 LastTileCenterY = centerY,
+                LastTileLandscape = openingLandscape,
                 NextEdgeY = centerY + openingHalfH + config.TileSpacing,
                 GoingDown = true,
                 BendDirection = +1,
                 PortraitPipsFlipped = false,
+                FirstTileOfColumn = false,
             };
             for (int i = openingIdx + 1; i < chain.Count; i++)
             {
@@ -98,10 +112,12 @@ namespace Pose.Core
                 Col = 0,
                 ColX = 0f,
                 LastTileCenterY = centerY,
+                LastTileLandscape = openingLandscape,
                 NextEdgeY = centerY - openingHalfH - config.TileSpacing,
                 GoingDown = false,
                 BendDirection = -1,
                 PortraitPipsFlipped = false,
+                FirstTileOfColumn = false,
             };
             for (int i = openingIdx - 1; i >= 0; i--)
             {
@@ -131,8 +147,10 @@ namespace Pose.Core
             Config config)
         {
             PlacedTile pt = chain.Tiles[i];
-            // Every in-run tile stands portrait (LongDim tall), doubles included.
-            const float tentativeH = LongDim;
+            // A double lies landscape (crosswise) unless it is the first tile of
+            // this column after a bend, in which case it stands portrait.
+            bool landscape = pt.Tile.IsDouble && !state.FirstTileOfColumn;
+            float tentativeH = landscape ? ShortDim : LongDim;
 
             bool willBend = state.GoingDown
                 ? state.NextEdgeY + tentativeH > config.VirtualHeight
@@ -144,16 +162,15 @@ namespace Pose.Core
             }
             else
             {
-                PlaceRegular(slots, i, pt, tentativeH, ref state, config);
+                PlaceRegular(slots, i, pt, landscape, tentativeH, ref state, config);
             }
         }
 
         /// <summary>
-        /// Turns the corner. The bridge lies landscape at the SAME center-Y as
-        /// the outgoing column's last tile — no edge shift, so it stays aligned.
-        /// Since every in-run tile is portrait (half-width ShortDim / 2), the
-        /// gap on both sides of the bridge is identical and the bend has a
-        /// single case; both neighbours touch it exactly.
+        /// Turns the corner. The bridge lies landscape with its TOP edge aligned
+        /// to the outgoing column tile's top edge. Column spacing derives from the
+        /// outgoing tile's actual half-width (a crosswise double is wider than a
+        /// portrait tile), so both neighbours touch the bridge exactly.
         /// </summary>
         private static void PlaceBridge(
             Chain chain,
@@ -163,34 +180,47 @@ namespace Pose.Core
             Config config)
         {
             int dir = state.BendDirection;
-            float bendY = state.LastTileCenterY;
 
-            float halfCol = ShortDim / 2f;
+            float lastHalfW = HalfWidth(state.LastTileLandscape);
+            float lastHalfH = HalfHeight(state.LastTileLandscape);
             float bridgeHalfW = LongDim / 2f;
+            float bridgeHalfH = ShortDim / 2f;
 
-            float bridgeCenterX = state.ColX + dir * (halfCol + config.TileSpacing + bridgeHalfW);
-            float newColX = bridgeCenterX + dir * (bridgeHalfW + config.TileSpacing + halfCol);
+            // Top-align: bridge top edge == outgoing tile top edge.
+            float topEdge = state.LastTileCenterY - lastHalfH;
+            float bridgeCenterY = topEdge + bridgeHalfH;
+
+            float bridgeCenterX = state.ColX + dir * (lastHalfW + config.TileSpacing + bridgeHalfW);
+            // The new column's first tile is always portrait (a first-of-column
+            // double stands portrait), so its half-width is ShortDim / 2.
+            float newColX = bridgeCenterX + dir * (bridgeHalfW + config.TileSpacing + ShortDim / 2f);
 
             PlacedTile bridge = chain.Tiles[i];
             slots[i] = new ChainSlot(
-                bridgeCenterX, bendY, landscape: true, bridge.LeftPip, bridge.RightPip);
+                bridgeCenterX, bridgeCenterY, landscape: true, bridge.LeftPip, bridge.RightPip);
+
+            // LastTileCenterY stays at the outgoing tile's center — the new
+            // column's first tile re-anchors from it below.
+            float bendCenterY = state.LastTileCenterY;
 
             state.Col++;
             state.ColX = newColX;
             state.PortraitPipsFlipped = !state.PortraitPipsFlipped;
-            state.LastTileCenterY = bendY;
+            state.LastTileLandscape = false;
+            state.FirstTileOfColumn = true;
 
             bool goingDown = !state.GoingDown;
             state.GoingDown = goingDown;
-            // Seat the new column's first tile (portrait, LongDim tall) centered
-            // on the bridge's Y, then continue in the new vertical direction.
-            state.NextEdgeY = goingDown ? bendY - LongDim / 2f : bendY + LongDim / 2f;
+            // Seat the new column's first tile (portrait, LongDim tall) centered on
+            // the outgoing tile's center-Y, then continue in the new direction.
+            state.NextEdgeY = goingDown ? bendCenterY - LongDim / 2f : bendCenterY + LongDim / 2f;
         }
 
         private static void PlaceRegular(
             ChainSlot[] slots,
             int i,
             PlacedTile pt,
+            bool landscape,
             float tileH,
             ref WalkState state,
             Config config)
@@ -199,16 +229,30 @@ namespace Pose.Core
                 ? state.NextEdgeY + tileH / 2f
                 : state.NextEdgeY - tileH / 2f;
 
-            // Portrait halves read top→bottom. Before the first bend the chain
-            // predecessor sits above (TOP = LeftPip); after each bend the
-            // predecessor and successor swap sides, so the pips flip. Doubles
-            // have equal pips, so the flip is a no-op for them.
-            byte firstPip = state.PortraitPipsFlipped ? pt.RightPip : pt.LeftPip;
-            byte secondPip = state.PortraitPipsFlipped ? pt.LeftPip : pt.RightPip;
+            byte firstPip, secondPip;
+            if (landscape)
+            {
+                // Landscape halves read left→right; a double's pips are equal anyway.
+                firstPip = pt.LeftPip;
+                secondPip = pt.RightPip;
+            }
+            else if (state.PortraitPipsFlipped)
+            {
+                // After a bend, predecessor and successor swap visual sides.
+                firstPip = pt.RightPip;
+                secondPip = pt.LeftPip;
+            }
+            else
+            {
+                firstPip = pt.LeftPip;
+                secondPip = pt.RightPip;
+            }
 
-            slots[i] = new ChainSlot(state.ColX, centerY, landscape: false, firstPip, secondPip);
+            slots[i] = new ChainSlot(state.ColX, centerY, landscape, firstPip, secondPip);
 
             state.LastTileCenterY = centerY;
+            state.LastTileLandscape = landscape;
+            state.FirstTileOfColumn = false;
             if (state.GoingDown)
             {
                 state.NextEdgeY += tileH + config.TileSpacing;

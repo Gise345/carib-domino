@@ -9,9 +9,9 @@ namespace Pose.Core
     /// <see cref="CenterY"/> grows <em>downward</em>. A renderer maps these to
     /// its own coordinate space.
     ///
-    /// A tile is <see cref="Landscape"/> when it is rendered rotated across the
-    /// chain direction — only the "bridge" tile at a bend is. In-run tiles,
-    /// doubles included, stand portrait. Portrait tiles are
+    /// A tile is <see cref="Landscape"/> when rendered rotated across the chain
+    /// direction: doubles (crosswise) and the bend "bridge" tile, but not a
+    /// double that is the first tile of a column after a bend. Portrait tiles are
     /// <see cref="ChainLayout.ShortDim"/> wide by <see cref="ChainLayout.LongDim"/>
     /// tall; landscape tiles are the transpose.
     ///

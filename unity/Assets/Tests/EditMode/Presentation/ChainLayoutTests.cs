@@ -5,19 +5,17 @@ using NUnit.Framework;
 namespace Pose.Core.Tests
 {
     /// <summary>
-    /// Geometry invariants for the chain layout walker. These are the checks
-    /// that kept regressing while the walker lived in a MonoBehaviour and could
-    /// only be eyeballed on a device: consecutive tiles must touch, no two tiles
-    /// may overlap, and each bend bridge must align with the outgoing column's
-    /// last tile. Every in-run tile (doubles included) stands portrait; the only
-    /// landscape tile is a bend bridge.
+    /// Geometry invariants for the chain layout walker — the checks that kept
+    /// regressing when this lived in a MonoBehaviour. Orientation rules under
+    /// test: regular tiles portrait; doubles landscape (crosswise) EXCEPT the
+    /// first tile of a column after a bend, which is portrait; and the bend
+    /// bridge's TOP edge aligns with the outgoing column tile's top edge.
     /// </summary>
     public class ChainLayoutTests
     {
         private const float Eps = 0.01f;
         private const float TouchTolerance = 0.5f;
 
-        // Force several bends without needing 14-tile columns.
         private static readonly ChainLayout.Config Cramped =
             new(tileSpacing: 2f, virtualHeight: 480f, dropZoneHalfHeight: 70f);
 
@@ -39,7 +37,6 @@ namespace Pose.Core.Tests
                 MinX < o.MaxX - eps && MaxX > o.MinX + eps &&
                 MinY < o.MaxY - eps && MaxY > o.MinY + eps;
 
-            /// <summary>Nearest-edge gap between two AABBs; 0 if they touch or overlap.</summary>
             public float GapTo(Aabb o)
             {
                 float dx = Max(0f, Max(o.MinX - MaxX, MinX - o.MaxX));
@@ -52,12 +49,7 @@ namespace Pose.Core.Tests
 
         // ---- Chain builders ----------------------------------------------
 
-        /// <summary>
-        /// Right-extending line alternating regular tiles and doubles —
-        /// [0|1][1|1][1|2][2|2]… — so the snake wraps with doubles at the column
-        /// ends. Opening is index 0. Chain.Place only checks pip matching, not
-        /// set uniqueness, so reused tiles are fine for geometry.
-        /// </summary>
+        /// <summary>Alternating regular tiles and doubles: [0|1][1|1][1|2][2|2]…</summary>
         private static Chain AlternatingDoublesChain(int count)
         {
             Chain chain = Chain.Empty.Place(new Tile(0, 1), ChainEnd.Right);
@@ -72,10 +64,7 @@ namespace Pose.Core.Tests
             return chain;
         }
 
-        /// <summary>
-        /// Right-extending line with no doubles — ping-pongs [1|2][2|1]… — so
-        /// every bend lands on a portrait tile.
-        /// </summary>
+        /// <summary>Doubles-free line — ping-pongs [1|2][2|1]….</summary>
         private static Chain PortraitOnlyChain(int count)
         {
             Chain chain = Chain.Empty.Place(new Tile(0, 1), ChainEnd.Right);
@@ -88,14 +77,17 @@ namespace Pose.Core.Tests
             return chain;
         }
 
-        private static List<int> BridgeIndices(ChainSlot[] slots)
+        /// <summary>
+        /// Non-double bridges — a bridge is a tile forced landscape at a bend.
+        /// Doubles are also landscape, so we exclude them; the tile immediately
+        /// after a bridge is the first tile of the new column.
+        /// </summary>
+        private static List<int> BridgeIndices(Chain chain, ChainSlot[] slots)
         {
-            // With doubles rendered portrait, the only landscape tiles are the
-            // bend bridges.
             List<int> bridges = new();
             for (int i = 0; i < slots.Length; i++)
             {
-                if (slots[i].Landscape)
+                if (slots[i].Landscape && !chain.Tiles[i].Tile.IsDouble)
                 {
                     bridges.Add(i);
                 }
@@ -127,15 +119,15 @@ namespace Pose.Core.Tests
             }
         }
 
-        private static void AssertBridgesAligned(ChainSlot[] slots)
+        private static void AssertBridgesTopAligned(Chain chain, ChainSlot[] slots)
         {
-            // Each bridge must sit at the SAME center-Y as the outgoing column's
-            // last tile (the tile immediately before it).
-            foreach (int i in BridgeIndices(slots))
+            foreach (int i in BridgeIndices(chain, slots))
             {
+                float bridgeTop = slots[i].CenterY - slots[i].Height / 2f;
+                float outgoingTop = slots[i - 1].CenterY - slots[i - 1].Height / 2f;
                 Assert.That(
-                    slots[i].CenterY, Is.EqualTo(slots[i - 1].CenterY).Within(Eps),
-                    $"bridge {i} not aligned with outgoing tile {i - 1}");
+                    bridgeTop, Is.EqualTo(outgoingTop).Within(Eps),
+                    $"bridge {i} top not aligned with outgoing tile {i - 1} top");
             }
         }
 
@@ -149,7 +141,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesAligned(slots);
+            AssertBridgesTopAligned(chain, slots);
         }
 
         [Test]
@@ -160,7 +152,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesAligned(slots);
+            AssertBridgesTopAligned(chain, slots);
         }
 
         [Test]
@@ -171,39 +163,56 @@ namespace Pose.Core.Tests
                 ChainSlot[] slots = ChainLayout.Compute(chain, 0, Default).Slots;
                 AssertNoOverlap(slots);
                 AssertConsecutiveTouch(slots, Default);
-                AssertBridgesAligned(slots);
+                AssertBridgesTopAligned(chain, slots);
             }
         }
 
         [Test]
-        public void Cramped_ProducesBends()
+        public void Doubles_LieLandscape_ExceptFirstTileOfAColumn()
         {
-            // Guards AssertBridgesAligned from passing vacuously.
             Chain chain = AlternatingDoublesChain(24);
             ChainSlot[] slots = ChainLayout.Compute(chain, 0, Cramped).Slots;
 
-            Assert.That(BridgeIndices(slots), Is.Not.Empty, "no bends were produced");
+            HashSet<int> firstOfColumn = new();
+            foreach (int b in BridgeIndices(chain, slots))
+            {
+                firstOfColumn.Add(b + 1); // tile after a bridge starts the new column
+            }
+
+            bool sawMidDouble = false;
+            bool sawFirstOfColumnDouble = false;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (!chain.Tiles[i].Tile.IsDouble)
+                {
+                    continue;
+                }
+                if (firstOfColumn.Contains(i))
+                {
+                    sawFirstOfColumnDouble = true;
+                    Assert.That(slots[i].Landscape, Is.False, $"first-of-column double {i} should be portrait");
+                }
+                else
+                {
+                    sawMidDouble = true;
+                    Assert.That(slots[i].Landscape, Is.True, $"in-run double {i} should be landscape");
+                }
+            }
+
+            Assert.That(sawMidDouble, Is.True, "test saw no in-run double to check");
+            Assert.That(sawFirstOfColumnDouble, Is.True, "test saw no first-of-column double to check");
         }
 
         [Test]
-        public void DoublesRenderPortraitInStraightRun()
+        public void OpeningDouble_LiesLandscape()
         {
-            // The requested behaviour: a double lies in-line like a regular
-            // tile, not crosswise. Use a bend-free chain so every tile is an
-            // in-run tile (no bridges), then assert nothing is landscape.
-            Chain chain = AlternatingDoublesChain(6);
+            // The opening is column 1's first tile (not a post-bend column), so a
+            // double opener lies crosswise.
+            Chain chain = Chain.Empty.Place(new Tile(6, 6), ChainEnd.Right);
+            chain = chain.Place(new Tile(6, 5), ChainEnd.Right);
             ChainSlot[] slots = ChainLayout.Compute(chain, 0, Default).Slots;
 
-            bool sawDouble = false;
-            for (int i = 0; i < slots.Length; i++)
-            {
-                if (chain.Tiles[i].Tile.IsDouble)
-                {
-                    sawDouble = true;
-                }
-                Assert.That(slots[i].Landscape, Is.False, $"tile {i} should be portrait");
-            }
-            Assert.That(sawDouble, Is.True, "test built no double to check");
+            Assert.That(slots[0].Landscape, Is.True, "opening double should lie landscape");
         }
 
         [Test]
