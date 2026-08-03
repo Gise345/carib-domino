@@ -8,8 +8,9 @@ namespace Pose.Core.Tests
     /// Geometry invariants for the chain layout walker — the checks that kept
     /// regressing when this lived in a MonoBehaviour. Orientation rules under
     /// test: regular tiles portrait; doubles landscape (crosswise) EXCEPT the
-    /// first tile of a column after a bend, which is portrait; and the bend
-    /// bridge's TOP edge aligns with the outgoing column tile's top edge.
+    /// first tile of a column after a bend, which is portrait; and at each bend
+    /// the outgoing tile, bridge, and new column's first tile go flush at a
+    /// common edge (top at a top bend, bottom at a bottom bend).
     /// </summary>
     public class ChainLayoutTests
     {
@@ -119,17 +120,34 @@ namespace Pose.Core.Tests
             }
         }
 
-        private static void AssertBridgesTopAligned(Chain chain, ChainSlot[] slots)
+        /// <summary>
+        /// At each bend the outgoing tile, the bridge, and the new column's first
+        /// tile must be flush at a common horizontal edge — all their TOP edges
+        /// equal (a top bend) or all their BOTTOM edges equal (a bottom bend) —
+        /// so the U-turn reads cleanly on both ends of the snake.
+        /// </summary>
+        private static void AssertBendsFlush(Chain chain, ChainSlot[] slots)
         {
             foreach (int i in BridgeIndices(chain, slots))
             {
-                float bridgeTop = slots[i].CenterY - slots[i].Height / 2f;
-                float outgoingTop = slots[i - 1].CenterY - slots[i - 1].Height / 2f;
+                if (i + 1 >= slots.Length)
+                {
+                    continue;
+                }
+                Aabb outgoing = new(slots[i - 1]);
+                Aabb bridge = new(slots[i]);
+                Aabb first = new(slots[i + 1]);
+
+                bool topFlush = Near(outgoing.MinY, bridge.MinY) && Near(outgoing.MinY, first.MinY);
+                bool bottomFlush = Near(outgoing.MaxY, bridge.MaxY) && Near(outgoing.MaxY, first.MaxY);
+
                 Assert.That(
-                    bridgeTop, Is.EqualTo(outgoingTop).Within(Eps),
-                    $"bridge {i} top not aligned with outgoing tile {i - 1} top");
+                    topFlush || bottomFlush, Is.True,
+                    $"bend {i}: outgoing/bridge/first-tile are not flush at a common edge");
             }
         }
+
+        private static bool Near(float a, float b) => System.Math.Abs(a - b) < Eps;
 
         // ---- Tests --------------------------------------------------------
 
@@ -141,7 +159,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesTopAligned(chain, slots);
+            AssertBendsFlush(chain, slots);
         }
 
         [Test]
@@ -152,7 +170,7 @@ namespace Pose.Core.Tests
 
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
-            AssertBridgesTopAligned(chain, slots);
+            AssertBendsFlush(chain, slots);
         }
 
         [Test]
@@ -163,7 +181,7 @@ namespace Pose.Core.Tests
                 ChainSlot[] slots = ChainLayout.Compute(chain, 0, Default).Slots;
                 AssertNoOverlap(slots);
                 AssertConsecutiveTouch(slots, Default);
-                AssertBridgesTopAligned(chain, slots);
+                AssertBendsFlush(chain, slots);
             }
         }
 

@@ -186,9 +186,17 @@ namespace Pose.Core
             float bridgeHalfW = LongDim / 2f;
             float bridgeHalfH = ShortDim / 2f;
 
-            // Top-align: bridge top edge == outgoing tile top edge.
-            float topEdge = state.LastTileCenterY - lastHalfH;
-            float bridgeCenterY = topEdge + bridgeHalfH;
+            // A down-walk overflows at the BOTTOM of the area, an up-walk at the
+            // TOP. The whole bend goes flush at that edge: the outgoing tile, the
+            // bridge, and the new column's first tile all share the same
+            // horizontal edge, so the U-turn reads cleanly. (The alignEdge is the
+            // outgoing tile's bottom edge for a bottom bend, top edge for a top.)
+            bool bottomBend = state.GoingDown;
+            float alignEdge = bottomBend
+                ? state.LastTileCenterY + lastHalfH
+                : state.LastTileCenterY - lastHalfH;
+
+            float bridgeCenterY = bottomBend ? alignEdge - bridgeHalfH : alignEdge + bridgeHalfH;
 
             float bridgeCenterX = state.ColX + dir * (lastHalfW + config.TileSpacing + bridgeHalfW);
             // The new column's first tile is always portrait (a first-of-column
@@ -199,21 +207,17 @@ namespace Pose.Core
             slots[i] = new ChainSlot(
                 bridgeCenterX, bridgeCenterY, landscape: true, bridge.LeftPip, bridge.RightPip);
 
-            // LastTileCenterY stays at the outgoing tile's center — the new
-            // column's first tile re-anchors from it below.
-            float bendCenterY = state.LastTileCenterY;
-
             state.Col++;
             state.ColX = newColX;
             state.PortraitPipsFlipped = !state.PortraitPipsFlipped;
             state.LastTileLandscape = false;
             state.FirstTileOfColumn = true;
 
-            bool goingDown = !state.GoingDown;
-            state.GoingDown = goingDown;
-            // Seat the new column's first tile (portrait, LongDim tall) centered on
-            // the outgoing tile's center-Y, then continue in the new direction.
-            state.NextEdgeY = goingDown ? bendCenterY - LongDim / 2f : bendCenterY + LongDim / 2f;
+            state.GoingDown = !state.GoingDown;
+            // Seat the new column's first tile flush at the same bend edge: its
+            // leading edge (top when now going down, bottom when going up) is the
+            // alignEdge. Then the column continues in the new direction.
+            state.NextEdgeY = alignEdge;
         }
 
         private static void PlaceRegular(
