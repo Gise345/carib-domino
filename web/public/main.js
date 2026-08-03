@@ -289,7 +289,10 @@
       if (!ok) {
         var status = document.getElementById('formStatus');
         if (status) status.hidden = true;
-        (ok === false && !EMAIL_RE.test(email) ? emailInput : form).focus();
+
+        // send focus to whichever field actually failed
+        if (!EMAIL_RE.test(email)) emailInput.focus();
+        else form.querySelector('input[name="platforms"]').focus();
         return;
       }
 
