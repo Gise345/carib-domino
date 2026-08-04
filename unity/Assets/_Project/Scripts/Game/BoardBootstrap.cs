@@ -1299,17 +1299,17 @@ namespace Pose.Game
                 // lead with the outcome; (3) otherwise just report the leave.
                 // Rematch is never offered — a departed opponent can't play on.
                 bool endedByLeave = state.IsOver;
-                string title = _abandonedWin
+                string leaveTitle = _abandonedWin
                     ? L10n.Get("end_you_win_opponent_left")
                     : endedByLeave
                         ? FormatStatus(state, isLocalTurn: false)
                         : L10n.Get("end_opponent_left");
-                string? subtitle = (!_abandonedWin && endedByLeave)
+                string? leaveSubtitle = (!_abandonedWin && endedByLeave)
                     ? L10n.Get("end_opponent_left")
                     : null;
                 _endOverlay.Show(
-                    title: title,
-                    subtitle: subtitle,
+                    title: leaveTitle,
+                    subtitle: leaveSubtitle,
                     primaryLabel: null,
                     primaryInteractable: false,
                     secondaryLabel: L10n.Get("btn_back_to_lobby"));
