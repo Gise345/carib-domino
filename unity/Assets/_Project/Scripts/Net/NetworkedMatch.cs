@@ -26,8 +26,8 @@ namespace Pose.Net
     ///   them to the next seat, keyed by the sender's <see cref="PlayerRef"/> so
     ///   every client can find its own seat regardless of display-name clashes.
     /// - When every seat is filled (<see cref="RegisteredCount"/> ==
-    ///   <see cref="PlayerCount"/>), or when the host calls
-    ///   <see cref="StartWithCurrentPlayers"/> after a fill timeout, the host
+    ///   <see cref="PlayerCount"/>), or when the <see cref="AutoStartTimer"/>
+    ///   deadline elapses (empty seats are filled with bots, M3.9b), the authority
     ///   sets <see cref="RoundNumber"/> = 1 and flips <see cref="DealReady"/>.
     ///
     /// Rematch: both/all seated players must opt in. Each vote sets a bit in
@@ -111,6 +111,23 @@ namespace Pose.Net
         [Networked] public int RematchVoteMask { get; set; }
 
         /// <summary>
+        /// Bit <c>i</c> set means seat <c>i</c> is a bot — either filled at the
+        /// auto-start deadline or converted from a player who left mid-round
+        /// (M3.9b). The table's authority drives bot turns; every client renders
+        /// bot seats as such. Bots have no Firebase uid, so settlement skips them.
+        /// </summary>
+        [Networked] public int BotSeatMask { get; set; }
+
+        /// <summary>
+        /// Fires 60s after the table opens; when it expires with the table not yet
+        /// full, the authority fills the empty seats with bots and deals — so play
+        /// never waits on a seat that never fills, and no player has to press
+        /// "start" (there is no host role). Migration-safe: it is networked, so a
+        /// promoted authority honours the same deadline (ADR 0011).
+        /// </summary>
+        [Networked] public TickTimer AutoStartTimer { get; set; }
+
+        /// <summary>
         /// Set by the host's <see cref="OnlineMatchController"/> so
         /// <see cref="RPC_SubmitMove"/> can validate against the current
         /// authoritative state before appending. Kept as a callback rather than
@@ -154,11 +171,20 @@ namespace Pose.Net
             return result;
         }
 
-        /// <summary>True once every seated player has voted for a rematch.</summary>
+        /// <summary>
+        /// True once every seated player has voted for a rematch. Bot seats count
+        /// as always-in (they can't vote), so a table with bots can still rematch
+        /// on the humans' votes alone.
+        /// </summary>
         public bool AllRematchVotesIn =>
-            PlayerCount > 0 && (RematchVoteMask & SeatMask(PlayerCount)) == SeatMask(PlayerCount);
+            PlayerCount > 0
+            && ((RematchVoteMask | BotSeatMask) & SeatMask(PlayerCount)) == SeatMask(PlayerCount);
 
         private static int SeatMask(int count) => (1 << count) - 1;
+
+        /// <summary>True if seat <paramref name="seat"/> is a bot.</summary>
+        public bool IsBotSeat(int seat) =>
+            seat >= 0 && seat < MaxPlayers && (BotSeatMask & (1 << seat)) != 0;
 
         public override void Spawned()
         {
@@ -245,24 +271,95 @@ namespace Pose.Net
         }
 
         /// <summary>
-        /// Host-only. Starts the round now with whoever has joined, by trimming
-        /// the target <see cref="PlayerCount"/> down to <see cref="RegisteredCount"/>.
-        /// Used when the fill timeout elapses and the human accepts a short game.
-        /// Requires at least two players.
+        /// Authority-only. Arms the auto-start deadline (see
+        /// <see cref="AutoStartTimer"/>). Called once when the table opens.
         /// </summary>
-        public void StartWithCurrentPlayers()
+        public void ArmAutoStart(float seconds)
+        {
+            if (Object.HasStateAuthority)
+            {
+                AutoStartTimer = TickTimer.CreateFromSeconds(Runner, seconds);
+            }
+        }
+
+        /// <summary>
+        /// Authority-side: at the auto-start deadline, fill every seat not held by
+        /// a present human with a bot and deal. Replaces the old host-driven
+        /// "start with current players" prompt — there is no host role, and no one
+        /// taps to start (ADR 0011).
+        /// </summary>
+        private void AutoStartWithBots()
         {
             if (!Object.HasStateAuthority || DealReady)
             {
                 return;
             }
-            if (RegisteredCount < 2)
+
+            for (int seat = 0; seat < PlayerCount; seat++)
             {
-                Debug.LogWarning("[NetworkedMatch] StartWithCurrentPlayers ignored — fewer than 2 players.");
+                if (!SeatHeldByPresentHuman(seat))
+                {
+                    FillSeatAsBot(seat);
+                }
+            }
+            RegisteredCount = PlayerCount;
+            StartFirstRound();
+        }
+
+        private bool SeatHeldByPresentHuman(int seat)
+        {
+            if (seat >= RegisteredCount || IsBotSeat(seat))
+            {
+                return false;
+            }
+            int seatRef = SeatPlayerRefs.Get(seat);
+            foreach (PlayerRef p in Runner.ActivePlayers)
+            {
+                if (p.PlayerId == seatRef)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Authority-only. Turns an empty / vacated-before-deal seat into a fresh
+        // bot: names it, marks the seat a bot, and clears its ref and uid.
+        private void FillSeatAsBot(int seat)
+        {
+            PlayerIds.Set(seat, $"Bot {seat + 1}");
+            SeatPlayerRefs.Set(seat, -1);
+            BotSeatMask |= 1 << seat;
+            _seatUids[seat] = string.Empty;
+        }
+
+        /// <summary>
+        /// Authority-only. Converts a seat whose player left MID-round into a bot,
+        /// so the table plays on. Keeps the seat's existing player id (its dealt
+        /// hand is keyed by it); only marks it a bot and drops its uid so
+        /// settlement won't attribute the round to the departed player.
+        /// </summary>
+        public void MakeSeatBot(int seat)
+        {
+            if (!Object.HasStateAuthority || seat < 0 || seat >= PlayerCount)
+            {
                 return;
             }
-            PlayerCount = RegisteredCount;
-            StartFirstRound();
+            BotSeatMask |= 1 << seat;
+            _seatUids[seat] = string.Empty;
+            Debug.Log($"[NetworkedMatch] Seat {seat} converted to a bot (player left).");
+        }
+
+        public override void FixedUpdateNetwork()
+        {
+            base.FixedUpdateNetwork();
+            // Only the authority drives the deadline; it is networked, so a
+            // migrated authority picks up the same timer without resetting it.
+            if (Object.HasStateAuthority && !DealReady && AutoStartTimer.Expired(Runner))
+            {
+                AutoStartTimer = TickTimer.None;
+                AutoStartWithBots();
+            }
         }
 
         private void StartFirstRound()

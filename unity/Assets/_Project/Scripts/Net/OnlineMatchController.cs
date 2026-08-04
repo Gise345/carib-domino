@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -85,6 +86,21 @@ namespace Pose.Net
         public event Action? OpponentLeft;
 
         /// <summary>
+        /// Fires when a seat's membership changes without a move — a player left
+        /// and was replaced by a bot (M3.9b) — so the board can re-render name
+        /// plates ("Bot") immediately.
+        /// </summary>
+        public event Action? SeatsChanged;
+
+        /// <summary>
+        /// Fires on the last remaining human when everyone else has left a round
+        /// that can no longer be settled authoritatively (e.g. the table's
+        /// authority was the one who left). Carries a local "you win" outcome so
+        /// the UI can end the round; casual only — no server stats (ADR 0011).
+        /// </summary>
+        public event Action? MatchAbandonedWin;
+
+        /// <summary>
         /// The live local <see cref="MatchState"/> — advances as the networked
         /// move log replays. Null until the initial deal completes.
         /// </summary>
@@ -137,6 +153,9 @@ namespace Pose.Net
         /// <summary>True if this client is the room host (shared-mode master client).</summary>
         public bool IsHost => _runner != null && _runner.IsSharedModeMasterClient;
 
+        /// <summary>True if the seat at <paramref name="seat"/> is a bot (M3.9b).</summary>
+        public bool IsBotSeat(int seat) => _match != null && _match.IsBotSeat(seat);
+
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
@@ -149,6 +168,23 @@ namespace Pose.Net
         private bool _opponentLeftFired;
         private bool _advancingRematch;
         private bool _settlementSubmitted;
+        private bool _wasAuthority;
+        private bool _localEndFired;
+
+        // Seconds a table waits for humans before the authority fills the empty
+        // seats with bots and deals. No one taps "start" — there is no host role.
+        private const float AutoStartSeconds = 60f;
+
+        // Drives bot seats on the table's authority. The chosen moves are recorded
+        // in the (server-replayed) move log, so bot RNG needn't be deterministic
+        // for settlement; it is seeded from the deal seed only for tidiness.
+        private readonly RandomBot _bot = new();
+        private IRandomSource _botRng = new SeededRandomSource(0UL);
+        private Coroutine? _botRoutine;
+
+        // Beat before a bot plays, so its moves read as deliberate rather than
+        // instant. Mirrors the offline bot cadence.
+        private const float BotMoveDelaySeconds = 1.2f;
 
         /// <summary>
         /// The server-issued match id for the current round, or empty if the seed
@@ -231,10 +267,20 @@ namespace Pose.Net
 
         private void Update()
         {
-            if (_runner == null || _opponentLeftFired)
+            if (_runner == null)
             {
                 return;
             }
+
+            // Authority can migrate at any time (the previous authority left).
+            // When we become it, take over the host-side duties.
+            bool authority = HasMatchAuthority;
+            if (authority && !_wasAuthority)
+            {
+                OnBecameAuthority();
+            }
+            _wasAuthority = authority;
+
             int count = _runner.ActivePlayers.Count();
             if (_lastSeenPlayerCount == 0)
             {
@@ -243,38 +289,61 @@ namespace Pose.Net
             }
             if (count < _lastSeenPlayerCount)
             {
-                _opponentLeftFired = true;
                 Debug.Log(
-                    $"[OnlineMatchController] OpponentLeft detected " +
-                    $"(player count {_lastSeenPlayerCount} -> {count})");
-                // Before surfacing the leave to the UI, end an in-progress round
-                // by resigning the departed player so it produces a real outcome
-                // and settles — a rage-quit shouldn't deny the remaining player
-                // their win.
-                ResignDepartedPlayer();
-                OpponentLeft?.Invoke();
+                    $"[OnlineMatchController] Player count dropped {_lastSeenPlayerCount} -> {count}.");
+                HandleDepartures();
             }
             _lastSeenPlayerCount = count;
+
+            // Safety net: if I'm the only one left in a round that can't settle
+            // (the authority was the leaver and nothing migrated), end locally.
+            MaybeLocalWinIfStranded();
+        }
+
+        private bool HasMatchAuthority =>
+            _match != null && _match.Object != null && _match.Object.HasStateAuthority;
+
+        /// <summary>
+        /// Just became the table's authority (Fusion migrated it here after the
+        /// previous authority left). Re-install the move validator and resume the
+        /// host-side duties — auto-start deadline and bot-driving are already
+        /// authority-gated, so they pick up automatically.
+        /// </summary>
+        private void OnBecameAuthority()
+        {
+            if (_match == null)
+            {
+                return;
+            }
+            Debug.Log("[OnlineMatchController] Became table authority (migration).");
+            if (CurrentState != null)
+            {
+                _match.MoveValidator = ValidateNetworkedMove;
+            }
+            // A departed seat / bot's turn may be pending with no move to trigger
+            // scheduling, and unresolved departures need handling under our new
+            // authority.
+            HandleDepartures();
+            ScheduleBotIfNeeded();
         }
 
         /// <summary>
-        /// Host-side: when a seat's player has left the Photon session mid-round,
-        /// submit a resign on their behalf. One resign ends the round (the engine
-        /// awards it to the remaining player(s)), which flows through the normal
-        /// move log to round-over + settlement. No-op off the authority, before
-        /// the deal, or once the round is over. If the HOST itself left, the
-        /// remaining clients aren't the authority, so the round can't settle —
-        /// that (host migration) is a later slice.
+        /// Reacts to one or more players having left. On the authority: seats that
+        /// vacated mid-round become bots and the table plays on while ≥2 humans
+        /// remain (<see cref="SeatFillPolicy"/>); if only one human is left, the
+        /// round ends by resigning a departed seat (the lone human wins + settles).
+        /// Bot seats and already-resolved seats are skipped, so repeated leaves are
+        /// handled idempotently.
         /// </summary>
-        private void ResignDepartedPlayer()
+        private void HandleDepartures()
         {
-            if (_match == null || _runner == null || CurrentState == null)
+            if (_match == null || _runner == null || CurrentState == null || CurrentState.IsOver)
             {
                 return;
             }
-            if (!_match.Object.HasStateAuthority || CurrentState.IsOver)
+            if (!HasMatchAuthority)
             {
-                return;
+                return; // a non-authority can't act; migration or the local-win net covers it
             }
 
             HashSet<int> active = new();
@@ -284,15 +353,130 @@ namespace Pose.Net
             }
 
             int count = _match.PlayerCount;
+            List<int> departed = new();
+            int humansRemaining = 0;
             for (int seat = 0; seat < count; seat++)
             {
-                if (!active.Contains(_match.SeatPlayerRefs.Get(seat)))
+                if (_match.IsBotSeat(seat))
                 {
-                    Debug.Log($"[OnlineMatchController] Seat {seat} left mid-round — resigning on their behalf.");
-                    _match.RPC_SubmitMove(NetworkedMove.FromResign((byte)seat));
-                    return; // one resign ends the round
+                    continue;
+                }
+                if (active.Contains(_match.SeatPlayerRefs.Get(seat)))
+                {
+                    humansRemaining++;
+                }
+                else
+                {
+                    departed.Add(seat);
                 }
             }
+
+            if (departed.Count == 0)
+            {
+                return;
+            }
+
+            if (SeatFillPolicy.OnLeave(humansRemaining) == SeatFillPolicy.LeaveAction.FillWithBots)
+            {
+                foreach (int seat in departed)
+                {
+                    _match.MakeSeatBot(seat);
+                }
+                SeatsChanged?.Invoke();  // re-render the "Bot" name plates now
+                ScheduleBotIfNeeded();   // it may already be a bot seat's turn
+            }
+            else
+            {
+                // One human left — end the round by resigning a departed seat. The
+                // engine awards it to the remaining player; settlement follows.
+                Debug.Log($"[OnlineMatchController] Last human standing — resigning seat {departed[0]} to end the round.");
+                _match.RPC_SubmitMove(NetworkedMove.FromResign((byte)departed[0]));
+                if (!_opponentLeftFired)
+                {
+                    _opponentLeftFired = true;
+                    OpponentLeft?.Invoke();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Last-human safety net: if everyone else has left a live round and this
+        /// client can't settle it (the authority left and nothing migrated here),
+        /// end locally with a win. Casual only — no server stats (ADR 0011).
+        /// </summary>
+        private void MaybeLocalWinIfStranded()
+        {
+            if (_localEndFired || _match == null || CurrentState == null)
+            {
+                return;
+            }
+            if (!_match.DealReady || CurrentState.IsOver)
+            {
+                return;
+            }
+            // Only fires when I'm truly alone AND I'm not the authority (if I were,
+            // HandleDepartures would have ended the round properly).
+            if (_runner!.ActivePlayers.Count() > 1 || HasMatchAuthority)
+            {
+                return;
+            }
+            _localEndFired = true;
+            _opponentLeftFired = true;
+            Debug.Log("[OnlineMatchController] Stranded as last human — ending locally with a win (casual).");
+            MatchAbandonedWin?.Invoke();
+        }
+
+        // ---- Bot driving (authority-only) ---------------------------------
+
+        /// <summary>
+        /// If it is a bot seat's turn and this client is the table authority,
+        /// schedule the bot's move. Chains naturally: after each bot move applies,
+        /// <see cref="OnMoveAppliedChanged"/> calls this again for the next seat.
+        /// </summary>
+        private void ScheduleBotIfNeeded()
+        {
+            if (!HasMatchAuthority || _botRoutine != null)
+            {
+                return;
+            }
+            if (CurrentState == null || CurrentState.IsOver)
+            {
+                return;
+            }
+            int seat = CurrentState.CurrentPlayerIndex;
+            if (!_match!.IsBotSeat(seat))
+            {
+                return;
+            }
+            _botRoutine = StartCoroutine(BotTurnRoutine(seat));
+        }
+
+        private IEnumerator BotTurnRoutine(int seat)
+        {
+            yield return new WaitForSeconds(BotMoveDelaySeconds);
+            _botRoutine = null;
+
+            // Re-check: state may have moved on, migrated away, or ended while we waited.
+            if (!HasMatchAuthority || CurrentState == null || CurrentState.IsOver
+                || CurrentState.CurrentPlayerIndex != seat || !_match!.IsBotSeat(seat))
+            {
+                yield break;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(CurrentState);
+            if (legal.Count == 0)
+            {
+                yield break;
+            }
+            Move move = _bot.PickMove(CurrentState, legal, _botRng);
+            NetworkedMove nm = move switch
+            {
+                PlaceMove pm => NetworkedMove.FromPlace((byte)seat, pm.Tile, pm.End),
+                PassMove _ => NetworkedMove.FromPass((byte)seat),
+                ResignMove _ => NetworkedMove.FromResign((byte)seat),
+                _ => throw new InvalidOperationException($"Unsupported bot move: {move.GetType().Name}"),
+            };
+            _match.RPC_SubmitMove(nm);
         }
 
         /// <summary>
@@ -364,6 +548,9 @@ namespace Pose.Net
             _match.SeatPlayerRefs.Set(0, _runner.LocalPlayer.PlayerId);
             _match.RecordSeatUid(0, _localUid);
             _match.RegisteredCount = 1;
+            // Open the fill window: if the table hasn't filled with humans by the
+            // deadline, the authority deals with bots in the empty seats.
+            _match.ArmAutoStart(AutoStartSeconds);
             Debug.Log(
                 $"[OnlineMatchController] Spawned as HOST. seed={seed}, match={matchId}, " +
                 $"count={_targetPlayerCount}, player0={_localPlayerId}");
@@ -411,7 +598,9 @@ namespace Pose.Net
                 _match.MoveValidator = ValidateNetworkedMove;
             }
 
+            _botRng = new SeededRandomSource(_match.Seed);
             MatchDealt?.Invoke(state);
+            ScheduleBotIfNeeded();
         }
 
         private void OnRoundStarted()
@@ -422,7 +611,9 @@ namespace Pose.Net
                 return;
             }
 
+            _botRng = new SeededRandomSource(_match!.Seed);
             RoundStarted?.Invoke(state);
+            ScheduleBotIfNeeded();
         }
 
         private void OnRematchVotesChanged()
@@ -476,16 +667,6 @@ namespace Pose.Net
         private void OnRegisteredCountChanged()
         {
             WaitingChanged?.Invoke();
-        }
-
-        /// <summary>
-        /// Starts the round now with whoever has joined (host only). Trims the
-        /// target count to the current seat count. No-op if the deal already
-        /// landed or fewer than two players are present.
-        /// </summary>
-        public void StartWithCurrentPlayers()
-        {
-            _match?.StartWithCurrentPlayers();
         }
 
         /// <summary>
@@ -663,6 +844,7 @@ namespace Pose.Net
             }
 
             TrySubmitSettlement();
+            ScheduleBotIfNeeded();
         }
 
         /// <summary>

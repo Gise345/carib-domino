@@ -99,6 +99,14 @@ MonoBehaviour:
     m_Key: status_round_over_team_loss
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000014
+    m_Key: player_bot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000015
+    m_Key: end_you_win_opponent_left
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

@@ -85,6 +85,10 @@ namespace Pose.Game
         // nobody left to rematch with, so the only offer is back-to-lobby.
         private bool _opponentLeft;
 
+        // Set when this client was left alone in a round it can't settle
+        // (the authority left); the overlay declares a local win.
+        private bool _abandonedWin;
+
         // Bumped per offline "Play again" so each practice round deals a
         // different hand. Derived from SpikeSeed rather than a system RNG so
         // any given round remains reproducible from (SpikeSeed, index).
@@ -246,15 +250,10 @@ namespace Pose.Game
         private OnlineMatchController? _onlineMatchController;
         private Coroutine? _autoPoseRoutine;
         private Coroutine? _autoPassRoutine;
-        private Coroutine? _waitingTimerRoutine;
-
-        // Seconds the host waits for the room to fill before offering to start
-        // short with whoever is present.
-        private const float WaitingTimeoutSeconds = 120f;
 
         // What the shared EndOverlayView is currently presenting, so its two
         // buttons dispatch to the right action.
-        private enum OverlayMode { RoundOver, OpponentLeft, ShortStart }
+        private enum OverlayMode { RoundOver, OpponentLeft }
         private OverlayMode _overlayMode = OverlayMode.RoundOver;
 
         private void ShowLobby()
@@ -314,6 +313,8 @@ namespace Pose.Game
             _onlineMatchController.RematchVotesChanged += OnRematchVotesChanged;
             _onlineMatchController.WaitingChanged += OnWaitingChanged;
             _onlineMatchController.OpponentLeft += OnOpponentLeft;
+            _onlineMatchController.SeatsChanged += OnSeatsChanged;
+            _onlineMatchController.MatchAbandonedWin += OnMatchAbandonedWin;
             _onlineMatchController.Setup(
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
@@ -322,15 +323,9 @@ namespace Pose.Game
                 playerCount,
                 mode);
 
-            // Host of a 3+ player Cut-Throat room: start a fill-timeout so we
-            // don't wait forever for the last seat. The joiner path (playerCount
-            // 0) and 2P rooms don't arm it — 2P can't start with fewer than 2.
-            // Jamaican Partner is excluded: it needs exactly 4, so a short start
-            // would deal an invalid table.
-            if (_onlineMatchController.IsHost && playerCount >= 3 && mode == GameMode.CutThroat)
-            {
-                _waitingTimerRoutine = StartCoroutine(WaitingTimeoutRoutine());
-            }
+            // No fill timer, no "start now" prompt, no host: the table's authority
+            // auto-deals when it fills or when its 60s deadline elapses (filling
+            // empty seats with bots). See NetworkedMatch.AutoStartTimer (ADR 0011).
 
             // The lobby stays on screen showing the waiting status until the
             // deal lands — OnOnlineMatchDealt then destroys it and the board
@@ -346,14 +341,6 @@ namespace Pose.Game
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
             SeatPlayersForOnline(state.Players, _localPlayer);
             ApplyRootSprite(_boardBackgroundSprite);
-
-            // The room started (filled or short-started): stop the fill timer
-            // and clear any short-start prompt.
-            StopWaitingTimer();
-            if (_overlayMode == OverlayMode.ShortStart)
-            {
-                _endOverlay?.Hide();
-            }
 
             // Lobby served its purpose; hand off to the board.
             if (_lobbyView != null)
@@ -400,7 +387,23 @@ namespace Pose.Game
             Render();
         }
 
-        // ---- Pre-deal waiting + short-start (M3.7) ------------------------
+        // A player left and was replaced by a bot (3P/4P) — just re-render so
+        // the vacated seat shows "Bot"; the round plays on.
+        private void OnSeatsChanged()
+        {
+            Render();
+        }
+
+        // Everyone else left a round this client can't settle authoritatively —
+        // end locally with a win (casual, no server stats; ADR 0011).
+        private void OnMatchAbandonedWin()
+        {
+            _abandonedWin = true;
+            _opponentLeft = true;
+            Render();
+        }
+
+        // ---- Pre-deal waiting (M3.7 / M3.9b auto-start) -------------------
 
         private void OnWaitingChanged()
         {
@@ -412,45 +415,6 @@ namespace Pose.Game
             int have = _onlineMatchController.RegisteredCount;
             int want = _onlineMatchController.TargetPlayerCount;
             _lobbyView.SetWaitingStatus(L10n.Get("waiting_for_players", have, want));
-        }
-
-        private IEnumerator WaitingTimeoutRoutine()
-        {
-            yield return new WaitForSeconds(WaitingTimeoutSeconds);
-            _waitingTimerRoutine = null;
-
-            // Only prompt if we're still waiting (not yet dealt) and have enough
-            // players for a valid short game.
-            if (_isOnline || _onlineMatchController == null)
-            {
-                yield break;
-            }
-            int have = _onlineMatchController.RegisteredCount;
-            int want = _onlineMatchController.TargetPlayerCount;
-            if (have >= 2 && have < want)
-            {
-                ShowShortStartPrompt(have);
-            }
-        }
-
-        private void ShowShortStartPrompt(int currentCount)
-        {
-            _overlayMode = OverlayMode.ShortStart;
-            _endOverlay?.Show(
-                title: L10n.Get("waiting_short_start", currentCount),
-                subtitle: null,
-                primaryLabel: L10n.Get("btn_start_now"),
-                primaryInteractable: true,
-                secondaryLabel: L10n.Get("btn_keep_waiting"));
-        }
-
-        private void StopWaitingTimer()
-        {
-            if (_waitingTimerRoutine != null)
-            {
-                StopCoroutine(_waitingTimerRoutine);
-                _waitingTimerRoutine = null;
-            }
         }
 
         private void UnsubscribeFromLobby()
@@ -890,7 +854,11 @@ namespace Pose.Game
                 // Team games tint each name-plate by team (local team vs the
                 // opposing team); Cut-Throat clears back to white.
                 hv.SetAccentColor(TeamAccentColor(state, p));
-                hv.Setup(p.Value, isCurrent, state.Hands[p], predicate, showBacks);
+                // A seat whose player left is played out by a bot (M3.9b) — label it.
+                string displayName = (_isOnline && _onlineMatchController != null && _onlineMatchController.IsBotSeat(i))
+                    ? L10n.Get("player_bot")
+                    : p.Value;
+                hv.Setup(displayName, isCurrent, state.Hands[p], predicate, showBacks);
             }
 
             _statusView!.Setup(
@@ -1326,14 +1294,22 @@ namespace Pose.Game
             if (_isOnline && _opponentLeft)
             {
                 _overlayMode = OverlayMode.OpponentLeft;
-                // When the leave ended the round (the host resigned the leaver),
-                // lead with the outcome and note the leave underneath; otherwise
-                // (e.g. the host itself left) just report the leave. Rematch is
-                // never offered — a departed opponent can't play on.
+                // Priority: (1) everyone left and we ended locally with a win;
+                // (2) the leave ended the round (a departed seat was resigned) —
+                // lead with the outcome; (3) otherwise just report the leave.
+                // Rematch is never offered — a departed opponent can't play on.
                 bool endedByLeave = state.IsOver;
+                string title = _abandonedWin
+                    ? L10n.Get("end_you_win_opponent_left")
+                    : endedByLeave
+                        ? FormatStatus(state, isLocalTurn: false)
+                        : L10n.Get("end_opponent_left");
+                string? subtitle = (!_abandonedWin && endedByLeave)
+                    ? L10n.Get("end_opponent_left")
+                    : null;
                 _endOverlay.Show(
-                    title: endedByLeave ? FormatStatus(state, isLocalTurn: false) : L10n.Get("end_opponent_left"),
-                    subtitle: endedByLeave ? L10n.Get("end_opponent_left") : null,
+                    title: title,
+                    subtitle: subtitle,
                     primaryLabel: null,
                     primaryInteractable: false,
                     secondaryLabel: L10n.Get("btn_back_to_lobby"));
@@ -1380,12 +1356,6 @@ namespace Pose.Game
         {
             switch (_overlayMode)
             {
-                case OverlayMode.ShortStart:
-                    // Host accepted a short game — deal with who's present. The
-                    // deal lands via OnOnlineMatchDealt, which hides this prompt.
-                    _onlineMatchController?.StartWithCurrentPlayers();
-                    break;
-
                 case OverlayMode.RoundOver when _isOnline:
                     // Rematch. Overlay updates to "waiting…" via RematchVotesChanged;
                     // the re-deal arrives through OnOnlineRoundStarted.
@@ -1402,15 +1372,6 @@ namespace Pose.Game
 
         private void OnOverlaySecondary()
         {
-            if (_overlayMode == OverlayMode.ShortStart)
-            {
-                // Keep waiting — dismiss and re-arm the fill timer.
-                _endOverlay?.Hide();
-                StopWaitingTimer();
-                _waitingTimerRoutine = StartCoroutine(WaitingTimeoutRoutine());
-                return;
-            }
-
             ReturnToLobby();
         }
 
@@ -1469,7 +1430,6 @@ namespace Pose.Game
                 StopCoroutine(_botRoutine);
                 _botRoutine = null;
             }
-            StopWaitingTimer();
 
             // Tear down the online session (if any). This also drops Photon
             // room membership so the other player gets OnPlayerLeft.
@@ -1481,6 +1441,8 @@ namespace Pose.Game
                 _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
                 _onlineMatchController.WaitingChanged -= OnWaitingChanged;
                 _onlineMatchController.OpponentLeft -= OnOpponentLeft;
+                _onlineMatchController.SeatsChanged -= OnSeatsChanged;
+                _onlineMatchController.MatchAbandonedWin -= OnMatchAbandonedWin;
                 _onlineMatchController.ShutdownAndReturnToLobby();
                 Destroy(_onlineMatchController.gameObject);
                 _onlineMatchController = null;
@@ -1490,6 +1452,7 @@ namespace Pose.Game
             _state = null;
             _isOnline = false;
             _opponentLeft = false;
+            _abandonedWin = false;
             _localPlayer = HumanPlayer;
             _firstBotMove = true;
             _endOverlay?.Hide();
