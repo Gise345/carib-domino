@@ -1007,6 +1007,11 @@ namespace Pose.Game
 
         private void BuildSpatialLayout()
         {
+            // Cinematic vignette: darkens the corners over the felt for depth.
+            // Added first so it sits above the board background but behind every
+            // seat, tile and the chain; never intercepts input.
+            CreateVignette();
+
             RectTransform topRegion = CreateRegion(
                 "TopRegion",
                 anchorMin: new Vector2(0f, 1f),
@@ -1060,6 +1065,22 @@ namespace Pose.Game
                 Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: false);
             _leftHandView = CreateHandView(
                 Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+        }
+
+        private void CreateVignette()
+        {
+            GameObject go = new("Vignette", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            Image img = go.AddComponent<Image>();
+            img.sprite = GradientSprite.Radial(
+                new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.62f), clearFraction: 0.4f);
+            img.color = Color.white;
+            img.raycastTarget = false;
         }
 
         // ---- Seat binding (per-round) -------------------------------------
