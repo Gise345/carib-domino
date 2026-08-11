@@ -80,6 +80,7 @@ namespace Pose.Game
         private GameObject? _practiceButton;
         private GameObject? _cutThroatOnlineButton;
         private GameObject? _onlineSizePickerRow;
+        private GameObject? _partnerOnlineButton;
         private GameObject? _createButton;
         private GameObject? _modePickerRow;
         private GameObject? _countPickerRow;
@@ -367,6 +368,7 @@ namespace Pose.Game
             _cutThroatOnlineButton = CreateButton("Cut Throat Online", OnCutThroatOnlineClicked);
             _onlineSizePickerRow = CreateOnlineSizePickerRow();
             _onlineSizePickerRow.SetActive(false);
+            _partnerOnlineButton = CreateButton("Partner Online (2v2)", OnPartnerOnlineClicked);
             _createButton = CreateButton("Create Room", OnCreateClicked);
             _modePickerRow = CreateModePickerRow();
             _modePickerRow.SetActive(false);
@@ -621,7 +623,7 @@ namespace Pose.Game
             for (int count = 2; count <= 4; count++)
             {
                 int chosen = count;
-                GameObject btn = CreateButton($"{count}P", () => StartOnline(chosen));
+                GameObject btn = CreateButton($"{count}P", () => StartOnline(GameMode.CutThroat, chosen));
                 btn.transform.SetParent(row.transform, worldPositionStays: false);
                 btn.GetComponent<LayoutElement>().preferredWidth = 124f;
             }
@@ -730,7 +732,18 @@ namespace Pose.Game
             }
         }
 
-        private async void StartOnline(int size)
+        private void OnPartnerOnlineClicked()
+        {
+            if (_busy)
+            {
+                return;
+            }
+            // Partner is a fixed 2-v-2 table — no size to pick, match straight away.
+            _onlineSizePickerRow!.SetActive(false);
+            StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers);
+        }
+
+        private async void StartOnline(GameMode mode, int size)
         {
             if (_busy)
             {
@@ -739,17 +752,19 @@ namespace Pose.Game
             _busy = true;
             SetActionButtonsVisible(false);
 
-            _statusText!.text = "Finding players…";
+            _statusText!.text = mode == GameMode.Partner
+                ? "Finding players for 2v2…"
+                : "Finding players…";
             _statusText.color = BodyTextColor;
 
             EnsurePhotonBootstrap();
-            bool ok = await PhotonBootstrap.Instance!.QuickMatch(size);
+            bool ok = await PhotonBootstrap.Instance!.QuickMatch(mode, size);
             if (ok)
             {
                 OnlineRoomActive?.Invoke(
                     PhotonBootstrap.Instance.CurrentRoomCode ?? string.Empty,
                     size,
-                    GameMode.CutThroat);
+                    mode);
             }
             else
             {
@@ -887,6 +902,7 @@ namespace Pose.Game
             _practiceButton!.SetActive(visible);
             _cutThroatOnlineButton!.SetActive(visible);
             _onlineSizePickerRow!.SetActive(visible && _onlineSizePickerRow.activeSelf);
+            _partnerOnlineButton!.SetActive(visible);
             _createButton!.SetActive(visible);
             _modePickerRow!.SetActive(visible && _modePickerRow.activeSelf);
             _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);

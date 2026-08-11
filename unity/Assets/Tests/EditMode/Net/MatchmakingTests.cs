@@ -67,5 +67,26 @@ namespace Pose.Core.Tests
                 () => Matchmaking.CutThroatProperties(size),
                 Throws.TypeOf<ArgumentOutOfRangeException>());
         }
+
+        [Test]
+        public void PartnerProperties_AlwaysFourSeats([Values(2, 3, 4)] int ignoredSize)
+        {
+            // Partner is a fixed 2-v-2 table; the size argument is ignored.
+            IReadOnlyDictionary<string, string> props = Matchmaking.Properties(GameMode.Partner, ignoredSize);
+
+            Assert.That(props[Matchmaking.PropMode], Is.EqualTo("partner"));
+            Assert.That(props[Matchmaking.PropSize], Is.EqualTo("4"));
+        }
+
+        [Test]
+        public void PartnerAndCutThroat_DoNotCrossMatch()
+        {
+            // A partner seeker and a 4-player cut-throat seeker must NOT land in
+            // the same table — the mode key differs.
+            string partnerMode = Matchmaking.Properties(GameMode.Partner, 4)[Matchmaking.PropMode];
+            string cutThroatMode = Matchmaking.Properties(GameMode.CutThroat, 4)[Matchmaking.PropMode];
+
+            Assert.That(partnerMode, Is.Not.EqualTo(cutThroatMode));
+        }
     }
 }

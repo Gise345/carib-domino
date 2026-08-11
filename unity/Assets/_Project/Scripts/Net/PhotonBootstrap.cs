@@ -67,25 +67,30 @@ namespace Pose.Net
         public Task<bool> JoinRoom(string code) => ConnectShared(code, "join", playerCount: 0);
 
         /// <summary>
-        /// Random matchmaking for "Cut Throat Online": joins an open Cut-Throat
-        /// table of the given size or, if none exists, creates one. No room code
-        /// — Photon groups players by the published <see cref="Pose.Core.Matchmaking"/>
-        /// properties (mode + size), and the default <c>MatchmakingMode.FillRoom</c>
-        /// fills partially-full tables before opening new ones. The session
-        /// creator becomes the shared-mode master client (host) via the same
-        /// authority check the code-room path uses.
+        /// Random matchmaking: joins an open table of the given ruleset (and, for
+        /// Cut-Throat, size) or, if none exists, creates one. No room code — Photon
+        /// groups players by the published <see cref="Pose.Core.Matchmaking"/>
+        /// properties (mode + size), so different modes/sizes never cross-match,
+        /// and the default <c>MatchmakingMode.FillRoom</c> fills partial tables
+        /// first. The session creator becomes the shared-mode master client (the
+        /// invisible authority) via the same check the code-room path uses.
+        /// Partner is always a 4-seat 2-v-2 table (size ignored).
         /// </summary>
-        /// <param name="size">Table size, 2–4.</param>
-        public Task<bool> QuickMatch(int size)
+        /// <param name="mode">Ruleset to matchmake for.</param>
+        /// <param name="size">Table size, 2–4 (Cut-Throat only).</param>
+        public Task<bool> QuickMatch(Pose.Core.GameMode mode, int size)
         {
+            bool partner = mode == Pose.Core.GameMode.Partner;
+            int seats = partner ? Pose.Core.Matchmaking.PartnerSize : size;
+
             Dictionary<string, SessionProperty> props = new();
-            foreach (KeyValuePair<string, string> kv in Pose.Core.Matchmaking.CutThroatProperties(size))
+            foreach (KeyValuePair<string, string> kv in Pose.Core.Matchmaking.Properties(mode, size))
             {
                 props[kv.Key] = kv.Value; // implicit string -> SessionProperty
             }
 
             // SessionName null → Photon assigns one and matchmakes on the props.
-            return ConnectShared(sessionName: null, "cutthroat-online", size, props);
+            return ConnectShared(sessionName: null, partner ? "partner-online" : "cutthroat-online", seats, props);
         }
 
         private async Task<bool> ConnectShared(

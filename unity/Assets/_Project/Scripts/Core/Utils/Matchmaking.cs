@@ -25,16 +25,34 @@ namespace Pose.Core
         /// <summary>Wire value for Cut-Throat, matching <see cref="GameMode.CutThroat"/>'s "cutthroat".</summary>
         public const string ModeCutThroat = "cutthroat";
 
+        /// <summary>Wire value for Jamaican Partner, matching <see cref="GameMode.Partner"/>'s "partner".</summary>
+        public const string ModePartner = "partner";
+
+        /// <summary>Jamaican Partner is always a 4-seat, 2-v-2 table.</summary>
+        public const int PartnerSize = 4;
+
         /// <summary>
-        /// The matchmaking property set for a random Cut-Throat table of the
-        /// given size. Two players calling this with the same size produce
-        /// identical dictionaries, so Photon matches them into one table.
+        /// The matchmaking property set for a random online table. Two players
+        /// calling this with the same mode and size produce identical
+        /// dictionaries, so Photon groups them into one table — and different
+        /// modes/sizes never cross-match. Partner ignores <paramref name="size"/>:
+        /// it is always <see cref="PartnerSize"/> (2 v 2).
         /// </summary>
-        /// <param name="size">Table size, 2–4.</param>
+        /// <param name="mode">The ruleset to matchmake for.</param>
+        /// <param name="size">Table size, 2–4 (Cut-Throat only).</param>
         /// <returns>Key→value pairs to publish as session properties.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">If <paramref name="size"/> is not 2–4.</exception>
-        public static IReadOnlyDictionary<string, string> CutThroatProperties(int size)
+        /// <exception cref="ArgumentOutOfRangeException">If a Cut-Throat <paramref name="size"/> is not 2–4.</exception>
+        public static IReadOnlyDictionary<string, string> Properties(GameMode mode, int size)
         {
+            if (mode == GameMode.Partner)
+            {
+                return new Dictionary<string, string>
+                {
+                    [PropMode] = ModePartner,
+                    [PropSize] = PartnerSize.ToString(CultureInfo.InvariantCulture),
+                };
+            }
+
             if (size < 2 || size > 4)
             {
                 throw new ArgumentOutOfRangeException(
@@ -47,5 +65,9 @@ namespace Pose.Core
                 [PropSize] = size.ToString(CultureInfo.InvariantCulture),
             };
         }
+
+        /// <summary>Convenience: <see cref="Properties"/> for a Cut-Throat table.</summary>
+        public static IReadOnlyDictionary<string, string> CutThroatProperties(int size) =>
+            Properties(GameMode.CutThroat, size);
     }
 }
