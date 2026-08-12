@@ -950,20 +950,24 @@ namespace Pose.Game
             return false;
         }
 
-        // Name-plate tints for partner games, from the local player's view: their
-        // own team reads warm gold, the opposing team cool blue. Cut-Throat has no
-        // teams to distinguish, so it stays plain white.
-        private static readonly Color LocalTeamColor = new(1.0f, 0.85f, 0.35f);
-        private static readonly Color OpponentTeamColor = new(0.45f, 0.80f, 1.0f);
+        // Fixed name-plate tints per team, so every device shows the SAME colours:
+        // team A (seats 0 & 2) reads blue, team B (seats 1 & 3) reads gold. Cut-
+        // Throat has no teams to distinguish, so it stays plain white.
+        private static readonly Color TeamColorA = new(0.35f, 0.60f, 1.0f);
+        private static readonly Color TeamColorB = new(1.0f, 0.85f, 0.35f);
 
-        private Color TeamAccentColor(MatchState state, PlayerId player)
+        private static Color TeamAccentColor(MatchState state, PlayerId player)
         {
             if (!IsTeamGame(state))
             {
                 return Color.white;
             }
-            bool sameTeam = state.Partnership.GetTeamOf(player) == state.Partnership.GetTeamOf(_localPlayer);
-            return sameTeam ? LocalTeamColor : OpponentTeamColor;
+            // Colour by the team's identity, not the local player's perspective —
+            // otherwise each device paints its own team the same colour and the
+            // teams are indistinguishable across devices.
+            System.Collections.Generic.IReadOnlyList<Team> teams = state.Partnership.Teams;
+            TeamId team = state.Partnership.GetTeamOf(player);
+            return teams.Count > 0 && team == teams[0].Id ? TeamColorA : TeamColorB;
         }
 
         // ---- Layout scaffolding -------------------------------------------

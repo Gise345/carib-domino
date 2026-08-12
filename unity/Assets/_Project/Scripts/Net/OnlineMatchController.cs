@@ -376,6 +376,34 @@ namespace Pose.Net
                 return;
             }
 
+            // Partner is team-aware: if a whole team has no active humans left,
+            // the OTHER team wins the round outright (a resign on the abandoned
+            // team). A single leaver whose partner is still present is bot-filled
+            // so the 2-v-2 plays on.
+            if (_match.GameMode == GameMode.Partner)
+            {
+                int abandonedSeat = FindAbandonedTeamSeat(active);
+                if (abandonedSeat >= 0)
+                {
+                    Debug.Log($"[OnlineMatchController] A partner team abandoned — resigning seat {abandonedSeat}; the other team wins.");
+                    _match.RPC_SubmitMove(NetworkedMove.FromResign((byte)abandonedSeat));
+                    if (!_opponentLeftFired)
+                    {
+                        _opponentLeftFired = true;
+                        OpponentLeft?.Invoke();
+                    }
+                    return;
+                }
+
+                foreach (int seat in departed)
+                {
+                    _match.MakeSeatBot(seat);
+                }
+                SeatsChanged?.Invoke();
+                ScheduleBotIfNeeded();
+                return;
+            }
+
             if (SeatFillPolicy.OnLeave(humansRemaining) == SeatFillPolicy.LeaveAction.FillWithBots)
             {
                 foreach (int seat in departed)
@@ -397,6 +425,40 @@ namespace Pose.Net
                     OpponentLeft?.Invoke();
                 }
             }
+        }
+
+        /// <summary>
+        /// Partner-only. Returns a seat index on a team that has NO active humans
+        /// left (both partners gone), so the caller can resign it and hand the
+        /// round to the other team; -1 if every team still has a human. Bots don't
+        /// count as humans — a team of two bots is abandoned.
+        /// </summary>
+        private int FindAbandonedTeamSeat(HashSet<int> active)
+        {
+            MatchState state = CurrentState!;
+            Partnership partnership = state.Partnership;
+            foreach (Team team in partnership.Teams)
+            {
+                bool anyHuman = false;
+                int anySeat = -1;
+                for (int seat = 0; seat < state.Players.Count; seat++)
+                {
+                    if (partnership.GetTeamOf(state.Players[seat]) != team.Id)
+                    {
+                        continue;
+                    }
+                    anySeat = seat;
+                    if (!_match!.IsBotSeat(seat) && active.Contains(_match.SeatPlayerRefs.Get(seat)))
+                    {
+                        anyHuman = true;
+                    }
+                }
+                if (!anyHuman && anySeat >= 0)
+                {
+                    return anySeat;
+                }
+            }
+            return -1;
         }
 
         /// <summary>
