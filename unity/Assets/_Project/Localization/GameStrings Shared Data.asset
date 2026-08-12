@@ -127,6 +127,14 @@ MonoBehaviour:
     m_Key: series_winner
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000021
+    m_Key: series_round_award
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000022
+    m_Key: series_love
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

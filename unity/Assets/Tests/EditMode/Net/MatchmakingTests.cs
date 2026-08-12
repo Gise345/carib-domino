@@ -99,7 +99,7 @@ namespace Pose.Core.Tests
             string classic =
                 Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.ClassicSixLove)[Matchmaking.PropFormat];
             string quick =
-                Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.QuickSixRounds)[Matchmaking.PropFormat];
+                Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.QuickLove)[Matchmaking.PropFormat];
 
             Assert.That(classic, Is.Not.EqualTo(quick));
         }

@@ -124,6 +124,14 @@ MonoBehaviour:
     m_Localized: "{0} wins the match!"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000021
+    m_Localized: "{0} wins the round   +{1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000022
+    m_Localized: (love)
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

@@ -47,7 +47,7 @@ namespace Pose.Core.Tests
         [Test]
         public void ApplyRound_DrawAwardsNobody_ButStillCountsTheRound()
         {
-            SeriesState s = SeriesState.New(Trio, MatchFormat.QuickSixRounds).ApplyRound(Draw());
+            SeriesState s = SeriesState.New(Trio, MatchFormat.QuickLove).ApplyRound(Draw());
 
             Assert.That(s.PointsOf(A), Is.EqualTo(0));
             Assert.That(s.RoundsPlayed, Is.EqualTo(1));
@@ -71,31 +71,15 @@ namespace Pose.Core.Tests
         }
 
         [Test]
-        public void Quick_OverAfterSixRoundsWithSoleLeader()
+        public void Quick_OverWhenAPlayerReaches3000()
         {
-            SeriesState s = SeriesState.New(Trio, MatchFormat.QuickSixRounds);
-            s = s.ApplyRound(Win(A)).ApplyRound(Win(A)).ApplyRound(Win(A)); // A=3000
-            s = s.ApplyRound(Win(B)).ApplyRound(Win(B)).ApplyRound(Win(C)); // B=2000, C=1000
+            SeriesState s = SeriesState.New(Trio, MatchFormat.QuickLove);
+            s = s.ApplyRound(Win(A)).ApplyRound(Win(A)); // A = 2000
+            Assert.That(s.IsOver, Is.False);
 
-            Assert.That(s.RoundsPlayed, Is.EqualTo(6));
-            Assert.That(s.IsOver, Is.True);
-            Assert.That(s.Winner, Is.EqualTo(A));
-        }
+            s = s.ApplyRound(Win(A)); // A = 3000 → quick love
 
-        [Test]
-        public void Quick_TieAtSixRounds_StaysAliveForSuddenDeath()
-        {
-            SeriesState s = SeriesState.New(Trio, MatchFormat.QuickSixRounds);
-            // A and B both finish on 3000 after six rounds.
-            s = s.ApplyRound(Win(A)).ApplyRound(Win(A)).ApplyRound(Win(A));
-            s = s.ApplyRound(Win(B)).ApplyRound(Win(B)).ApplyRound(Win(B));
-
-            Assert.That(s.RoundsPlayed, Is.EqualTo(6));
-            Assert.That(s.IsOver, Is.False, "a tie must not end the match");
-            Assert.That(s.Winner, Is.Null);
-
-            // Sudden-death round breaks the tie.
-            s = s.ApplyRound(Win(A));
+            Assert.That(s.PointsOf(A), Is.EqualTo(3000));
             Assert.That(s.IsOver, Is.True);
             Assert.That(s.Winner, Is.EqualTo(A));
         }

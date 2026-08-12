@@ -646,15 +646,15 @@ namespace Pose.Game
         {
             GameObject row = CreatePickerRow("FormatPickerRow");
 
-            GameObject classic = CreateButton("Classic · 6000", () => OnFormatClicked(MatchFormat.ClassicSixLove));
+            GameObject classic = CreateButton("Classic 6 Love\n6000 to win", () => OnFormatClicked(MatchFormat.ClassicSixLove));
             classic.transform.SetParent(row.transform, worldPositionStays: false);
             classic.GetComponent<LayoutElement>().preferredWidth = 200f;
             _formatButtons.Add((classic, MatchFormat.ClassicSixLove));
 
-            GameObject quick = CreateButton("Quick · 6 rds", () => OnFormatClicked(MatchFormat.QuickSixRounds));
+            GameObject quick = CreateButton("Quick Love\n3000 to win", () => OnFormatClicked(MatchFormat.QuickLove));
             quick.transform.SetParent(row.transform, worldPositionStays: false);
             quick.GetComponent<LayoutElement>().preferredWidth = 200f;
-            _formatButtons.Add((quick, MatchFormat.QuickSixRounds));
+            _formatButtons.Add((quick, MatchFormat.QuickLove));
 
             return row;
         }

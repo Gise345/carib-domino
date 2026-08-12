@@ -339,6 +339,9 @@ namespace Pose.Net
             // Safety net: if I'm the only one left in a round that can't settle
             // (the authority was the leaver and nothing migrated), end locally.
             MaybeLocalWinIfStranded();
+            // Partner: if the opposing team has fully left and no authority
+            // resolved it (migration didn't land here), our team wins locally.
+            MaybePartnerAbandonWin();
         }
 
         private bool HasMatchAuthority =>
@@ -527,6 +530,62 @@ namespace Pose.Net
             _opponentLeftFired = true;
             Debug.Log("[OnlineMatchController] Stranded as last human — ending locally with a win (casual).");
             MatchAbandonedWin?.Invoke();
+        }
+
+        /// <summary>
+        /// Partner robustness net: on a non-authority client, if the local player's
+        /// OPPOSING team has no active humans left (both partners gone) while our
+        /// team still has one, end the round locally as a win — covering the case
+        /// where the abandoning team included the authority and nothing migrated
+        /// here to submit the resign. Casual; no server stats. The authority path
+        /// (HandleDepartures → resign) handles the normal case and settles.
+        /// </summary>
+        private void MaybePartnerAbandonWin()
+        {
+            if (_localEndFired || _match == null || _runner == null || LocalPlayer == null)
+            {
+                return;
+            }
+            if (_match.GameMode != GameMode.Partner || CurrentState == null
+                || !_match.DealReady || CurrentState.IsOver || HasMatchAuthority)
+            {
+                return;
+            }
+
+            HashSet<int> active = new();
+            foreach (PlayerRef p in _runner.ActivePlayers)
+            {
+                active.Add(p.PlayerId);
+            }
+
+            Partnership partnership = CurrentState.Partnership;
+            TeamId myTeam = partnership.GetTeamOf(LocalPlayer.Value);
+            int myTeamActive = 0;
+            int opposingActive = 0;
+            for (int seat = 0; seat < CurrentState.Players.Count; seat++)
+            {
+                bool activeHuman = !_match.IsBotSeat(seat)
+                    && active.Contains(_match.SeatPlayerRefs.Get(seat));
+                if (partnership.GetTeamOf(CurrentState.Players[seat]) == myTeam)
+                {
+                    if (activeHuman)
+                    {
+                        myTeamActive++;
+                    }
+                }
+                else if (activeHuman)
+                {
+                    opposingActive++;
+                }
+            }
+
+            if (myTeamActive >= 1 && opposingActive == 0)
+            {
+                _localEndFired = true;
+                _opponentLeftFired = true;
+                Debug.Log("[OnlineMatchController] Opposing partner team abandoned and no authority resolved it — local team win.");
+                MatchAbandonedWin?.Invoke();
+            }
         }
 
         // ---- Bot driving (authority-only) ---------------------------------

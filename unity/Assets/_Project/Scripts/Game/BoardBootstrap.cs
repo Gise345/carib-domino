@@ -1166,9 +1166,7 @@ namespace Pose.Game
             _scoreboardText.transform.parent.gameObject.SetActive(true);
 
             MatchFormatRules rules = MatchFormatRules.For(c.SeriesFormat);
-            string header = rules.TargetPoints is int target
-                ? L10n.Get("scoreboard_header_classic", c.SeriesRoundNumber, target)
-                : L10n.Get("scoreboard_header_quick", Mathf.Min(c.SeriesRoundNumber, MatchFormatRules.QuickRoundLimit));
+            string header = L10n.Get("scoreboard_header_classic", c.SeriesRoundNumber, rules.TargetPoints);
 
             string body = header + "\n";
             for (int i = 0; i < _state.Players.Count; i++)
@@ -1453,14 +1451,15 @@ namespace Pose.Game
                     _endOverlay.Hide();
                     return;
                 }
-                // Round over, match continues → auto-advances after a beat.
+                // Round over, match continues → auto-advances after a beat. No
+                // buttons: it advances itself, and there's no lobby exit here.
                 _overlayMode = OverlayMode.RoundOver;
                 _endOverlay.Show(
-                    title: FormatStatus(state, isLocalTurn: false),
+                    title: SeriesRoundAwardText(state),
                     subtitle: L10n.Get("series_next_round"),
                     primaryLabel: null,
                     primaryInteractable: false,
-                    secondaryLabel: L10n.Get("btn_back_to_lobby"));
+                    secondaryLabel: null);
                 return;
             }
 
@@ -1527,9 +1526,33 @@ namespace Pose.Game
             for (int i = 0; i < _state.Players.Count; i++)
             {
                 string name = c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value;
-                body += (i == 0 ? string.Empty : "\n") + $"{name}   {c.SeriesPointsForSeat(i)}";
+                int points = c.SeriesPointsForSeat(i);
+                // A player who ends on zero got "love".
+                string tag = points == 0 ? "   " + L10n.Get("series_love") : string.Empty;
+                body += (i == 0 ? string.Empty : "\n") + $"{name}   {points}{tag}";
             }
             return body;
+        }
+
+        // "<winner> wins the round  +1000" for the between-rounds interstitial.
+        private string SeriesRoundAwardText(MatchState state)
+        {
+            MatchOutcome? outcome = _rules.GetOutcome(state);
+            if (outcome?.WinnerId == null)
+            {
+                return L10n.Get("series_next_round");
+            }
+            string name = outcome.WinnerId.Value.Value;
+            for (int i = 0; i < state.Players.Count; i++)
+            {
+                if (state.Players[i].Equals(outcome.WinnerId.Value) && _onlineMatchController != null
+                    && _onlineMatchController.IsBotSeat(i))
+                {
+                    name = L10n.Get("player_bot");
+                    break;
+                }
+            }
+            return L10n.Get("series_round_award", name, MatchFormatRules.PointsPerRoundWin);
         }
 
         private void OnOverlayPrimary()

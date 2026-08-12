@@ -77,43 +77,14 @@ namespace Pose.Core
         /// <summary>Points for a player (0 if unknown).</summary>
         public int PointsOf(PlayerId player) => Points.TryGetValue(player, out int p) ? p : 0;
 
-        /// <summary>
-        /// Whether the match has been decided. Classic: someone reached the target.
-        /// Quick: the round limit is reached AND there is a sole leader (a tie keeps
-        /// the match alive for sudden-death rounds).
-        /// </summary>
-        public bool IsOver
-        {
-            get
-            {
-                MatchFormatRules rules = MatchFormatRules.For(Format);
-                if (rules.TargetPoints is int target)
-                {
-                    return MaxPoints() >= target;
-                }
-                if (rules.RoundLimit is int limit)
-                {
-                    return RoundsPlayed >= limit && HasSoleLeader();
-                }
-                return false;
-            }
-        }
+        /// <summary>Whether a player has reached the format's target ("love") total.</summary>
+        public bool IsOver => MaxPoints() >= MatchFormatRules.For(Format).TargetPoints;
 
         /// <summary>
-        /// The match winner once <see cref="IsOver"/>; null while the match is still
-        /// running (including a tie awaiting sudden death).
+        /// The match winner once <see cref="IsOver"/> — the highest scorer (the one
+        /// who reached the target); null while the match is still running.
         /// </summary>
-        public PlayerId? Winner
-        {
-            get
-            {
-                if (!IsOver)
-                {
-                    return null;
-                }
-                return LeaderOrNull();
-            }
-        }
+        public PlayerId? Winner => IsOver ? HighestScorer() : null;
 
         private int MaxPoints()
         {
@@ -128,23 +99,19 @@ namespace Pose.Core
             return max;
         }
 
-        private bool HasSoleLeader() => LeaderOrNull() != null;
-
-        // The unique highest-scoring player, or null if two or more share the top.
-        private PlayerId? LeaderOrNull()
+        // The highest-scoring player (first in seat order on a tie — normal play
+        // reaches the target one player at a time, so the target-crosser is unique).
+        private PlayerId? HighestScorer()
         {
             int max = MaxPoints();
-            PlayerId? leader = null;
-            int leaders = 0;
             foreach (PlayerId p in Players)
             {
                 if (PointsOf(p) == max)
                 {
-                    leaders++;
-                    leader = p;
+                    return p;
                 }
             }
-            return leaders == 1 ? leader : null;
+            return null;
         }
     }
 }
