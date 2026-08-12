@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Pose.Core;
 using Pose.Net;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
