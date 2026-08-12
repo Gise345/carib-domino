@@ -31,6 +31,9 @@ namespace Pose.Core
         /// <summary>Jamaican Partner is always a 4-seat, 2-v-2 table.</summary>
         public const int PartnerSize = 4;
 
+        /// <summary>Property key carrying the Cut-Throat series format ("classic"/"quick").</summary>
+        public const string PropFormat = "fmt";
+
         /// <summary>
         /// The matchmaking property set for a random online table. Two players
         /// calling this with the same mode and size produce identical
@@ -42,7 +45,7 @@ namespace Pose.Core
         /// <param name="size">Table size, 2–4 (Cut-Throat only).</param>
         /// <returns>Key→value pairs to publish as session properties.</returns>
         /// <exception cref="ArgumentOutOfRangeException">If a Cut-Throat <paramref name="size"/> is not 2–4.</exception>
-        public static IReadOnlyDictionary<string, string> Properties(GameMode mode, int size)
+        public static IReadOnlyDictionary<string, string> Properties(GameMode mode, int size, MatchFormat format)
         {
             if (mode == GameMode.Partner)
             {
@@ -59,15 +62,18 @@ namespace Pose.Core
                     nameof(size), size, "Cut-Throat online table size must be 2, 3, or 4.");
             }
 
+            // Cut-Throat also splits pools by series format so a Classic seeker
+            // never lands on a Quick table.
             return new Dictionary<string, string>
             {
                 [PropMode] = ModeCutThroat,
                 [PropSize] = size.ToString(CultureInfo.InvariantCulture),
+                [PropFormat] = MatchFormatRules.ToWire(format),
             };
         }
 
         /// <summary>Convenience: <see cref="Properties"/> for a Cut-Throat table.</summary>
         public static IReadOnlyDictionary<string, string> CutThroatProperties(int size) =>
-            Properties(GameMode.CutThroat, size);
+            Properties(GameMode.CutThroat, size, MatchFormat.ClassicSixLove);
     }
 }

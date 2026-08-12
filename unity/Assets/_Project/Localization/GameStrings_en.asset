@@ -104,6 +104,26 @@ MonoBehaviour:
     m_Localized: You win \u2014 everyone else left
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000016
+    m_Localized: "Round {0} \u00b7 to {1}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000017
+    m_Localized: "Round {0} / 6"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000018
+    m_Localized: "Next round\u2026"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000019
+    m_Localized: Match over
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000020
+    m_Localized: "{0} wins the match!"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

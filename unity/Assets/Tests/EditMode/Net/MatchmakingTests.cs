@@ -72,7 +72,8 @@ namespace Pose.Core.Tests
         public void PartnerProperties_AlwaysFourSeats([Values(2, 3, 4)] int ignoredSize)
         {
             // Partner is a fixed 2-v-2 table; the size argument is ignored.
-            IReadOnlyDictionary<string, string> props = Matchmaking.Properties(GameMode.Partner, ignoredSize);
+            IReadOnlyDictionary<string, string> props =
+                Matchmaking.Properties(GameMode.Partner, ignoredSize, MatchFormat.ClassicSixLove);
 
             Assert.That(props[Matchmaking.PropMode], Is.EqualTo("partner"));
             Assert.That(props[Matchmaking.PropSize], Is.EqualTo("4"));
@@ -83,10 +84,24 @@ namespace Pose.Core.Tests
         {
             // A partner seeker and a 4-player cut-throat seeker must NOT land in
             // the same table — the mode key differs.
-            string partnerMode = Matchmaking.Properties(GameMode.Partner, 4)[Matchmaking.PropMode];
-            string cutThroatMode = Matchmaking.Properties(GameMode.CutThroat, 4)[Matchmaking.PropMode];
+            string partnerMode =
+                Matchmaking.Properties(GameMode.Partner, 4, MatchFormat.ClassicSixLove)[Matchmaking.PropMode];
+            string cutThroatMode =
+                Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.ClassicSixLove)[Matchmaking.PropMode];
 
             Assert.That(partnerMode, Is.Not.EqualTo(cutThroatMode));
+        }
+
+        [Test]
+        public void CutThroat_FormatsDoNotCrossMatch()
+        {
+            // Classic and Quick seekers of the same size must not share a table.
+            string classic =
+                Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.ClassicSixLove)[Matchmaking.PropFormat];
+            string quick =
+                Matchmaking.Properties(GameMode.CutThroat, 4, MatchFormat.QuickSixRounds)[Matchmaking.PropFormat];
+
+            Assert.That(classic, Is.Not.EqualTo(quick));
         }
     }
 }

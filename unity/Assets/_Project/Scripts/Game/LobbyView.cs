@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Pose.Core;
 using Pose.Net;
 using TMPro;
@@ -44,10 +45,10 @@ namespace Pose.Game
 
         /// <summary>
         /// Fires with the room code and, for the creator, the chosen player count
-        /// (2–4) and game mode. Joiners pass count 0 and <see cref="GameMode.CutThroat"/>
-        /// as placeholders — the real values arrive from the host over the network.
+        /// (2–4), game mode and Cut-Throat series format. Joiners pass count 0 and
+        /// placeholders — the real values arrive from the host over the network.
         /// </summary>
-        public event Action<string, int, GameMode>? OnlineRoomActive;
+        public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
 
         // A country block on the hub.
         private readonly struct Country
@@ -79,14 +80,20 @@ namespace Pose.Game
         // Action buttons and pickers (hidden while connecting).
         private GameObject? _practiceButton;
         private GameObject? _cutThroatOnlineButton;
+        private GameObject? _onlineFormatRow;
         private GameObject? _onlineSizePickerRow;
         private GameObject? _partnerOnlineButton;
         private GameObject? _createButton;
         private GameObject? _modePickerRow;
+        private GameObject? _createFormatRow;
         private GameObject? _countPickerRow;
         private GameObject? _joinButton;
         private GameObject? _joinInputRow;
         private GameObject? _jamaicaBackButton;
+
+        // Cut-Throat series format, chosen via the format pickers (default Classic).
+        private MatchFormat _selectedFormat = MatchFormat.ClassicSixLove;
+        private readonly List<(GameObject go, MatchFormat fmt)> _formatButtons = new();
 
         private TMP_InputField? _codeInput;
         private TextMeshProUGUI? _statusText;
@@ -366,14 +373,19 @@ namespace Pose.Game
 
             _practiceButton = CreateButton("Practice vs Bots", OnPracticeClicked);
             _cutThroatOnlineButton = CreateButton("Cut Throat Online", OnCutThroatOnlineClicked);
+            _onlineFormatRow = CreateFormatPickerRow();
+            _onlineFormatRow.SetActive(false);
             _onlineSizePickerRow = CreateOnlineSizePickerRow();
             _onlineSizePickerRow.SetActive(false);
             _partnerOnlineButton = CreateButton("Partner Online (2v2)", OnPartnerOnlineClicked);
             _createButton = CreateButton("Create Room", OnCreateClicked);
             _modePickerRow = CreateModePickerRow();
             _modePickerRow.SetActive(false);
+            _createFormatRow = CreateFormatPickerRow();
+            _createFormatRow.SetActive(false);
             _countPickerRow = CreateCountPickerRow();
             _countPickerRow.SetActive(false);
+            RefreshFormatHighlights();
             _joinButton = CreateButton("Join Room", OnJoinClicked);
             _joinInputRow = CreateJoinInputRow();
             _joinInputRow.SetActive(false);
@@ -610,7 +622,7 @@ namespace Pose.Game
             for (int count = 2; count <= 4; count++)
             {
                 int chosen = count;
-                GameObject btn = CreateButton($"{count}P", () => StartCreate(chosen, GameMode.CutThroat));
+                GameObject btn = CreateButton($"{count}P", () => StartCreate(chosen, GameMode.CutThroat, _selectedFormat));
                 btn.transform.SetParent(row.transform, worldPositionStays: false);
                 btn.GetComponent<LayoutElement>().preferredWidth = 124f;
             }
@@ -623,11 +635,50 @@ namespace Pose.Game
             for (int count = 2; count <= 4; count++)
             {
                 int chosen = count;
-                GameObject btn = CreateButton($"{count}P", () => StartOnline(GameMode.CutThroat, chosen));
+                GameObject btn = CreateButton($"{count}P", () => StartOnline(GameMode.CutThroat, chosen, _selectedFormat));
                 btn.transform.SetParent(row.transform, worldPositionStays: false);
                 btn.GetComponent<LayoutElement>().preferredWidth = 124f;
             }
             return row;
+        }
+
+        private GameObject CreateFormatPickerRow()
+        {
+            GameObject row = CreatePickerRow("FormatPickerRow");
+
+            GameObject classic = CreateButton("Classic · 6000", () => OnFormatClicked(MatchFormat.ClassicSixLove));
+            classic.transform.SetParent(row.transform, worldPositionStays: false);
+            classic.GetComponent<LayoutElement>().preferredWidth = 200f;
+            _formatButtons.Add((classic, MatchFormat.ClassicSixLove));
+
+            GameObject quick = CreateButton("Quick · 6 rds", () => OnFormatClicked(MatchFormat.QuickSixRounds));
+            quick.transform.SetParent(row.transform, worldPositionStays: false);
+            quick.GetComponent<LayoutElement>().preferredWidth = 200f;
+            _formatButtons.Add((quick, MatchFormat.QuickSixRounds));
+
+            return row;
+        }
+
+        private void OnFormatClicked(MatchFormat format)
+        {
+            if (_busy)
+            {
+                return;
+            }
+            _selectedFormat = format;
+            RefreshFormatHighlights();
+        }
+
+        private void RefreshFormatHighlights()
+        {
+            foreach ((GameObject go, MatchFormat fmt) in _formatButtons)
+            {
+                Image? img = go.GetComponent<Image>();
+                if (img != null)
+                {
+                    img.color = fmt == _selectedFormat ? Color.white : new Color(0.55f, 0.55f, 0.55f, 1f);
+                }
+            }
         }
 
         private GameObject CreateModePickerRow()
@@ -724,10 +775,12 @@ namespace Pose.Game
                 return;
             }
             bool show = !_onlineSizePickerRow!.activeSelf;
+            _onlineFormatRow!.SetActive(show);
             _onlineSizePickerRow.SetActive(show);
             if (show)
             {
                 _modePickerRow!.SetActive(false);
+                _createFormatRow!.SetActive(false);
                 _countPickerRow!.SetActive(false);
             }
         }
@@ -739,11 +792,13 @@ namespace Pose.Game
                 return;
             }
             // Partner is a fixed 2-v-2 table — no size to pick, match straight away.
+            // Partner has no series format (single round); Classic is a placeholder.
+            _onlineFormatRow!.SetActive(false);
             _onlineSizePickerRow!.SetActive(false);
-            StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers);
+            StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers, MatchFormat.ClassicSixLove);
         }
 
-        private async void StartOnline(GameMode mode, int size)
+        private async void StartOnline(GameMode mode, int size, MatchFormat format)
         {
             if (_busy)
             {
@@ -758,13 +813,14 @@ namespace Pose.Game
             _statusText.color = BodyTextColor;
 
             EnsurePhotonBootstrap();
-            bool ok = await PhotonBootstrap.Instance!.QuickMatch(mode, size);
+            bool ok = await PhotonBootstrap.Instance!.QuickMatch(mode, size, format);
             if (ok)
             {
                 OnlineRoomActive?.Invoke(
                     PhotonBootstrap.Instance.CurrentRoomCode ?? string.Empty,
                     size,
-                    mode);
+                    mode,
+                    format);
             }
             else
             {
@@ -799,6 +855,8 @@ namespace Pose.Game
             {
                 return;
             }
+            // Cut-Throat: pick the series format, then the player count.
+            _createFormatRow!.SetActive(true);
             _countPickerRow!.SetActive(true);
         }
 
@@ -808,11 +866,13 @@ namespace Pose.Game
             {
                 return;
             }
+            // Jamaican Partner is always 4 players, single round — no count/format.
+            _createFormatRow!.SetActive(false);
             _countPickerRow!.SetActive(false);
-            StartCreate(NetworkedMatch.MaxPlayers, GameMode.Partner);
+            StartCreate(NetworkedMatch.MaxPlayers, GameMode.Partner, MatchFormat.ClassicSixLove);
         }
 
-        private async void StartCreate(int playerCount, GameMode mode)
+        private async void StartCreate(int playerCount, GameMode mode, MatchFormat format)
         {
             if (_busy)
             {
@@ -832,7 +892,7 @@ namespace Pose.Game
             if (ok)
             {
                 _statusText.text = $"Room {code} — waiting for players…";
-                OnlineRoomActive?.Invoke(code, playerCount, mode);
+                OnlineRoomActive?.Invoke(code, playerCount, mode, format);
             }
             else
             {
@@ -886,7 +946,7 @@ namespace Pose.Game
                 _codeDisplay!.gameObject.SetActive(true);
                 _codeDisplay.text = code;
                 _statusText.text = $"Connected to room {code}.";
-                OnlineRoomActive?.Invoke(code, 0, GameMode.CutThroat);
+                OnlineRoomActive?.Invoke(code, 0, GameMode.CutThroat, MatchFormat.ClassicSixLove);
             }
             else
             {
@@ -901,10 +961,12 @@ namespace Pose.Game
         {
             _practiceButton!.SetActive(visible);
             _cutThroatOnlineButton!.SetActive(visible);
+            _onlineFormatRow!.SetActive(visible && _onlineFormatRow.activeSelf);
             _onlineSizePickerRow!.SetActive(visible && _onlineSizePickerRow.activeSelf);
             _partnerOnlineButton!.SetActive(visible);
             _createButton!.SetActive(visible);
             _modePickerRow!.SetActive(visible && _modePickerRow.activeSelf);
+            _createFormatRow!.SetActive(visible && _createFormatRow.activeSelf);
             _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);
             _joinButton!.SetActive(visible);
             _joinInputRow!.SetActive(visible && _joinInputRow.activeSelf);

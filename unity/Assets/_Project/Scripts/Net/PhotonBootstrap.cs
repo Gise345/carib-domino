@@ -78,13 +78,14 @@ namespace Pose.Net
         /// </summary>
         /// <param name="mode">Ruleset to matchmake for.</param>
         /// <param name="size">Table size, 2–4 (Cut-Throat only).</param>
-        public Task<bool> QuickMatch(Pose.Core.GameMode mode, int size)
+        /// <param name="format">Cut-Throat series format (Classic / Quick).</param>
+        public Task<bool> QuickMatch(Pose.Core.GameMode mode, int size, Pose.Core.MatchFormat format)
         {
             bool partner = mode == Pose.Core.GameMode.Partner;
             int seats = partner ? Pose.Core.Matchmaking.PartnerSize : size;
 
             Dictionary<string, SessionProperty> props = new();
-            foreach (KeyValuePair<string, string> kv in Pose.Core.Matchmaking.Properties(mode, size))
+            foreach (KeyValuePair<string, string> kv in Pose.Core.Matchmaking.Properties(mode, size, format))
             {
                 props[kv.Key] = kv.Value; // implicit string -> SessionProperty
             }

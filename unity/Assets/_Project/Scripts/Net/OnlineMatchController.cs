@@ -156,6 +156,33 @@ namespace Pose.Net
         /// <summary>True if the seat at <paramref name="seat"/> is a bot (M3.9b).</summary>
         public bool IsBotSeat(int seat) => _match != null && _match.IsBotSeat(seat);
 
+        // ---- Match series (M5) --------------------------------------------
+
+        /// <summary>Fires when the series scores advance, so the scoreboard can refresh.</summary>
+        public event Action? SeriesChanged;
+
+        /// <summary>Fires when the match series ends, so the UI can show the winner.</summary>
+        public event Action? MatchEnded;
+
+        /// <summary>True for a Cut-Throat game, which is played as a scored series (M5).</summary>
+        public bool IsSeries => _match != null && _match.GameMode == GameMode.CutThroat;
+
+        /// <summary>The series format (Classic / Quick).</summary>
+        public MatchFormat SeriesFormat => _match != null ? _match.SeriesFormat : MatchFormat.ClassicSixLove;
+
+        /// <summary>The current round number in the series (1-based).</summary>
+        public int SeriesRoundNumber => _match?.RoundNumber ?? 0;
+
+        /// <summary>True once the series has been decided.</summary>
+        public bool MatchIsOver => _match?.MatchOver ?? false;
+
+        /// <summary>The winning seat once <see cref="MatchIsOver"/>, or -1.</summary>
+        public int WinnerSeat => _match?.WinnerSeat ?? -1;
+
+        /// <summary>A seat's cumulative series points.</summary>
+        public int SeriesPointsForSeat(int seat) =>
+            _match != null && seat >= 0 && seat < NetworkedMatch.MaxPlayers ? _match.SeriesPoints.Get(seat) : 0;
+
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
@@ -170,6 +197,16 @@ namespace Pose.Net
         private bool _settlementSubmitted;
         private bool _wasAuthority;
         private bool _localEndFired;
+
+        // Match series (M5, Cut-Throat). _series is authority-only; every client
+        // reads the replicated scores off NetworkedMatch for the scoreboard.
+        private SeriesState? _series;
+        private MatchFormat _targetFormat = MatchFormat.ClassicSixLove;
+        private bool _seriesRoundProcessed;
+        private Coroutine? _advanceRoutine;
+
+        // Beat between a round ending and the next deal, so players read the result.
+        private const float SeriesAdvanceDelaySeconds = 2.5f;
 
         // Seconds a table waits for humans before the authority fills the empty
         // seats with bots and deals. No one taps "start" — there is no host role.
@@ -207,13 +244,15 @@ namespace Pose.Net
             string localPlayerId,
             string localUid,
             int targetPlayerCount,
-            GameMode mode)
+            GameMode mode,
+            MatchFormat format)
         {
             _matchPrefab = matchPrefab;
             _runner = runner;
             _localPlayerId = string.IsNullOrEmpty(localPlayerId) ? "anon" : localPlayerId;
             _localUid = localUid;
             _targetMode = mode;
+            _targetFormat = format;
             // Jamaican Partner is always exactly 4 players.
             _targetPlayerCount = mode == GameMode.Partner
                 ? NetworkedMatch.MaxPlayers
@@ -258,6 +297,8 @@ namespace Pose.Net
                 _match.RematchVotesChanged -= OnRematchVotesChanged;
                 _match.RegisteredCountChanged -= OnRegisteredCountChanged;
                 _match.MoveAppliedChanged -= OnMoveAppliedChanged;
+                _match.SeriesChanged -= OnSeriesChanged;
+                _match.MatchOverChanged -= OnMatchOverChanged;
                 if (_match.Object != null && _match.Object.HasStateAuthority)
                 {
                     _match.MoveValidator = null;
@@ -604,6 +645,8 @@ namespace Pose.Net
             _match.Seed = seed;
             _match.MatchId = matchId;
             _match.GameMode = _targetMode;
+            _match.SeriesFormat = _targetFormat;
+            _match.WinnerSeat = -1;
             _match.PlayerCount = _targetPlayerCount;
             // Seat the host at index 0, keyed by its own PlayerRef.
             _match.PlayerIds.Set(0, _localPlayerId);
@@ -630,6 +673,8 @@ namespace Pose.Net
             _match.RematchVotesChanged += OnRematchVotesChanged;
             _match.RegisteredCountChanged += OnRegisteredCountChanged;
             _match.MoveAppliedChanged += OnMoveAppliedChanged;
+            _match.SeriesChanged += OnSeriesChanged;
+            _match.MatchOverChanged += OnMatchOverChanged;
 
             if (!_match.Object.HasStateAuthority)
             {
@@ -658,6 +703,11 @@ namespace Pose.Net
             if (_match!.Object.HasStateAuthority)
             {
                 _match.MoveValidator = ValidateNetworkedMove;
+                // Start the score series for a Cut-Throat game (M5).
+                if (IsSeries && _series == null)
+                {
+                    _series = SeriesState.New(state.Players, _match.SeriesFormat);
+                }
             }
 
             _botRng = new SeededRandomSource(_match.Seed);
@@ -698,6 +748,17 @@ namespace Pose.Net
 
         private async Task AdvanceRematchAsync()
         {
+            await AdvanceToNextRoundAsync();
+            _advancingRematch = false;
+        }
+
+        /// <summary>
+        /// Fetches a fresh server seed and advances to the next round on the
+        /// authority. Shared by the Partner/private rematch vote and the Cut-Throat
+        /// series auto-advance.
+        /// </summary>
+        private async Task AdvanceToNextRoundAsync()
+        {
             // Use the round's ACTUAL player count (a short-start may have trimmed
             // it below the original target) so the recorded match matches the deal.
             int count = _match?.PlayerCount ?? _targetPlayerCount;
@@ -715,7 +776,7 @@ namespace Pose.Net
                 seed = FallbackSeed();
                 matchId = string.Empty;
                 Debug.LogWarning(
-                    "[OnlineMatchController] startMatch (rematch) failed — using a LOCAL fallback seed. " +
+                    "[OnlineMatchController] startMatch (advance) failed — using a LOCAL fallback seed. " +
                     $"{e.GetType().Name}: {e.Message}");
             }
 
@@ -723,7 +784,85 @@ namespace Pose.Net
             {
                 _match.AdvanceRound(seed, matchId);
             }
-            _advancingRematch = false;
+        }
+
+        private void OnSeriesChanged() => SeriesChanged?.Invoke();
+
+        private void OnMatchOverChanged()
+        {
+            if (MatchIsOver)
+            {
+                MatchEnded?.Invoke();
+            }
+        }
+
+        /// <summary>
+        /// Authority-side: when a Cut-Throat round ends, fold its result into the
+        /// series (winner +1000), publish the new scores, and either end the match
+        /// (a winner emerged) or auto-advance to the next round after a short beat.
+        /// One update per round. No-op off the authority or for non-series games.
+        /// </summary>
+        private void ProcessSeriesRoundEndIfNeeded()
+        {
+            if (!HasMatchAuthority || !IsSeries || _series == null || _seriesRoundProcessed)
+            {
+                return;
+            }
+            if (CurrentState == null || !CurrentState.IsOver)
+            {
+                return;
+            }
+            MatchOutcome? outcome = _rules.GetOutcome(CurrentState);
+            if (outcome == null)
+            {
+                return;
+            }
+
+            _seriesRoundProcessed = true;
+            _series = _series.ApplyRound(outcome);
+
+            int[] points = new int[CurrentState.Players.Count];
+            for (int i = 0; i < points.Length; i++)
+            {
+                points[i] = _series.PointsOf(CurrentState.Players[i]);
+            }
+
+            bool over = _series.IsOver;
+            int winnerSeat = -1;
+            if (over && _series.Winner is PlayerId winner)
+            {
+                for (int i = 0; i < CurrentState.Players.Count; i++)
+                {
+                    if (CurrentState.Players[i].Equals(winner))
+                    {
+                        winnerSeat = i;
+                        break;
+                    }
+                }
+            }
+
+            _match!.RecordSeriesResult(points, over, winnerSeat);
+
+            if (!over)
+            {
+                if (_advanceRoutine != null)
+                {
+                    StopCoroutine(_advanceRoutine);
+                }
+                _advanceRoutine = StartCoroutine(AutoAdvanceRoutine());
+            }
+        }
+
+        private IEnumerator AutoAdvanceRoutine()
+        {
+            yield return new WaitForSeconds(SeriesAdvanceDelaySeconds);
+            _advanceRoutine = null;
+            // The authority may have migrated or the match may have ended while we waited.
+            if (!HasMatchAuthority || MatchIsOver)
+            {
+                yield break;
+            }
+            _ = AdvanceToNextRoundAsync();
         }
 
         private void OnRegisteredCountChanged()
@@ -784,6 +923,7 @@ namespace Pose.Net
 
             CurrentState = state;
             _settlementSubmitted = false; // fresh round — allow one settlement submit
+            _seriesRoundProcessed = false; // allow one series-score update this round
             LocalPlayerIndex = FindLocalSeat(count);
             if (LocalPlayerIndex < 0)
             {
@@ -906,6 +1046,7 @@ namespace Pose.Net
             }
 
             TrySubmitSettlement();
+            ProcessSeriesRoundEndIfNeeded();
             ScheduleBotIfNeeded();
         }
 

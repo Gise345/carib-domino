@@ -89,6 +89,12 @@ namespace Pose.Game
         // (the authority left); the overlay declares a local win.
         private bool _abandonedWin;
 
+        // Set when the Cut-Throat series has been decided (M5).
+        private bool _matchEnded;
+
+        // Scoreboard HUD for a Cut-Throat series (top-left); null offline.
+        private TextMeshProUGUI? _scoreboardText;
+
         // Bumped per offline "Play again" so each practice round deals a
         // different hand. Derived from SpikeSeed rather than a system RNG so
         // any given round remains reproducible from (SpikeSeed, index).
@@ -253,7 +259,7 @@ namespace Pose.Game
 
         // What the shared EndOverlayView is currently presenting, so its two
         // buttons dispatch to the right action.
-        private enum OverlayMode { RoundOver, OpponentLeft }
+        private enum OverlayMode { RoundOver, OpponentLeft, MatchOver }
         private OverlayMode _overlayMode = OverlayMode.RoundOver;
 
         private void ShowLobby()
@@ -282,10 +288,10 @@ namespace Pose.Game
             StartGame();
         }
 
-        private void OnOnlineRoomActive(string roomCode, int playerCount, GameMode mode)
+        private void OnOnlineRoomActive(string roomCode, int playerCount, GameMode mode, MatchFormat format)
         {
             Debug.Log(
-                $"[BoardBootstrap] Online room active: {roomCode} (count={playerCount}, mode={mode}) — " +
+                $"[BoardBootstrap] Online room active: {roomCode} (count={playerCount}, mode={mode}, format={format}) — " +
                 "starting OnlineMatchController");
 
             if (_networkedMatchPrefab == null)
@@ -315,13 +321,16 @@ namespace Pose.Game
             _onlineMatchController.OpponentLeft += OnOpponentLeft;
             _onlineMatchController.SeatsChanged += OnSeatsChanged;
             _onlineMatchController.MatchAbandonedWin += OnMatchAbandonedWin;
+            _onlineMatchController.SeriesChanged += OnSeriesChanged;
+            _onlineMatchController.MatchEnded += OnMatchEnded;
             _onlineMatchController.Setup(
                 _networkedMatchPrefab,
                 PhotonBootstrap.Instance.Runner,
                 localPlayerId,
                 localUid,
                 playerCount,
-                mode);
+                mode,
+                format);
 
             // No fill timer, no "start now" prompt, no host: the table's authority
             // auto-deals when it fills or when its 60s deadline elapses (filling
@@ -400,6 +409,20 @@ namespace Pose.Game
         {
             _abandonedWin = true;
             _opponentLeft = true;
+            Render();
+        }
+
+        // The series scores advanced (M5) — refresh the scoreboard.
+        private void OnSeriesChanged()
+        {
+            UpdateScoreboard();
+        }
+
+        // The series was decided — show the match-over screen.
+        private void OnMatchEnded()
+        {
+            _matchEnded = true;
+            UpdateScoreboard();
             Render();
         }
 
@@ -871,6 +894,8 @@ namespace Pose.Game
             // recomputed result. There is no client-side stats write here, and
             // offline practice deliberately does not count toward stats.
 
+            UpdateScoreboard();
+
             // Present (or dismiss) the end-of-round / opponent-left overlay.
             // Kept after the status/hand render so the board behind the
             // dimmed backdrop shows the final position.
@@ -1015,6 +1040,7 @@ namespace Pose.Game
             // Added first so it sits above the board background but behind every
             // seat, tile and the chain; never intercepts input.
             CreateVignette();
+            CreateScoreboard();
 
             RectTransform topRegion = CreateRegion(
                 "TopRegion",
@@ -1085,6 +1111,71 @@ namespace Pose.Game
                 new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.62f), clearFraction: 0.4f);
             img.color = Color.white;
             img.raycastTarget = false;
+        }
+
+        private void CreateScoreboard()
+        {
+            GameObject go = new("Scoreboard", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(20f, -20f);
+            rt.sizeDelta = new Vector2(300f, 200f);
+
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0f, 0f, 0f, 0.42f);
+            bg.raycastTarget = false;
+
+            GameObject textGo = new("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, worldPositionStays: false);
+            RectTransform trt = (RectTransform)textGo.transform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(14f, 10f);
+            trt.offsetMax = new Vector2(-14f, -10f);
+            _scoreboardText = textGo.AddComponent<TextMeshProUGUI>();
+            _scoreboardText.alignment = TextAlignmentOptions.TopLeft;
+            _scoreboardText.fontSize = 22f;
+            _scoreboardText.color = new Color(0.97f, 0.95f, 0.88f);
+            _scoreboardText.raycastTarget = false;
+            _scoreboardText.text = string.Empty;
+
+            go.SetActive(false); // shown only for an online Cut-Throat series
+        }
+
+        /// <summary>
+        /// Refreshes the series scoreboard (round number, target, per-seat totals).
+        /// Hidden unless this is an online Cut-Throat series.
+        /// </summary>
+        private void UpdateScoreboard()
+        {
+            if (_scoreboardText == null)
+            {
+                return;
+            }
+            OnlineMatchController? c = _onlineMatchController;
+            if (!_isOnline || c == null || !c.IsSeries || _state == null)
+            {
+                _scoreboardText.transform.parent.gameObject.SetActive(false);
+                return;
+            }
+
+            _scoreboardText.transform.parent.gameObject.SetActive(true);
+
+            MatchFormatRules rules = MatchFormatRules.For(c.SeriesFormat);
+            string header = rules.TargetPoints is int target
+                ? L10n.Get("scoreboard_header_classic", c.SeriesRoundNumber, target)
+                : L10n.Get("scoreboard_header_quick", Mathf.Min(c.SeriesRoundNumber, MatchFormatRules.QuickRoundLimit));
+
+            string body = header + "\n";
+            for (int i = 0; i < _state.Players.Count; i++)
+            {
+                string name = c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value;
+                body += $"\n{name}   {c.SeriesPointsForSeat(i)}";
+            }
+            _scoreboardText.text = body;
         }
 
         // ---- Seat binding (per-round) -------------------------------------
@@ -1341,6 +1432,37 @@ namespace Pose.Game
                 return;
             }
 
+            // Match series (M5): the match-over screen, or between rounds a brief
+            // interstitial that auto-advances (no rematch vote for series play).
+            if (_isOnline && _onlineMatchController != null && _onlineMatchController.IsSeries)
+            {
+                if (_matchEnded || _onlineMatchController.MatchIsOver)
+                {
+                    _overlayMode = OverlayMode.MatchOver;
+                    _endOverlay.Show(
+                        title: SeriesWinnerText(),
+                        subtitle: SeriesScoresText(),
+                        primaryLabel: null,
+                        primaryInteractable: false,
+                        secondaryLabel: L10n.Get("btn_back_to_lobby"));
+                    return;
+                }
+                if (!state.IsOver)
+                {
+                    _endOverlay.Hide();
+                    return;
+                }
+                // Round over, match continues → auto-advances after a beat.
+                _overlayMode = OverlayMode.RoundOver;
+                _endOverlay.Show(
+                    title: FormatStatus(state, isLocalTurn: false),
+                    subtitle: L10n.Get("series_next_round"),
+                    primaryLabel: null,
+                    primaryInteractable: false,
+                    secondaryLabel: L10n.Get("btn_back_to_lobby"));
+                return;
+            }
+
             if (!state.IsOver)
             {
                 _endOverlay.Hide();
@@ -1375,6 +1497,38 @@ namespace Pose.Game
                     : L10n.Get("btn_rematch"),
                 primaryInteractable: !localVoted,
                 secondaryLabel: secondary);
+        }
+
+        private string SeriesWinnerText()
+        {
+            OnlineMatchController? c = _onlineMatchController;
+            if (c == null || _state == null)
+            {
+                return L10n.Get("series_match_over");
+            }
+            int seat = c.WinnerSeat;
+            if (seat < 0 || seat >= _state.Players.Count)
+            {
+                return L10n.Get("series_match_over");
+            }
+            string name = c.IsBotSeat(seat) ? L10n.Get("player_bot") : _state.Players[seat].Value;
+            return L10n.Get("series_winner", name);
+        }
+
+        private string SeriesScoresText()
+        {
+            OnlineMatchController? c = _onlineMatchController;
+            if (c == null || _state == null)
+            {
+                return string.Empty;
+            }
+            string body = string.Empty;
+            for (int i = 0; i < _state.Players.Count; i++)
+            {
+                string name = c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value;
+                body += (i == 0 ? string.Empty : "\n") + $"{name}   {c.SeriesPointsForSeat(i)}";
+            }
+            return body;
         }
 
         private void OnOverlayPrimary()
@@ -1468,6 +1622,8 @@ namespace Pose.Game
                 _onlineMatchController.OpponentLeft -= OnOpponentLeft;
                 _onlineMatchController.SeatsChanged -= OnSeatsChanged;
                 _onlineMatchController.MatchAbandonedWin -= OnMatchAbandonedWin;
+                _onlineMatchController.SeriesChanged -= OnSeriesChanged;
+                _onlineMatchController.MatchEnded -= OnMatchEnded;
                 _onlineMatchController.ShutdownAndReturnToLobby();
                 Destroy(_onlineMatchController.gameObject);
                 _onlineMatchController = null;
@@ -1478,6 +1634,7 @@ namespace Pose.Game
             _isOnline = false;
             _opponentLeft = false;
             _abandonedWin = false;
+            _matchEnded = false;
             _localPlayer = HumanPlayer;
             _firstBotMove = true;
             _endOverlay?.Hide();

@@ -107,6 +107,26 @@ MonoBehaviour:
     m_Key: end_you_win_opponent_left
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000016
+    m_Key: scoreboard_header_classic
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000017
+    m_Key: scoreboard_header_quick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000018
+    m_Key: series_next_round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000019
+    m_Key: series_match_over
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000020
+    m_Key: series_winner
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

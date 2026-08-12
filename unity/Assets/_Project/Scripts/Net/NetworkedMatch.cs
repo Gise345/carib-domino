@@ -127,6 +127,29 @@ namespace Pose.Net
         /// </summary>
         [Networked] public TickTimer AutoStartTimer { get; set; }
 
+        // ---- Match series (M5, Cut-Throat) --------------------------------
+
+        /// <summary>The series format — meaningful only for Cut-Throat games.</summary>
+        [Networked] public MatchFormat SeriesFormat { get; set; }
+
+        /// <summary>Each seat's cumulative series points (1000 per round won).</summary>
+        [Networked, Capacity(MaxPlayers)] public NetworkArray<int> SeriesPoints => default;
+
+        /// <summary>True once the series is decided (Classic target hit / Quick finished).</summary>
+        [Networked] public bool MatchOver { get; set; }
+
+        /// <summary>The winning seat once <see cref="MatchOver"/>, or -1 for none/tie.</summary>
+        [Networked] public int WinnerSeat { get; set; }
+
+        /// <summary>Bumped by the authority on every series update, so clients refresh the scoreboard.</summary>
+        [Networked] public int SeriesVersion { get; set; }
+
+        /// <summary>Fires when the series scores advance (for the scoreboard).</summary>
+        public event Action? SeriesChanged;
+
+        /// <summary>Fires when the match ends (for the match-over screen).</summary>
+        public event Action? MatchOverChanged;
+
         /// <summary>
         /// Set by the host's <see cref="OnlineMatchController"/> so
         /// <see cref="RPC_SubmitMove"/> can validate against the current
@@ -138,6 +161,8 @@ namespace Pose.Net
         private readonly MatchSignalTracker _signals = new();
         private int _lastRematchVoteMask;
         private int _lastRegisteredCount;
+        private int _lastSeriesVersion;
+        private bool _lastMatchOver;
 
         // Host-local: Firebase uid per seat, self-reported by each player at
         // registration (host at seat 0; joiners via RPC_RegisterPlayer). Used
@@ -220,6 +245,16 @@ namespace Pose.Net
             {
                 _lastRematchVoteMask = RematchVoteMask;
                 RematchVotesChanged?.Invoke();
+            }
+            if (SeriesVersion != _lastSeriesVersion)
+            {
+                _lastSeriesVersion = SeriesVersion;
+                SeriesChanged?.Invoke();
+            }
+            if (MatchOver != _lastMatchOver)
+            {
+                _lastMatchOver = MatchOver;
+                MatchOverChanged?.Invoke();
             }
         }
 
@@ -452,7 +487,29 @@ namespace Pose.Net
             MoveCount = 0;
             RematchVoteMask = 0;
             RoundNumber++;
-            Debug.Log($"[NetworkedMatch] Rematch agreed — round {RoundNumber}, seed={seed}, match={matchId}.");
+            Debug.Log($"[NetworkedMatch] Advancing — round {RoundNumber}, seed={seed}, match={matchId}.");
+        }
+
+        /// <summary>
+        /// Authority-only. Publishes the series scores after a round, and whether
+        /// the match is now over (M5). Every client reads these to draw the
+        /// scoreboard and the match-over screen. Bumps <see cref="SeriesVersion"/>
+        /// so clients notice even a same-shaped update.
+        /// </summary>
+        public void RecordSeriesResult(int[] pointsBySeat, bool over, int winnerSeat)
+        {
+            if (!Object.HasStateAuthority)
+            {
+                return;
+            }
+            int n = Mathf.Min(pointsBySeat.Length, MaxPlayers);
+            for (int i = 0; i < n; i++)
+            {
+                SeriesPoints.Set(i, pointsBySeat[i]);
+            }
+            MatchOver = over;
+            WinnerSeat = winnerSeat;
+            SeriesVersion++;
         }
     }
 }
