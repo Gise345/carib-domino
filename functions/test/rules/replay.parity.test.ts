@@ -15,6 +15,7 @@ interface ReplayFixture {
     winnerIndex: number;
     winningTeamId: string;
     winnerScore: number;
+    isKey: boolean;
     remainingPips: number[];
   };
 }
@@ -68,6 +69,8 @@ describe('replayRound parity with the C# engine', () => {
       expect(outcome.winningTeamId).toBe(expectedTeam);
 
       expect(outcome.winnerScore).toBe(fx.expected.winnerScore);
+
+      expect(outcome.isKey).toBe(fx.expected.isKey);
 
       for (let p = 0; p < fx.players.length; p++) {
         expect(outcome.remainingPips.get(fx.players[p]!)).toBe(fx.expected.remainingPips[p]);

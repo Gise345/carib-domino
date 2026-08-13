@@ -171,7 +171,8 @@ namespace Pose.Core
                     dominoer,
                     winningTeam,
                     score,
-                    remaining);
+                    remaining,
+                    KeyRule.IsKey(state, dominoer.Value));
             }
 
             // Block end (corrected partner scoring): the player with the single

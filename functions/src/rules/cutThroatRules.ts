@@ -3,6 +3,7 @@ import { MatchEndReason, MatchOutcome } from './matchOutcome';
 import { MatchState } from './matchState';
 import { Move, PlaceMove, placeMove, passMove } from './move';
 import { findLead } from './startingPlayerRule';
+import { isKey } from './keyRule';
 
 /**
  * Jamaican Cut-Throat rules — every player for themselves, no boneyard. Port of
@@ -153,6 +154,7 @@ export class CutThroatRules {
         winnerId: winner,
         winningTeamId: state.partnership.getTeamOf(winner),
         winnerScore: score,
+        isKey: isKey(state, winner),
         remainingPips: remaining,
       };
     }
@@ -176,6 +178,7 @@ export class CutThroatRules {
         winnerId: other,
         winningTeamId: state.partnership.getTeamOf(other),
         winnerScore: resignerPips,
+        isKey: false,
         remainingPips: remaining,
       };
     }
@@ -198,6 +201,7 @@ export class CutThroatRules {
       winnerId: winner,
       winningTeamId: winner !== null ? state.partnership.getTeamOf(winner) : null,
       winnerScore: resignerPips,
+      isKey: false,
       remainingPips: remaining,
     };
   }
@@ -223,6 +227,7 @@ export class CutThroatRules {
         winnerId: null,
         winningTeamId: null,
         winnerScore: 0,
+        isKey: false,
         remainingPips: remaining,
       };
     }
@@ -239,6 +244,7 @@ export class CutThroatRules {
       winnerId: winner,
       winningTeamId: state.partnership.getTeamOf(winner),
       winnerScore: score,
+      isKey: false,
       remainingPips: remaining,
     };
   }

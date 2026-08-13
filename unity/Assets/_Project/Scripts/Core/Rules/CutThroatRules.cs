@@ -319,7 +319,8 @@ namespace Pose.Core
                     dominoWinner,
                     state.Partnership.GetTeamOf(dominoWinner.Value),
                     score,
-                    remaining);
+                    remaining,
+                    KeyRule.IsKey(state, dominoWinner.Value));
             }
 
             // Block end: lowest pip total wins, ties produce a draw with no points.

@@ -1623,6 +1623,14 @@ namespace Pose.Game
                     break;
                 }
             }
+
+            // A key (both-ends lock-out) scores the bonus and gets its own banner
+            // — "KEY! <winner> mash up the board  +2000".
+            if (outcome.IsKey)
+            {
+                return L10n.Get("series_key_award", name, MatchFormatRules.KeyPoints);
+            }
+
             return L10n.Get("series_round_award", name, MatchFormatRules.PointsPerRoundWin);
         }
 

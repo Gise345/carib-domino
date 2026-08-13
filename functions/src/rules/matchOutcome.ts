@@ -14,6 +14,12 @@ export interface MatchOutcome {
   readonly winnerId: PlayerId | null;
   readonly winningTeamId: TeamId | null;
   readonly winnerScore: number;
+  /**
+   * True when the win is a "key" — a both-ends lock-out (capicúa with no
+   * opponent holding either end). Worth the key bonus in a series; false for
+   * blocks, resigns and ordinary domino wins. Port of `Pose.Core.MatchOutcome.IsKey`.
+   */
+  readonly isKey: boolean;
   readonly remainingPips: ReadonlyMap<PlayerId, number>;
 }
 

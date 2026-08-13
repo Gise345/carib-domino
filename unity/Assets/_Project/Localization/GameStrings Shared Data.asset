@@ -155,6 +155,10 @@ MonoBehaviour:
     m_Key: series_countdown
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000028
+    m_Key: series_key_award
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

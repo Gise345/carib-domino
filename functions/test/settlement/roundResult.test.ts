@@ -8,6 +8,7 @@ function outcome(partial: Partial<MatchOutcome>): MatchOutcome {
     winnerId: null,
     winningTeamId: null,
     winnerScore: 0,
+    isKey: false,
     remainingPips: new Map(),
     ...partial,
   };

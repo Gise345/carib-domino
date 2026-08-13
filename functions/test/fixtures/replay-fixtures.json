@@ -131,6 +131,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 35,
+        "isKey": false,
         "remainingPips": [
           35,
           21
@@ -334,6 +335,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 18,
+        "isKey": true,
         "remainingPips": [
           0,
           18
@@ -555,6 +557,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 4,
+        "isKey": true,
         "remainingPips": [
           0,
           4
@@ -764,6 +767,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           10,
           0
@@ -946,6 +950,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 25,
+        "isKey": false,
         "remainingPips": [
           25,
           13
@@ -1160,6 +1165,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 16,
+        "isKey": false,
         "remainingPips": [
           16,
           0
@@ -1367,6 +1373,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           10,
           10
@@ -1580,6 +1587,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 4,
+        "isKey": true,
         "remainingPips": [
           0,
           4
@@ -1790,6 +1798,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           2,
           10
@@ -1937,6 +1946,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 26,
+        "isKey": false,
         "remainingPips": [
           16,
           26
@@ -2150,6 +2160,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           0,
           10
@@ -2368,6 +2379,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 8,
+        "isKey": false,
         "remainingPips": [
           8,
           6
@@ -2582,6 +2594,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           4,
           6
@@ -2761,6 +2774,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 21,
+        "isKey": false,
         "remainingPips": [
           21,
           15
@@ -2967,6 +2981,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 8,
+        "isKey": true,
         "remainingPips": [
           0,
           8
@@ -3086,6 +3101,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 43,
+        "isKey": false,
         "remainingPips": [
           41,
           43
@@ -3272,6 +3288,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           15,
           15
@@ -3481,6 +3498,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 2,
+        "isKey": true,
         "remainingPips": [
           2,
           0
@@ -3614,6 +3632,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 36,
+        "isKey": false,
         "remainingPips": [
           36,
           24
@@ -3823,6 +3842,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           6,
           0
@@ -4005,6 +4025,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 29,
+        "isKey": false,
         "remainingPips": [
           19,
           29
@@ -4215,6 +4236,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           4,
           6
@@ -4428,6 +4450,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 4,
+        "isKey": true,
         "remainingPips": [
           4,
           0
@@ -4637,6 +4660,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           10,
           0
@@ -4854,6 +4878,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 0,
+        "isKey": true,
         "remainingPips": [
           0,
           0
@@ -5065,6 +5090,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           6,
           6
@@ -5274,6 +5300,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 8,
+        "isKey": false,
         "remainingPips": [
           8,
           0
@@ -5400,6 +5427,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           33,
           33
@@ -5589,6 +5617,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 13,
+        "isKey": false,
         "remainingPips": [
           13,
           5
@@ -5764,6 +5793,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 24,
+        "isKey": false,
         "remainingPips": [
           18,
           24
@@ -5943,6 +5973,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 22,
+        "isKey": false,
         "remainingPips": [
           6,
           22
@@ -6132,6 +6163,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 15,
+        "isKey": false,
         "remainingPips": [
           13,
           15
@@ -6318,6 +6350,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 16,
+        "isKey": false,
         "remainingPips": [
           6,
           16
@@ -6531,6 +6564,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 3,
+        "isKey": false,
         "remainingPips": [
           3,
           0
@@ -6740,6 +6774,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 2,
+        "isKey": false,
         "remainingPips": [
           0,
           2
@@ -6905,6 +6940,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 28,
+        "isKey": false,
         "remainingPips": [
           28,
           16
@@ -7060,6 +7096,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 34,
+        "isKey": false,
         "remainingPips": [
           34,
           30
@@ -7221,6 +7258,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 35,
+        "isKey": false,
         "remainingPips": [
           23,
           35
@@ -7439,6 +7477,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 4,
+        "isKey": false,
         "remainingPips": [
           0,
           4
@@ -7649,6 +7688,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           0,
           6
@@ -7805,6 +7845,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 54,
+        "isKey": false,
         "remainingPips": [
           24,
           30,
@@ -8005,6 +8046,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 30,
+        "isKey": false,
         "remainingPips": [
           15,
           15,
@@ -8172,6 +8214,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 39,
+        "isKey": false,
         "remainingPips": [
           18,
           21,
@@ -8323,6 +8366,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 56,
+        "isKey": false,
         "remainingPips": [
           23,
           33,
@@ -8520,6 +8564,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 18,
+        "isKey": true,
         "remainingPips": [
           10,
           0,
@@ -8717,6 +8762,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 9,
+        "isKey": false,
         "remainingPips": [
           6,
           0,
@@ -8913,6 +8959,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 24,
+        "isKey": false,
         "remainingPips": [
           5,
           4,
@@ -9107,6 +9154,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 14,
+        "isKey": false,
         "remainingPips": [
           0,
           10,
@@ -9312,6 +9360,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           0,
           4,
@@ -9510,6 +9559,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 29,
+        "isKey": false,
         "remainingPips": [
           8,
           21,
@@ -9716,6 +9766,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           13,
           4,
@@ -9918,6 +9969,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 13,
+        "isKey": false,
         "remainingPips": [
           0,
           2,
@@ -10119,6 +10171,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 10,
+        "isKey": true,
         "remainingPips": [
           0,
           2,
@@ -10324,6 +10377,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 8,
+        "isKey": true,
         "remainingPips": [
           2,
           6,
@@ -10520,6 +10574,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 25,
+        "isKey": false,
         "remainingPips": [
           10,
           3,
@@ -10719,6 +10774,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 34,
+        "isKey": false,
         "remainingPips": [
           10,
           0,
@@ -10911,6 +10967,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           6,
           6,
@@ -11137,6 +11194,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           0,
           4,
@@ -11334,6 +11392,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 12,
+        "isKey": true,
         "remainingPips": [
           0,
           8,
@@ -11487,6 +11546,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 35,
+        "isKey": false,
         "remainingPips": [
           13,
           22,
@@ -11637,6 +11697,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 42,
+        "isKey": false,
         "remainingPips": [
           23,
           18,
@@ -11802,6 +11863,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           15,
           28,
@@ -12007,6 +12069,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 14,
+        "isKey": true,
         "remainingPips": [
           10,
           0,
@@ -12212,6 +12275,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 14,
+        "isKey": false,
         "remainingPips": [
           8,
           6,
@@ -12406,6 +12470,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 20,
+        "isKey": false,
         "remainingPips": [
           0,
           16,
@@ -12600,6 +12665,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           15,
           0,
@@ -12782,6 +12848,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 34,
+        "isKey": false,
         "remainingPips": [
           6,
           20,
@@ -12983,6 +13050,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 12,
+        "isKey": false,
         "remainingPips": [
           10,
           0,
@@ -13174,6 +13242,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 31,
+        "isKey": false,
         "remainingPips": [
           0,
           11,
@@ -13362,6 +13431,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 24,
+        "isKey": true,
         "remainingPips": [
           0,
           6,
@@ -13559,6 +13629,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           6,
           4,
@@ -13772,6 +13843,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 12,
+        "isKey": true,
         "remainingPips": [
           0,
           2,
@@ -13947,6 +14019,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 41,
+        "isKey": false,
         "remainingPips": [
           17,
           24,
@@ -14156,6 +14229,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 12,
+        "isKey": false,
         "remainingPips": [
           0,
           10,
@@ -14365,6 +14439,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 16,
+        "isKey": true,
         "remainingPips": [
           10,
           0,
@@ -14560,6 +14635,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 27,
+        "isKey": false,
         "remainingPips": [
           0,
           7,
@@ -14746,6 +14822,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 38,
+        "isKey": false,
         "remainingPips": [
           10,
           27,
@@ -14955,6 +15032,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           10,
           0,
@@ -15153,6 +15231,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           13,
           6,
@@ -15341,6 +15420,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 20,
+        "isKey": false,
         "remainingPips": [
           10,
           6,
@@ -15555,6 +15635,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           0,
           5,
@@ -15764,6 +15845,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 30,
+        "isKey": false,
         "remainingPips": [
           18,
           4,
@@ -15976,6 +16058,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           2,
           7,
@@ -16186,6 +16269,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 36,
+        "isKey": false,
         "remainingPips": [
           17,
           5,
@@ -16397,6 +16481,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 14,
+        "isKey": false,
         "remainingPips": [
           4,
           0,
@@ -16595,6 +16680,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           8,
           3,
@@ -16776,6 +16862,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 32,
+        "isKey": false,
         "remainingPips": [
           8,
           4,
@@ -16966,6 +17053,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 29,
+        "isKey": false,
         "remainingPips": [
           2,
           16,
@@ -17173,6 +17261,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           8,
           6,
@@ -17350,6 +17439,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 54,
+        "isKey": false,
         "remainingPips": [
           15,
           10,
@@ -17544,6 +17634,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 40,
+        "isKey": true,
         "remainingPips": [
           25,
           0,
@@ -17744,6 +17835,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 24,
+        "isKey": false,
         "remainingPips": [
           12,
           10,
@@ -17949,6 +18041,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 15,
+        "isKey": false,
         "remainingPips": [
           0,
           4,
@@ -18149,6 +18242,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 36,
+        "isKey": false,
         "remainingPips": [
           8,
           11,
@@ -18351,6 +18445,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 25,
+        "isKey": false,
         "remainingPips": [
           10,
           3,
@@ -18550,6 +18645,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 11,
+        "isKey": false,
         "remainingPips": [
           6,
           0,
@@ -18741,6 +18837,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 32,
+        "isKey": false,
         "remainingPips": [
           21,
           9,
@@ -18937,6 +19034,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 32,
+        "isKey": false,
         "remainingPips": [
           8,
           0,
@@ -19110,6 +19208,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 32,
+        "isKey": false,
         "remainingPips": [
           6,
           14,
@@ -19325,6 +19424,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 20,
+        "isKey": false,
         "remainingPips": [
           2,
           10,
@@ -19534,6 +19634,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 20,
+        "isKey": false,
         "remainingPips": [
           16,
           4,
@@ -19740,6 +19841,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 27,
+        "isKey": false,
         "remainingPips": [
           12,
           7,
@@ -19937,6 +20039,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 29,
+        "isKey": false,
         "remainingPips": [
           15,
           4,
@@ -20161,6 +20264,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           4,
           0,
@@ -20369,6 +20473,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 21,
+        "isKey": false,
         "remainingPips": [
           11,
           6,
@@ -20575,6 +20680,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 25,
+        "isKey": false,
         "remainingPips": [
           10,
           8,
@@ -20790,6 +20896,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 13,
+        "isKey": false,
         "remainingPips": [
           7,
           2,
@@ -20980,6 +21087,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 29,
+        "isKey": false,
         "remainingPips": [
           9,
           9,
@@ -21181,6 +21289,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 39,
+        "isKey": false,
         "remainingPips": [
           18,
           4,
@@ -21385,6 +21494,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 28,
+        "isKey": false,
         "remainingPips": [
           0,
           13,
@@ -21565,6 +21675,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 42,
+        "isKey": false,
         "remainingPips": [
           11,
           8,
@@ -21771,6 +21882,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 34,
+        "isKey": false,
         "remainingPips": [
           11,
           4,
@@ -21974,6 +22086,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 16,
+        "isKey": true,
         "remainingPips": [
           8,
           2,
@@ -22181,6 +22294,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           2,
           9,
@@ -22380,6 +22494,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 18,
+        "isKey": true,
         "remainingPips": [
           6,
           4,
@@ -22529,6 +22644,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           17,
           17,
@@ -22716,6 +22832,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 38,
+        "isKey": false,
         "remainingPips": [
           0,
           10,
@@ -22927,6 +23044,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 21,
+        "isKey": false,
         "remainingPips": [
           8,
           4,
@@ -23044,6 +23162,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           19,
           19,
@@ -23240,6 +23359,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 36,
+        "isKey": false,
         "remainingPips": [
           2,
           8,
@@ -23294,6 +23414,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 56,
+        "isKey": false,
         "remainingPips": [
           74,
           56
@@ -23353,6 +23474,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 64,
+        "isKey": false,
         "remainingPips": [
           64,
           74
@@ -23384,6 +23506,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 70,
+        "isKey": false,
         "remainingPips": [
           86,
           70
@@ -23436,6 +23559,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 72,
+        "isKey": false,
         "remainingPips": [
           73,
           72
@@ -23467,6 +23591,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 84,
+        "isKey": false,
         "remainingPips": [
           72,
           84
@@ -23512,6 +23637,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 69,
+        "isKey": false,
         "remainingPips": [
           69,
           69
@@ -23564,6 +23690,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 72,
+        "isKey": false,
         "remainingPips": [
           72,
           67
@@ -23637,6 +23764,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 60,
+        "isKey": false,
         "remainingPips": [
           60,
           66
@@ -23676,6 +23804,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 56,
+        "isKey": false,
         "remainingPips": [
           51,
           56,
@@ -23737,6 +23866,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 38,
+        "isKey": false,
         "remainingPips": [
           38,
           44,
@@ -23770,6 +23900,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 40,
+        "isKey": false,
         "remainingPips": [
           59,
           57,
@@ -23831,6 +23962,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 48,
+        "isKey": false,
         "remainingPips": [
           48,
           41,
@@ -23871,6 +24003,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 52,
+        "isKey": false,
         "remainingPips": [
           43,
           52,
@@ -23939,6 +24072,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 47,
+        "isKey": false,
         "remainingPips": [
           43,
           30,
@@ -23997,6 +24131,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 52,
+        "isKey": false,
         "remainingPips": [
           41,
           52,
@@ -24037,6 +24172,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 45,
+        "isKey": false,
         "remainingPips": [
           49,
           53,
@@ -24106,6 +24242,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 20,
+        "isKey": false,
         "remainingPips": [
           20,
           29,
@@ -24183,6 +24320,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 30,
+        "isKey": false,
         "remainingPips": [
           32,
           30,
@@ -24260,6 +24398,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 35,
+        "isKey": false,
         "remainingPips": [
           30,
           21,
@@ -24337,6 +24476,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team:p3",
         "winnerScore": 42,
+        "isKey": false,
         "remainingPips": [
           32,
           30,
@@ -24379,6 +24519,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team:p2",
         "winnerScore": 39,
+        "isKey": false,
         "remainingPips": [
           39,
           47,
@@ -24421,6 +24562,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team:p0",
         "winnerScore": 40,
+        "isKey": false,
         "remainingPips": [
           22,
           40,
@@ -24470,6 +24612,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 35,
+        "isKey": false,
         "remainingPips": [
           39,
           30,
@@ -24540,6 +24683,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team:p1",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           45,
           28,
@@ -24771,6 +24915,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 10,
+        "isKey": true,
         "remainingPips": [
           0,
           8,
@@ -24983,6 +25128,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 7,
+        "isKey": false,
         "remainingPips": [
           15,
           5,
@@ -25180,6 +25326,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           0,
           14,
@@ -25387,6 +25534,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 16,
+        "isKey": true,
         "remainingPips": [
           10,
           0,
@@ -25602,6 +25750,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           2,
           8,
@@ -25812,6 +25961,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 12,
+        "isKey": false,
         "remainingPips": [
           4,
           6,
@@ -25996,6 +26146,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 33,
+        "isKey": false,
         "remainingPips": [
           14,
           6,
@@ -26181,6 +26332,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 39,
+        "isKey": false,
         "remainingPips": [
           23,
           5,
@@ -26404,6 +26556,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 15,
+        "isKey": false,
         "remainingPips": [
           0,
           9,
@@ -26593,6 +26746,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           9,
           6,
@@ -26790,6 +26944,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 27,
+        "isKey": false,
         "remainingPips": [
           10,
           15,
@@ -26978,6 +27133,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           11,
           9,
@@ -27202,6 +27358,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           8,
           6,
@@ -27383,6 +27540,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 44,
+        "isKey": false,
         "remainingPips": [
           4,
           20,
@@ -27580,6 +27738,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 24,
+        "isKey": false,
         "remainingPips": [
           6,
           0,
@@ -27754,6 +27913,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           15,
           18,
@@ -27954,6 +28114,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           10,
           0,
@@ -28120,6 +28281,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 38,
+        "isKey": false,
         "remainingPips": [
           18,
           16,
@@ -28319,6 +28481,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 6,
+        "isKey": false,
         "remainingPips": [
           0,
           0,
@@ -28528,6 +28691,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 18,
+        "isKey": true,
         "remainingPips": [
           13,
           0,
@@ -28719,6 +28883,7 @@
         "winnerIndex": -1,
         "winningTeamId": "",
         "winnerScore": 0,
+        "isKey": false,
         "remainingPips": [
           6,
           23,
@@ -28931,6 +29096,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           2,
           0,
@@ -29130,6 +29296,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 12,
+        "isKey": false,
         "remainingPips": [
           0,
           4,
@@ -29338,6 +29505,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 10,
+        "isKey": false,
         "remainingPips": [
           4,
           8,
@@ -29543,6 +29711,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 19,
+        "isKey": false,
         "remainingPips": [
           11,
           8,
@@ -29733,6 +29902,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 21,
+        "isKey": false,
         "remainingPips": [
           17,
           14,
@@ -29937,6 +30107,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 18,
+        "isKey": false,
         "remainingPips": [
           0,
           8,
@@ -30127,6 +30298,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 28,
+        "isKey": false,
         "remainingPips": [
           10,
           18,
@@ -30335,6 +30507,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 13,
+        "isKey": false,
         "remainingPips": [
           0,
           9,
@@ -30554,6 +30727,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 8,
+        "isKey": false,
         "remainingPips": [
           0,
           7,
@@ -30751,6 +30925,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 16,
+        "isKey": false,
         "remainingPips": [
           4,
           0,
@@ -30897,6 +31072,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 41,
+        "isKey": false,
         "remainingPips": [
           22,
           16,
@@ -31100,6 +31276,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 15,
+        "isKey": false,
         "remainingPips": [
           9,
           0,
@@ -31293,6 +31470,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 17,
+        "isKey": false,
         "remainingPips": [
           8,
           9,
@@ -31486,6 +31664,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 12,
+        "isKey": false,
         "remainingPips": [
           6,
           0,
@@ -31688,6 +31867,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 11,
+        "isKey": false,
         "remainingPips": [
           0,
           6,
@@ -31893,6 +32073,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 25,
+        "isKey": false,
         "remainingPips": [
           0,
           15,
@@ -32103,6 +32284,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 24,
+        "isKey": false,
         "remainingPips": [
           14,
           11,
@@ -32300,6 +32482,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 16,
+        "isKey": true,
         "remainingPips": [
           18,
           10,
@@ -32523,6 +32706,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 6,
+        "isKey": true,
         "remainingPips": [
           8,
           6,
@@ -32586,6 +32770,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 57,
+        "isKey": false,
         "remainingPips": [
           28,
           36,
@@ -32656,6 +32841,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 51,
+        "isKey": false,
         "remainingPips": [
           31,
           21,
@@ -32730,6 +32916,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 62,
+        "isKey": false,
         "remainingPips": [
           30,
           34,
@@ -32772,6 +32959,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 77,
+        "isKey": false,
         "remainingPips": [
           40,
           32,
@@ -32807,6 +32995,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 76,
+        "isKey": false,
         "remainingPips": [
           33,
           39,
@@ -32870,6 +33059,7 @@
         "winnerIndex": 3,
         "winningTeamId": "team_b",
         "winnerScore": 67,
+        "isKey": false,
         "remainingPips": [
           30,
           36,
@@ -32926,6 +33116,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 73,
+        "isKey": false,
         "remainingPips": [
           30,
           29,
@@ -32982,6 +33173,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 68,
+        "isKey": false,
         "remainingPips": [
           36,
           32,
@@ -33052,6 +33244,7 @@
         "winnerIndex": 0,
         "winningTeamId": "team_a",
         "winnerScore": 64,
+        "isKey": false,
         "remainingPips": [
           25,
           27,
@@ -33122,6 +33315,7 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 60,
+        "isKey": false,
         "remainingPips": [
           41,
           30,
@@ -33199,6 +33393,7 @@
         "winnerIndex": 1,
         "winningTeamId": "team_b",
         "winnerScore": 55,
+        "isKey": false,
         "remainingPips": [
           28,
           37,
@@ -33262,11 +33457,1063 @@
         "winnerIndex": 2,
         "winningTeamId": "team_a",
         "winnerScore": 56,
+        "isKey": false,
         "remainingPips": [
           39,
           30,
           38,
           26
+        ]
+      }
+    },
+    {
+      "seed": "68092849427",
+      "mode": "cutthroat",
+      "players": [
+        "p0",
+        "p1"
+      ],
+      "moves": [
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 6,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 4,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 4,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 5,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 4,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 2,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 5,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 2,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 1,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 3,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 1,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 3,
+          "end": "left"
+        }
+      ],
+      "expected": {
+        "reason": "domino",
+        "winnerIndex": 0,
+        "winningTeamId": "team:p0",
+        "winnerScore": 0,
+        "isKey": true,
+        "remainingPips": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "seed": "70747285188",
+      "mode": "cutthroat",
+      "players": [
+        "p0",
+        "p1"
+      ],
+      "moves": [
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 6,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 2,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 4,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 1,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 0,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 5,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 4,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 4,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 1,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 2,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 6,
+          "end": "left"
+        }
+      ],
+      "expected": {
+        "reason": "domino",
+        "winnerIndex": 1,
+        "winningTeamId": "team:p1",
+        "winnerScore": 10,
+        "isKey": true,
+        "remainingPips": [
+          10,
+          0
+        ]
+      }
+    },
+    {
+      "seed": "78710592471",
+      "mode": "cutthroat",
+      "players": [
+        "p0",
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "moves": [
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 6,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 1,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 4,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 1,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 1,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 3,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 4,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 5,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 3,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 2,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 6,
+          "end": "right"
+        }
+      ],
+      "expected": {
+        "reason": "domino",
+        "winnerIndex": 1,
+        "winningTeamId": "team:p1",
+        "winnerScore": 28,
+        "isKey": true,
+        "remainingPips": [
+          8,
+          0,
+          6,
+          14
+        ]
+      }
+    },
+    {
+      "seed": "78710592471",
+      "mode": "partner",
+      "players": [
+        "p0",
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "moves": [
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 6,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 1,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 4,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 1,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 1,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 3,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 4,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 5,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 3,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 3,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 2,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 1,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 6,
+          "end": "right"
+        }
+      ],
+      "expected": {
+        "reason": "domino",
+        "winnerIndex": 1,
+        "winningTeamId": "team_b",
+        "winnerScore": 14,
+        "isKey": true,
+        "remainingPips": [
+          8,
+          0,
+          6,
+          14
+        ]
+      }
+    },
+    {
+      "seed": "126490436169",
+      "mode": "partner",
+      "players": [
+        "p0",
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "moves": [
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 6,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 3,
+          "high": 6,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 3,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 5,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 2,
+          "high": 5,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 1,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 4,
+          "end": "right"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 2,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 4,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 3,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 0,
+          "high": 4,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 5,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 0,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 1,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "place",
+          "low": 1,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 2,
+          "end": "right"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "place",
+          "low": 0,
+          "high": 6,
+          "end": "left"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 0,
+          "high": 0,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 0,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "place",
+          "low": 3,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 3,
+          "end": "left"
+        },
+        {
+          "playerIndex": 2,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 3,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 0,
+          "kind": "pass"
+        },
+        {
+          "playerIndex": 1,
+          "kind": "place",
+          "low": 1,
+          "high": 1,
+          "end": "left"
+        }
+      ],
+      "expected": {
+        "reason": "domino",
+        "winnerIndex": 1,
+        "winningTeamId": "team_b",
+        "winnerScore": 38,
+        "isKey": true,
+        "remainingPips": [
+          24,
+          0,
+          14,
+          8
         ]
       }
     }

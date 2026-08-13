@@ -1,5 +1,6 @@
 import { CutThroatRules } from './cutThroatRules';
 import { PlayerId, TeamId } from './ids';
+import { isKey } from './keyRule';
 import { MatchOutcome } from './matchOutcome';
 import { MatchState } from './matchState';
 import { Move } from './move';
@@ -70,6 +71,7 @@ export class JamaicanPartnerRules implements RuleEngine {
         winnerId: dominoer,
         winningTeamId: winningTeam,
         winnerScore: sumPipsOfOpposingTeam(state, winningTeam),
+        isKey: isKey(state, dominoer),
         remainingPips: remaining,
       };
     }
@@ -103,6 +105,7 @@ function resignOutcome(
     winnerId,
     winningTeamId: winningTeam,
     winnerScore: score,
+    isKey: false,
     remainingPips: remaining,
   };
 }
@@ -134,6 +137,7 @@ function blockOutcome(state: MatchState, remaining: Map<PlayerId, number>): Matc
       winnerId: null,
       winningTeamId: null,
       winnerScore: 0,
+      isKey: false,
       remainingPips: remaining,
     };
   }
@@ -153,6 +157,7 @@ function blockOutcome(state: MatchState, remaining: Map<PlayerId, number>): Matc
     winnerId,
     winningTeamId,
     winnerScore: sumPipsOfOpposingTeam(state, winningTeamId),
+    isKey: false,
     remainingPips: remaining,
   };
 }

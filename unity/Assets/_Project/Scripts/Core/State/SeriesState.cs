@@ -94,9 +94,9 @@ namespace Pose.Core
                     }
                 }
 
-                // Keys (+2000) land with the rules pass; flat 1000 per win for now.
+                // A key scores the bonus (2000) instead of the flat win (1000).
                 games[winner] += 1;
-                points[winner] += MatchFormatRules.PointsPerRoundWin;
+                points[winner] += outcome.IsKey ? MatchFormatRules.KeyPoints : MatchFormatRules.PointsPerRoundWin;
             }
 
             (bool nextBattle, IReadOnlyList<PlayerId> battlers) = ComputeBattle(games);

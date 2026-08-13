@@ -79,7 +79,7 @@ namespace Pose.Tools.ReplayFixtures
                 for (int g = 0; g < 40; g++)
                 {
                     ulong seed = unchecked((ulong)(0x100000000UL + (uint)chooser.Next()) * (ulong)(playerCount * 31 + g + 1));
-                    replays.Add(PlayGame(seed, playerCount, chooser, forceResignAfter: -1, "cutthroat"));
+                    replays.Add(PlayGame(seed, playerCount, chooser, forceResignAfter: -1, "cutthroat").Fixture);
                 }
             }
 
@@ -90,7 +90,7 @@ namespace Pose.Tools.ReplayFixtures
                 {
                     ulong seed = unchecked((ulong)(0x900000000UL + (uint)chooser.Next()) * (ulong)(playerCount * 17 + g + 1));
                     int resignAfter = chooser.Next(1, 8);
-                    replays.Add(PlayGame(seed, playerCount, chooser, resignAfter, "cutthroat"));
+                    replays.Add(PlayGame(seed, playerCount, chooser, resignAfter, "cutthroat").Fixture);
                 }
             }
 
@@ -99,7 +99,7 @@ namespace Pose.Tools.ReplayFixtures
             for (int g = 0; g < 40; g++)
             {
                 ulong seed = unchecked((ulong)(0xA00000000UL + (uint)chooser.Next()) * (ulong)(g + 7));
-                replays.Add(PlayGame(seed, 4, chooser, forceResignAfter: -1, "partner"));
+                replays.Add(PlayGame(seed, 4, chooser, forceResignAfter: -1, "partner").Fixture);
             }
 
             // Jamaican Partner forced-resign games (a resign loses the whole team).
@@ -107,14 +107,53 @@ namespace Pose.Tools.ReplayFixtures
             {
                 ulong seed = unchecked((ulong)(0xB00000000UL + (uint)chooser.Next()) * (ulong)(g + 13));
                 int resignAfter = chooser.Next(1, 8);
-                replays.Add(PlayGame(seed, 4, chooser, resignAfter, "partner"));
+                replays.Add(PlayGame(seed, 4, chooser, resignAfter, "partner").Fixture);
             }
+
+            // KEY fixtures: deterministically search for games that end in a
+            // both-ends lock-out (a "key"), so the isKey parity is actually
+            // exercised. The search is a fixed enumeration, so the output stays
+            // reproducible. Play is biased toward capicúa domino wins to make
+            // keys turn up quickly (see PlayGame's keyBias branch).
+            replays.AddRange(FindKeyGames("cutthroat", 2, count: 2));
+            replays.AddRange(FindKeyGames("cutthroat", 4, count: 1));
+            replays.AddRange(FindKeyGames("partner", 4, count: 2));
 
             return new { replays };
         }
 
-        private static object PlayGame(
-            ulong seed, int playerCount, Random chooser, int forceResignAfter, string mode)
+        // Enumerates seeds deterministically, playing key-biased games, and
+        // returns the first <paramref name="count"/> that end in a key. Throws if
+        // none are found in the search budget (a signal the key rule regressed).
+        private static List<object> FindKeyGames(string mode, int playerCount, int count)
+        {
+            const long searchBudget = 4_000_000;
+            List<object> found = new();
+            for (long attempt = 0; attempt < searchBudget && found.Count < count; attempt++)
+            {
+                ulong seed = unchecked(0xE00000000UL + (ulong)attempt * 2654435761UL);
+                // Fresh per-attempt chooser keeps each candidate reproducible.
+                Random chooser = new(unchecked((int)(attempt * 40503) ^ 0x5F3D));
+                (object fixture, bool isKey) = PlayGame(
+                    seed, playerCount, chooser, forceResignAfter: -1, mode, keyBias: true);
+                if (isKey)
+                {
+                    found.Add(fixture);
+                }
+            }
+
+            if (found.Count < count)
+            {
+                throw new InvalidOperationException(
+                    $"Found only {found.Count}/{count} key games for {mode} {playerCount}P " +
+                    "within the search budget — the key rule may have regressed.");
+            }
+            return found;
+        }
+
+        private static (object Fixture, bool IsKey) PlayGame(
+            ulong seed, int playerCount, Random chooser, int forceResignAfter, string mode,
+            bool keyBias = false)
         {
             PlayerId[] players = new PlayerId[playerCount];
             for (int i = 0; i < playerCount; i++)
@@ -144,7 +183,9 @@ namespace Pose.Tools.ReplayFixtures
                 else
                 {
                     IReadOnlyList<Move> legal = rules.GetLegalMoves(state);
-                    move = legal[chooser.Next(legal.Count)];
+                    move = keyBias
+                        ? ChooseKeyBiased(state, legal, chooser)
+                        : legal[chooser.Next(legal.Count)];
                 }
 
                 moves.Add(EncodeMove(move, players));
@@ -153,7 +194,7 @@ namespace Pose.Tools.ReplayFixtures
             }
 
             MatchOutcome outcome = rules.GetOutcome(state)!;
-            return new
+            object fixture = new
             {
                 seed = seed.ToString(CultureInfo.InvariantCulture),
                 mode,
@@ -161,6 +202,45 @@ namespace Pose.Tools.ReplayFixtures
                 moves,
                 expected = EncodeOutcome(outcome, players),
             };
+            return (fixture, outcome.IsKey);
+        }
+
+        // A move chooser that steers toward keys: prefer a placement that both
+        // empties the mover's hand AND lands on both open ends (a capicúa) —
+        // that is exactly the shape a key needs. Falls back to a plain domino
+        // win, then to a random legal move. Deterministic given the chooser.
+        private static Move ChooseKeyBiased(MatchState state, IReadOnlyList<Move> legal, Random chooser)
+        {
+            List<Move> capicuaWins = new();
+            List<Move> dominoWins = new();
+            foreach (Move m in legal)
+            {
+                if (m is not PlaceMove pm)
+                {
+                    continue;
+                }
+                if (state.Hands[pm.Player].Count != 1)
+                {
+                    continue;
+                }
+                dominoWins.Add(m);
+                if (!state.Chain.IsEmpty
+                    && pm.Tile.Matches(state.Chain.LeftEnd)
+                    && pm.Tile.Matches(state.Chain.RightEnd))
+                {
+                    capicuaWins.Add(m);
+                }
+            }
+
+            if (capicuaWins.Count > 0)
+            {
+                return capicuaWins[chooser.Next(capicuaWins.Count)];
+            }
+            if (dominoWins.Count > 0)
+            {
+                return dominoWins[chooser.Next(dominoWins.Count)];
+            }
+            return legal[chooser.Next(legal.Count)];
         }
 
         private static object EncodeMove(Move move, PlayerId[] players)
@@ -206,6 +286,7 @@ namespace Pose.Tools.ReplayFixtures
                 winnerIndex = outcome.WinnerId.HasValue ? IndexOf(players, outcome.WinnerId.Value) : -1,
                 winningTeamId = outcome.WinningTeamId?.Value ?? string.Empty,
                 winnerScore = outcome.WinnerScore,
+                isKey = outcome.IsKey,
                 remainingPips = remaining,
             };
         }

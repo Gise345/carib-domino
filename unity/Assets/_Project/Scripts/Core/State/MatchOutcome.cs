@@ -21,6 +21,13 @@ namespace Pose.Core
         public int WinnerScore { get; }
         public IReadOnlyDictionary<PlayerId, int> RemainingPips { get; }
 
+        /// <summary>
+        /// True when the win is a "key" — a both-ends lock-out (capicúa with no
+        /// opponent holding either end). Worth the key bonus in a series; false
+        /// for blocks, resigns and ordinary domino wins. See <see cref="KeyRule"/>.
+        /// </summary>
+        public bool IsKey { get; }
+
         public bool IsDraw => WinnerId == null;
 
         public MatchOutcome(
@@ -28,13 +35,15 @@ namespace Pose.Core
             PlayerId? winnerId,
             TeamId? winningTeamId,
             int winnerScore,
-            IReadOnlyDictionary<PlayerId, int> remainingPips)
+            IReadOnlyDictionary<PlayerId, int> remainingPips,
+            bool isKey = false)
         {
             Reason = reason;
             WinnerId = winnerId;
             WinningTeamId = winningTeamId;
             WinnerScore = winnerScore;
             RemainingPips = remainingPips;
+            IsKey = isKey;
         }
     }
 }

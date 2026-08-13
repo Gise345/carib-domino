@@ -152,6 +152,10 @@ MonoBehaviour:
     m_Localized: "Next round in {0}s"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000028
+    m_Localized: "KEY! {0} mash up the board   +{1}"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:
