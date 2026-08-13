@@ -40,7 +40,7 @@ namespace Pose.Game
         private const float SubHeaderHeight = 74f;
         private const float NavHeight = 130f;
 
-        private const string BuildStamp = "build shell · full-screen modes";
+        private const string BuildStamp = "build shell · drawn icons";
 
         public event Action? PracticeChosen;
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
@@ -222,7 +222,7 @@ namespace Pose.Game
             Button picBtn = pic.AddComponent<Button>();
             picBtn.targetGraphic = picBg;
             picBtn.onClick.AddListener(() => ShowTab(Tab.Profile, _profilePanel));
-            AddLabel(pic.transform, "🙂", 40f, Color.white, TextAlignmentOptions.Center);
+            AddIcon(pic.transform, IconFactory.Person(), 52f, ButtonTextColor);
 
             // Coin value (center-left).
             GameObject coin = CreateChild(header.transform, "Coins");
@@ -235,7 +235,8 @@ namespace Pose.Game
             Image coinBg = coin.AddComponent<Image>();
             coinBg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
             coinBg.color = Color.white;
-            AddLabel(coin.transform, "🪙  10,000", 34f, CodeTextColor, TextAlignmentOptions.Center);
+            AddIconAt(coin.transform, IconFactory.Coin(), 40f, Hex("#FFD24A"), new Vector2(28f, 0f), TextAnchor.MiddleLeft);
+            AddLabel(coin.transform, "10,000", 34f, CodeTextColor, TextAlignmentOptions.Center);
 
             // Gear (right) → Settings tab.
             GameObject gear = CreateChild(header.transform, "Gear");
@@ -251,7 +252,7 @@ namespace Pose.Game
             Button gearBtn = gear.AddComponent<Button>();
             gearBtn.targetGraphic = gearBg;
             gearBtn.onClick.AddListener(() => ShowTab(Tab.Settings, _settingsPanel));
-            AddLabel(gear.transform, "⚙", 40f, BodyTextColor, TextAlignmentOptions.Center);
+            AddIcon(gear.transform, IconFactory.Gear(), 46f, BodyTextColor);
 
             GameObject stamp = CreateChild(header.transform, "BuildStamp");
             RectTransform stampRt = (RectTransform)stamp.transform;
@@ -287,8 +288,8 @@ namespace Pose.Game
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
 
-            CreatePill(bar.transform, "🏆 Leaderboard", () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
-            CreatePill(bar.transform, "📊 Ranking", () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
+            CreatePill(bar.transform, IconFactory.Trophy(), "Leaderboard", () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
+            CreatePill(bar.transform, IconFactory.Chart(), "Ranking", () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
         }
 
         private void BuildSideRail()
@@ -307,7 +308,7 @@ namespace Pose.Game
             Button btn = rail.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => ShowOverlay(_comingSoonScreenForTitle("Free Coins")));
-            AddLabel(rail.transform, "🎬", 40f, Color.white, TextAlignmentOptions.Center);
+            AddIcon(rail.transform, IconFactory.Film(), 44f, Color.white);
         }
 
         // ---- Bottom nav ----------------------------------------------------
@@ -334,14 +335,14 @@ namespace Pose.Game
             hlg.childForceExpandWidth = true;
             hlg.childForceExpandHeight = false;
 
-            CreateNavTab(nav.transform, "🛒", "Shop", Tab.Shop, () => ShowTab(Tab.Shop, _shopPanel), false);
-            CreateNavTab(nav.transform, "👥", "Friends", Tab.Friends, () => ShowTab(Tab.Friends, _friendsPanel), false);
-            CreateNavTab(nav.transform, "🏠", "YARD", Tab.Yard, () => ShowTab(Tab.Yard, _yardPanel), true);
-            CreateNavTab(nav.transform, "👤", "Profile", Tab.Profile, () => ShowTab(Tab.Profile, _profilePanel), false);
-            CreateNavTab(nav.transform, "⚙", "Settings", Tab.Settings, () => ShowTab(Tab.Settings, _settingsPanel), false);
+            CreateNavTab(nav.transform, IconFactory.Bag(), "Shop", Tab.Shop, () => ShowTab(Tab.Shop, _shopPanel), false);
+            CreateNavTab(nav.transform, IconFactory.People(), "Friends", Tab.Friends, () => ShowTab(Tab.Friends, _friendsPanel), false);
+            CreateNavTab(nav.transform, IconFactory.House(), "YARD", Tab.Yard, () => ShowTab(Tab.Yard, _yardPanel), true);
+            CreateNavTab(nav.transform, IconFactory.Person(), "Profile", Tab.Profile, () => ShowTab(Tab.Profile, _profilePanel), false);
+            CreateNavTab(nav.transform, IconFactory.Gear(), "Settings", Tab.Settings, () => ShowTab(Tab.Settings, _settingsPanel), false);
         }
 
-        private void CreateNavTab(Transform parent, string icon, string label, Tab tab, Action onClick, bool raised)
+        private void CreateNavTab(Transform parent, Sprite icon, string label, Tab tab, Action onClick, bool raised)
         {
             GameObject go = CreateChild(parent, $"Tab_{label}");
             LayoutElement le = go.AddComponent<LayoutElement>();
@@ -366,7 +367,7 @@ namespace Pose.Game
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            AddLabelRow(stack.transform, icon, raised ? 40f : 34f, raised ? ButtonTextColor : BodyTextColor);
+            AddIconRow(stack.transform, icon, raised ? 52f : 44f, raised ? ButtonTextColor : BodyTextColor);
             AddLabelRow(stack.transform, label, 16f, raised ? ButtonTextColor : new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.8f));
 
             _navButtons.Add((go, tab));
@@ -410,7 +411,8 @@ namespace Pose.Game
             Button selBtn = selector.AddComponent<Button>();
             selBtn.targetGraphic = selBg;
             selBtn.onClick.AddListener(ToggleCountryPopup);
-            _countryLabel = AddLabel(selector.transform, "Jamaica  ▾", 32f, BodyTextColor, TextAlignmentOptions.Center);
+            _countryLabel = AddLabel(selector.transform, "Jamaica", 32f, BodyTextColor, TextAlignmentOptions.Center);
+            AddIconAt(selector.transform, IconFactory.Chevron(down: true), 26f, BodyTextColor, new Vector2(24f, 0f), TextAnchor.MiddleRight);
 
             // Horizontal scrolling mode row (centre of the Yard).
             GameObject scroll = CreateChild(_yardPanel.transform, "ModeScroll");
@@ -583,7 +585,7 @@ namespace Pose.Game
                 _selectedCountry = index;
                 if (_countryLabel != null)
                 {
-                    _countryLabel.text = _countries[index].Name + "  ▾";
+                    _countryLabel.text = _countries[index].Name;
                 }
             }
             else
@@ -681,7 +683,8 @@ namespace Pose.Game
             Image bg = go.AddComponent<Image>();
             bg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
             bg.color = Color.white;
-            AddLabel(go.transform, "Entry:  🪙 1,000", 28f, CodeTextColor, TextAlignmentOptions.Center);
+            AddIconAt(go.transform, IconFactory.Coin(), 32f, Hex("#FFD24A"), new Vector2(20f, 0f), TextAnchor.MiddleLeft);
+            AddLabel(go.transform, "Entry: 1,000", 28f, CodeTextColor, TextAlignmentOptions.Center);
         }
 
         private void CreateBigButton(Transform parent, string label, Action onClick)
@@ -1389,11 +1392,11 @@ namespace Pose.Game
             return go;
         }
 
-        private void CreatePill(Transform parent, string label, Action onClick)
+        private void CreatePill(Transform parent, Sprite icon, string label, Action onClick)
         {
             GameObject go = CreateChild(parent, $"Pill_{label}");
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 260f;
+            le.preferredWidth = 270f;
             le.preferredHeight = 54f;
             Image bg = go.AddComponent<Image>();
             bg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(1f, 1f, 1f, 0.18f), new Color(1f, 1f, 1f, 0.08f));
@@ -1401,6 +1404,7 @@ namespace Pose.Game
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
+            AddIconAt(go.transform, icon, 32f, CodeTextColor, new Vector2(20f, 0f), TextAnchor.MiddleLeft);
             AddLabel(go.transform, label, 22f, BodyTextColor, TextAlignmentOptions.Center);
         }
 
@@ -1419,7 +1423,8 @@ namespace Pose.Game
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
-            AddLabel(go.transform, "‹ Back", 26f, BodyTextColor, TextAlignmentOptions.Center);
+            AddIconAt(go.transform, IconFactory.Chevron(down: false), 26f, BodyTextColor, new Vector2(20f, 0f), TextAnchor.MiddleLeft);
+            AddLabel(go.transform, "Back", 26f, BodyTextColor, TextAlignmentOptions.Center);
         }
 
         private void CreateTitle(Transform parent, string text, float y, float size)
@@ -1454,6 +1459,63 @@ namespace Pose.Game
             tmp.text = text;
             tmp.raycastTarget = false;
             return tmp;
+        }
+
+        private Image AddIcon(Transform parent, Sprite icon, float size, Color color)
+        {
+            GameObject go = CreateChild(parent, "Icon");
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            Image img = go.AddComponent<Image>();
+            img.sprite = icon;
+            img.color = color;
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            return img;
+        }
+
+        private void AddIconAt(Transform parent, Sprite icon, float size, Color color, Vector2 edgeOffset, TextAnchor anchor)
+        {
+            Vector2 a = anchor switch
+            {
+                TextAnchor.MiddleLeft => new Vector2(0f, 0.5f),
+                TextAnchor.MiddleRight => new Vector2(1f, 0.5f),
+                _ => new Vector2(0.5f, 0.5f),
+            };
+            GameObject go = CreateChild(parent, "Icon");
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = a;
+            rt.anchorMax = a;
+            rt.pivot = a;
+            float x = anchor == TextAnchor.MiddleRight ? -edgeOffset.x : edgeOffset.x;
+            rt.anchoredPosition = new Vector2(x, edgeOffset.y);
+            rt.sizeDelta = new Vector2(size, size);
+            Image img = go.AddComponent<Image>();
+            img.sprite = icon;
+            img.color = color;
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+        }
+
+        private void AddIconRow(Transform parent, Sprite icon, float size, Color color)
+        {
+            GameObject row = CreateChild(parent, "IconRow");
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.preferredHeight = size + 6f;
+            GameObject ic = CreateChild(row.transform, "Icon");
+            RectTransform rt = (RectTransform)ic.transform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            Image img = ic.AddComponent<Image>();
+            img.sprite = icon;
+            img.color = color;
+            img.raycastTarget = false;
+            img.preserveAspect = true;
         }
 
         private void AddLabelRow(Transform parent, string text, float size, Color color)

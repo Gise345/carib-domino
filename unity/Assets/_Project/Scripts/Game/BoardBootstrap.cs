@@ -239,7 +239,7 @@ namespace Pose.Game
         private Fusion.NetworkObject? _networkedMatchPrefab;
 
         [SerializeField]
-        [Tooltip("Drag the lobby background sprite (poselobbynew.png in " +
+        [Tooltip("Drag the lobby background sprite (poselobbyyardandsea.png in " +
                  "Assets/images) here. Falls back to the felt-green panel " +
                  "color if left empty.")]
         private Sprite? _lobbyBackgroundSprite;
@@ -1190,7 +1190,7 @@ namespace Pose.Game
                 {
                     name = name.Substring(0, 10);
                 }
-                string battle = c.IsBattleSeat(i) ? "  ⚔" : string.Empty;
+                string battle = c.IsBattleSeat(i) ? "  <battle>" : string.Empty;
                 body += $"\n{name}   {c.SeriesGamesForSeat(i)}W   {c.SeriesPointsForSeat(i)}{battle}";
             }
             _scoreboardText.text = body;
