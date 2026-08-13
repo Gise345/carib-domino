@@ -239,7 +239,7 @@ namespace Pose.Game
         private Fusion.NetworkObject? _networkedMatchPrefab;
 
         [SerializeField]
-        [Tooltip("Drag the lobby background sprite (poselobby.png in " +
+        [Tooltip("Drag the lobby background sprite (poselobbynew.png in " +
                  "Assets/images) here. Falls back to the felt-green panel " +
                  "color if left empty.")]
         private Sprite? _lobbyBackgroundSprite;

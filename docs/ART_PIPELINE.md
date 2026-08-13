@@ -34,7 +34,7 @@ The feel we're chasing, in order:
 
 The reference for overall polish level is Ludo Club: crisp, tactile, sound and animation locked frame-to-frame, particles on every meaningful beat.
 
-> **Art direction (colour, material, setting) is not yet fixed.** §10 lists the decisions needed from Giselle before you begin final art. Start with §9 Phase 0 style frames — that conversation is much easier with pictures.
+> **Art direction is fixed:** an outdoor Caribbean yard table at night, under string lights — bone tiles on a painted hardwood table top that cracks along the grain and breaks. See **§10** for the full call, [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) for the palette, and [`DECISIONS/0014-art-direction.md`](./DECISIONS/0014-art-direction.md) for why. Still begin with §9 Phase 0 style frames — the direction is settled, the *look* still needs to be found in pictures before anything is modelled.
 
 ---
 
@@ -431,18 +431,74 @@ Phase 1 is the one people skip. Please don't — an untextured box of the right 
 
 ---
 
-## 10. Open questions — for Giselle, before Phase 2
+## 10. Art direction — ANSWERED
 
-These are direction calls, not art problems. Phase 0 style frames should be used to answer them.
+> **These were open questions. They are now settled** — see
+> [`DECISIONS/0014-art-direction.md`](./DECISIONS/0014-art-direction.md) for the
+> reasoning, and [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) for the palette.
+> Phase 2 is unblocked.
 
-1. **Tile material** — ivory/bone, polished acrylic, aged wood, something else?
-2. **Pip treatment** — recessed and painted, inlaid, printed flat? Colour: classic black, or per-suit colour coding for readability?
-3. **Board setting** — a domino table, a bar top, a yard table, an abstract stage?
-4. **Board material** — this determines what "breaking" means. Wood splinters. Stone cracks and crumbles. Painted metal buckles. Pick one; it drives §4.3 and §6 entirely.
-5. **Camera** — fixed top-down, or a slight angle? Affects how much of the tile's side and bevel is ever seen.
-6. **Skin roadmap** — how many themes at launch, and are they regional (Jamaica, Cuba, Trinidad, Puerto Rico)?
+**The direction: an outdoor Caribbean yard table at night, under string lights.**
+Warm, worn, physical.
 
-Question 4 is the blocker for the destruction work. The others can trail.
+| # | Call | Answer |
+|---|---|---|
+| 1 | Tile material | **Aged ivory / bone**, worn edges |
+| 2 | Pip treatment | **Recessed, painted black, worn.** Classic black — no per-suit colour coding |
+| 3 | Board setting | **Outdoor yard table at night**, string lights |
+| 4 | **Board material** | **Painted hardwood — cracks along the grain, breaks into chunks** |
+| 5 | Camera | **Slight 3/4 angle, ~25–35°** |
+| 6 | Skin roadmap | **Base "Classic" + 4 regional** — Jamaica, Cuba, Trinidad, Puerto Rico |
+
+### What Q4 means for your work
+
+The board is a **plank-built hardwood table top with a sun-faded painted
+surface.** It **cracks along the grain and breaks into chunks.**
+
+> **Do not model splinters.** An earlier draft of this section paired "wood" with
+> "splinters" as though they were one decision. They are not. Fine splinters and
+> grit are **particles** — they belong in `T_VFX_Debris` (§6), not in your chunk
+> budget. Splinter geometry across 40–60 chunks reads as noise at 6 inches and
+> eats the triangle budget for nothing.
+
+This drives §4.2, §4.3 and §6:
+
+- **Cracks (§4.2)** run **with the grain**. That is what gives the four decal
+  variants their character: long directional splits following the grain, shorter
+  blunt cross-breaks against it, and forking where a split meets a plank joint or
+  a knot. The escalation ladder is a material sequence — hairline cracks in the
+  paint → paint flaking as the grain opens → full break.
+- **Chunks (§4.3)** are **plank-aligned**: elongated, blocky, broken across the
+  plank rather than shattered radially. Plank construction gives you the size
+  variety §4.3 asks for for free — whole plank sections, half sections, and
+  smaller end-breaks.
+- **Interior material (§4.3)** is **clean pale raw timber.** The top face is
+  weathered and painted; the inside is fresh, light and untouched. That value
+  contrast is the point — it is what sells the break as real. Do not carry the
+  weathering through to the interior.
+- **Dust (§6)** is warm wood dust and grit, finer and lighter than masonry dust.
+  Greyscale-on-black authoring still applies — we tint per theme.
+
+**One workflow consequence.** Because chunks are plank-aligned, the fracture step
+cannot be a generic radial cell fracture. Bias your point distribution along the
+grain axis so breaks run the right way, then break *across* planks at a few
+points. Decide the grain direction before you fracture — retrofitting it after
+50 chunks exist is not practical.
+
+### Two things to watch
+
+**The background competes with the tiles.** This setting is far busier than an
+abstract stage — that is the accepted cost of the direction. Tiles must remain
+the lightest, highest-contrast thing on screen. Depth-of-field, a vignette and
+firm value separation between board and tile face are mandatory. Test at true
+size (§3.4) early.
+
+**The 3/4 camera means the bevel is always visible.** The ~0.6mm bevel in §3.1 is
+on screen for the entire match, so it carries real weight in how the tile material
+reads. Do not treat it as a detail that will go unseen.
+
+Palette tokens, exact hex values and the lighting key are in
+[`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md). Start Phase 0 style frames against them.
 
 ---
 
