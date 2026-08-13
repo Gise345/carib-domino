@@ -79,7 +79,7 @@ namespace Pose.Game
             string? subtitle,
             string? primaryLabel,
             bool primaryInteractable,
-            string secondaryLabel)
+            string? secondaryLabel)
         {
             _titleLabel!.text = title;
 
@@ -105,7 +105,17 @@ namespace Pose.Game
                 _primaryImage!.color = primaryInteractable ? PrimaryColor : PrimaryDisabledColor;
             }
 
-            _secondaryLabel!.text = secondaryLabel;
+            // Hide the secondary button entirely when there's no label — e.g. the
+            // series between-rounds popup that auto-advances with no exit.
+            if (string.IsNullOrEmpty(secondaryLabel))
+            {
+                _secondaryButton!.gameObject.SetActive(false);
+            }
+            else
+            {
+                _secondaryButton!.gameObject.SetActive(true);
+                _secondaryLabel!.text = secondaryLabel;
+            }
 
             gameObject.SetActive(true);
             // The overlay is built once and reused; siblings added afterwards

@@ -275,6 +275,7 @@ namespace Pose.Game
             _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;
+            _lobbyView.WaitingCancelled += OnWaitingCancelled;
         }
 
         private void OnPracticeChosen()
@@ -449,6 +450,7 @@ namespace Pose.Game
             }
             _lobbyView.PracticeChosen -= OnPracticeChosen;
             _lobbyView.OnlineRoomActive -= OnOnlineRoomActive;
+            _lobbyView.WaitingCancelled -= OnWaitingCancelled;
         }
 
         private void OnProfileFailed(string error)
@@ -1615,6 +1617,38 @@ namespace Pose.Game
         /// state. Either way the board is wiped and the lobby reappears so
         /// the player can pick another game without quitting the app.
         /// </summary>
+        // Unsubscribes, shuts down Photon and destroys the online controller.
+        // Shared by full ReturnToLobby and the pre-deal "cancel matchmaking" path.
+        private void DetachOnlineController()
+        {
+            if (_onlineMatchController == null)
+            {
+                return;
+            }
+            _onlineMatchController.MatchDealt -= OnOnlineMatchDealt;
+            _onlineMatchController.RoundStarted -= OnOnlineRoundStarted;
+            _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
+            _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
+            _onlineMatchController.WaitingChanged -= OnWaitingChanged;
+            _onlineMatchController.OpponentLeft -= OnOpponentLeft;
+            _onlineMatchController.SeatsChanged -= OnSeatsChanged;
+            _onlineMatchController.MatchAbandonedWin -= OnMatchAbandonedWin;
+            _onlineMatchController.SeriesChanged -= OnSeriesChanged;
+            _onlineMatchController.MatchEnded -= OnMatchEnded;
+            _onlineMatchController.ShutdownAndReturnToLobby();
+            Destroy(_onlineMatchController.gameObject);
+            _onlineMatchController = null;
+        }
+
+        // The player backed out of the waiting room before the deal — drop the
+        // matchmaking session but leave the lobby up (it resets itself).
+        private void OnWaitingCancelled()
+        {
+            Debug.Log("[BoardBootstrap] Matchmaking cancelled by the player.");
+            DetachOnlineController();
+            _isOnline = false;
+        }
+
         private void ReturnToLobby()
         {
             // Stop any in-flight timers / bot loops.
@@ -1636,22 +1670,7 @@ namespace Pose.Game
 
             // Tear down the online session (if any). This also drops Photon
             // room membership so the other player gets OnPlayerLeft.
-            if (_onlineMatchController != null)
-            {
-                _onlineMatchController.MatchDealt -= OnOnlineMatchDealt;
-                _onlineMatchController.RoundStarted -= OnOnlineRoundStarted;
-                _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
-                _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
-                _onlineMatchController.WaitingChanged -= OnWaitingChanged;
-                _onlineMatchController.OpponentLeft -= OnOpponentLeft;
-                _onlineMatchController.SeatsChanged -= OnSeatsChanged;
-                _onlineMatchController.MatchAbandonedWin -= OnMatchAbandonedWin;
-                _onlineMatchController.SeriesChanged -= OnSeriesChanged;
-                _onlineMatchController.MatchEnded -= OnMatchEnded;
-                _onlineMatchController.ShutdownAndReturnToLobby();
-                Destroy(_onlineMatchController.gameObject);
-                _onlineMatchController = null;
-            }
+            DetachOnlineController();
 
             // Wipe the board: empty chain + empty hands.
             _state = null;

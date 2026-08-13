@@ -50,6 +50,9 @@ namespace Pose.Game
         /// </summary>
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
 
+        /// <summary>Fires when the player backs out of the waiting room before the deal.</summary>
+        public event Action? WaitingCancelled;
+
         // A country block on the hub.
         private readonly struct Country
         {
@@ -90,6 +93,7 @@ namespace Pose.Game
         private GameObject? _joinButton;
         private GameObject? _joinInputRow;
         private GameObject? _jamaicaBackButton;
+        private GameObject? _cancelButton;
 
         // Cut-Throat series format, chosen via the format pickers (default Classic).
         private MatchFormat _selectedFormat = MatchFormat.ClassicSixLove;
@@ -392,6 +396,8 @@ namespace Pose.Game
             _codeDisplay = CreateCodeDisplay();
             _codeDisplay.gameObject.SetActive(false);
             _statusText = CreateStatusLabel();
+            _cancelButton = CreateButton("Cancel", OnCancelClicked);
+            _cancelButton.SetActive(false);
 
             return screen;
         }
@@ -805,7 +811,7 @@ namespace Pose.Game
                 return;
             }
             _busy = true;
-            SetActionButtonsVisible(false);
+            EnterWaitingState();
 
             _statusText!.text = mode == GameMode.Partner
                 ? "Finding players for 2v2…"
@@ -879,7 +885,7 @@ namespace Pose.Game
                 return;
             }
             _busy = true;
-            SetActionButtonsVisible(false);
+            EnterWaitingState();
 
             string code = RoomCodeGenerator.Generate();
             _codeDisplay!.gameObject.SetActive(true);
@@ -935,7 +941,7 @@ namespace Pose.Game
             }
 
             _busy = true;
-            SetActionButtonsVisible(false);
+            EnterWaitingState();
             _statusText!.text = $"Joining {code}…";
             _statusText.color = BodyTextColor;
 
@@ -970,8 +976,34 @@ namespace Pose.Game
             _countPickerRow!.SetActive(visible && _countPickerRow.activeSelf);
             _joinButton!.SetActive(visible);
             _joinInputRow!.SetActive(visible && _joinInputRow.activeSelf);
-            // Don't let the player navigate away mid-connect.
+            // Don't let the player navigate away mid-connect via the country Back.
             _jamaicaBackButton!.SetActive(visible);
+            // Restoring the menu also clears any waiting-room Cancel button.
+            if (visible && _cancelButton != null)
+            {
+                _cancelButton.SetActive(false);
+            }
+        }
+
+        // Cancel matchmaking from the waiting room: drop the session and restore
+        // the menu. There IS a way out of the waiting room now.
+        private void OnCancelClicked()
+        {
+            if (!_busy)
+            {
+                return;
+            }
+            WaitingCancelled?.Invoke();
+            _busy = false;
+            _codeDisplay!.gameObject.SetActive(false);
+            _statusText!.text = string.Empty;
+            SetActionButtonsVisible(true);
+        }
+
+        private void EnterWaitingState()
+        {
+            SetActionButtonsVisible(false);
+            _cancelButton!.SetActive(true);
         }
 
         /// <summary>
