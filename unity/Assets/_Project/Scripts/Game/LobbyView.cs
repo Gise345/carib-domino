@@ -182,9 +182,29 @@ namespace Pose.Game
 
         // ---- Hub screen ----------------------------------------------------
 
+        // Bump this every build. It renders in the lobby corner so we can confirm
+        // the running binary matches the source (rules out a stale ScriptAssemblies
+        // cache when a change "doesn't show up").
+        private const string BuildStamp = "build dfe72f6 · Classic 6 Love / Quick Love";
+
         private GameObject BuildHub()
         {
             GameObject screen = CreateScreen("HubScreen");
+
+            GameObject stamp = new("BuildStamp", typeof(RectTransform));
+            stamp.transform.SetParent(screen.transform, worldPositionStays: false);
+            RectTransform stampRt = (RectTransform)stamp.transform;
+            stampRt.anchorMin = new Vector2(0f, 0f);
+            stampRt.anchorMax = new Vector2(1f, 0f);
+            stampRt.pivot = new Vector2(0.5f, 0f);
+            stampRt.anchoredPosition = new Vector2(0f, 8f);
+            stampRt.sizeDelta = new Vector2(-20f, 24f);
+            TextMeshProUGUI stampTmp = stamp.AddComponent<TextMeshProUGUI>();
+            stampTmp.alignment = TextAlignmentOptions.Center;
+            stampTmp.fontSize = 16f;
+            stampTmp.color = new Color(1f, 1f, 1f, 0.5f);
+            stampTmp.text = BuildStamp;
+            stampTmp.raycastTarget = false;
 
             GameObject title = new("Title", typeof(RectTransform));
             title.transform.SetParent(screen.transform, worldPositionStays: false);
