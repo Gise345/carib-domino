@@ -37,10 +37,11 @@ namespace Pose.Game
         private const float ButtonWidth = 440f;
         private const float ButtonHeight = 84f;
         private const float HeaderHeight = 130f;
-        private const float SubHeaderHeight = 74f;
+        private const float CountryBarHeight = 84f;
+        private const float SubHeaderHeight = 116f;
         private const float NavHeight = 130f;
 
-        private const string BuildStamp = "build shell · drawn icons";
+        private const string BuildStamp = "build shell · big bars";
 
         public event Action? PracticeChosen;
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
@@ -163,6 +164,7 @@ namespace Pose.Game
             _shopPanel = BuildPlaceholderPanel("Shop", "Buy coins and skins here — coming soon.");
 
             BuildHeader();
+            BuildCountryBar();
             BuildSubHeader();
             BuildSideRail();
             BuildBottomNav();
@@ -189,7 +191,7 @@ namespace Pose.Game
             rt.anchorMin = new Vector2(0f, 0f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.offsetMin = new Vector2(0f, NavHeight);
-            rt.offsetMax = new Vector2(0f, -(HeaderHeight + SubHeaderHeight));
+            rt.offsetMax = new Vector2(0f, -(HeaderHeight + CountryBarHeight + SubHeaderHeight));
             _contentArea = content.transform;
         }
 
@@ -269,6 +271,27 @@ namespace Pose.Game
             stampTmp.raycastTarget = false;
         }
 
+        private void BuildCountryBar()
+        {
+            GameObject bar = CreateChild(transform, "CountryBar");
+            RectTransform rt = (RectTransform)bar.transform;
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -(HeaderHeight + 8f));
+            rt.sizeDelta = new Vector2(460f, CountryBarHeight - 16f);
+
+            Image selBg = bar.AddComponent<Image>();
+            selBg.sprite = GradientSprite.RoundedDiagonal(0.4f, Hex("#FED100"), Hex("#009B3A"));
+            selBg.color = Color.white;
+            AddShadow(bar, new Color(0f, 0f, 0f, 0.4f), new Vector2(0f, -3f));
+            Button selBtn = bar.AddComponent<Button>();
+            selBtn.targetGraphic = selBg;
+            selBtn.onClick.AddListener(ToggleCountryPopup);
+            _countryLabel = AddLabel(bar.transform, "Jamaica", 34f, Color.white, TextAlignmentOptions.Center);
+            AddIconAt(bar.transform, IconFactory.Chevron(down: true), 28f, Color.white, new Vector2(24f, 0f), TextAnchor.MiddleRight);
+        }
+
         private void BuildSubHeader()
         {
             GameObject bar = CreateChild(transform, "SubHeader");
@@ -276,20 +299,23 @@ namespace Pose.Game
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.offsetMin = new Vector2(0f, -(HeaderHeight + SubHeaderHeight));
-            rt.offsetMax = new Vector2(0f, -HeaderHeight);
+            rt.offsetMin = new Vector2(0f, -(HeaderHeight + CountryBarHeight + SubHeaderHeight));
+            rt.offsetMax = new Vector2(0f, -(HeaderHeight + CountryBarHeight));
             rt.sizeDelta = new Vector2(0f, SubHeaderHeight);
 
             HorizontalLayoutGroup hlg = bar.AddComponent<HorizontalLayoutGroup>();
             hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.spacing = 16f;
+            hlg.spacing = 20f;
+            hlg.padding = new RectOffset(0, 0, 8, 8);
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
 
-            CreatePill(bar.transform, IconFactory.Trophy(), "Leaderboard", () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
-            CreatePill(bar.transform, IconFactory.Chart(), "Ranking", () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
+            CreatePill(bar.transform, IconFactory.Trophy(), "Leaderboard", Hex("#FFB300"), Hex("#E65100"),
+                () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
+            CreatePill(bar.transform, IconFactory.Chart(), "Ranking", Hex("#3E8BFF"), Hex("#0B3F9E"),
+                () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
         }
 
         private void BuildSideRail()
@@ -397,24 +423,8 @@ namespace Pose.Game
         {
             _yardPanel = CreateContentPanel("YardPanel");
 
-            // Country selector (top).
-            GameObject selector = CreateChild(_yardPanel.transform, "CountrySelector");
-            RectTransform selRt = (RectTransform)selector.transform;
-            selRt.anchorMin = new Vector2(0.5f, 1f);
-            selRt.anchorMax = new Vector2(0.5f, 1f);
-            selRt.pivot = new Vector2(0.5f, 1f);
-            selRt.anchoredPosition = new Vector2(0f, -24f);
-            selRt.sizeDelta = new Vector2(420f, 70f);
-            Image selBg = selector.AddComponent<Image>();
-            selBg.sprite = GradientSprite.RoundedDiagonal(0.4f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
-            selBg.color = Color.white;
-            Button selBtn = selector.AddComponent<Button>();
-            selBtn.targetGraphic = selBg;
-            selBtn.onClick.AddListener(ToggleCountryPopup);
-            _countryLabel = AddLabel(selector.transform, "Jamaica", 32f, BodyTextColor, TextAlignmentOptions.Center);
-            AddIconAt(selector.transform, IconFactory.Chevron(down: true), 26f, BodyTextColor, new Vector2(24f, 0f), TextAnchor.MiddleRight);
-
-            // Horizontal scrolling mode row (centre of the Yard).
+            // Horizontal scrolling mode row (centre of the Yard). The country
+            // selector lives in the shell bar above the Leaderboard / Ranking.
             GameObject scroll = CreateChild(_yardPanel.transform, "ModeScroll");
             RectTransform scrollRt = (RectTransform)scroll.transform;
             scrollRt.anchorMin = new Vector2(0f, 0.5f);
@@ -1392,20 +1402,33 @@ namespace Pose.Game
             return go;
         }
 
-        private void CreatePill(Transform parent, Sprite icon, string label, Action onClick)
+        private void CreatePill(Transform parent, Sprite icon, string label, Color c1, Color c2, Action onClick)
         {
             GameObject go = CreateChild(parent, $"Pill_{label}");
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 270f;
-            le.preferredHeight = 54f;
+            le.preferredWidth = 320f;
+            le.preferredHeight = 92f;
             Image bg = go.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(1f, 1f, 1f, 0.18f), new Color(1f, 1f, 1f, 0.08f));
+            bg.sprite = GradientSprite.RoundedDiagonal(0.32f, c1, c2);
             bg.color = Color.white;
+            AddShadow(go, new Color(0f, 0f, 0f, 0.45f), new Vector2(0f, -4f));
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
-            AddIconAt(go.transform, icon, 32f, CodeTextColor, new Vector2(20f, 0f), TextAnchor.MiddleLeft);
-            AddLabel(go.transform, label, 22f, BodyTextColor, TextAlignmentOptions.Center);
+            AddIconAt(go.transform, icon, 46f, Color.white, new Vector2(26f, 0f), TextAnchor.MiddleLeft);
+            GameObject lbl = CreateChild(go.transform, "Label");
+            RectTransform lrt = (RectTransform)lbl.transform;
+            lrt.anchorMin = new Vector2(0f, 0f);
+            lrt.anchorMax = new Vector2(1f, 1f);
+            lrt.offsetMin = new Vector2(64f, 0f);
+            lrt.offsetMax = Vector2.zero;
+            TextMeshProUGUI tmp = lbl.AddComponent<TextMeshProUGUI>();
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontSize = 28f;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.color = Color.white;
+            tmp.text = label;
+            tmp.raycastTarget = false;
         }
 
         private void CreateBackButton(Transform parent, Action onClick)
