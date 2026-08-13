@@ -42,7 +42,7 @@ namespace Pose.Game
 
         // Bump every build; renders faintly in the lobby corner so we can confirm
         // the running binary matches the source.
-        private const string BuildStamp = "build redesign · One-Love";
+        private const string BuildStamp = "build rules-pass · battle + block + 10s";
 
         public event Action? PracticeChosen;
 
