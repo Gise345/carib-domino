@@ -135,6 +135,26 @@ MonoBehaviour:
     m_Key: series_love
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000023
+    m_Key: scoreboard_columns
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000024
+    m_Key: battle_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000025
+    m_Key: battle_desc
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000026
+    m_Key: battle_countdown
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000027
+    m_Key: series_countdown
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

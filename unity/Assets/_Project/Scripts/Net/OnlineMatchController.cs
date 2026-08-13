@@ -183,6 +183,33 @@ namespace Pose.Net
         public int SeriesPointsForSeat(int seat) =>
             _match != null && seat >= 0 && seat < NetworkedMatch.MaxPlayers ? _match.SeriesPoints.Get(seat) : 0;
 
+        /// <summary>A seat's games won in the series.</summary>
+        public int SeriesGamesForSeat(int seat) =>
+            _match != null && seat >= 0 && seat < NetworkedMatch.MaxPlayers ? _match.SeriesGamesWon.Get(seat) : 0;
+
+        /// <summary>True when the next round is a cut-throat battle (a lead tie).</summary>
+        public bool PendingBattle => _match?.PendingBattle ?? false;
+
+        /// <summary>True if the seat is one of the pending battle's players.</summary>
+        public bool IsBattleSeat(int seat) =>
+            _match != null && seat >= 0 && seat < NetworkedMatch.MaxPlayers && (_match.BattleSeatMask & (1 << seat)) != 0;
+
+        private int SeatOf(PlayerId player)
+        {
+            if (CurrentState == null)
+            {
+                return -1;
+            }
+            for (int i = 0; i < CurrentState.Players.Count; i++)
+            {
+                if (CurrentState.Players[i].Equals(player))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
         private NetworkObject? _matchPrefab;
         private NetworkRunner? _runner;
         private string _localPlayerId = string.Empty;
@@ -205,8 +232,9 @@ namespace Pose.Net
         private bool _seriesRoundProcessed;
         private Coroutine? _advanceRoutine;
 
-        // Beat between a round ending and the next deal, so players read the result.
-        private const float SeriesAdvanceDelaySeconds = 2.5f;
+        // Beat between a round ending and the next deal, so players read the result
+        // (and the between-rounds countdown). 10 seconds.
+        public const float SeriesAdvanceDelaySeconds = 10f;
 
         // Seconds a table waits for humans before the authority fills the empty
         // seats with bots and deals. No one taps "start" — there is no host role.
@@ -613,6 +641,31 @@ namespace Pose.Net
             _botRoutine = StartCoroutine(BotTurnRoutine(seat));
         }
 
+        /// <summary>
+        /// Authority-side: if the current (non-bot) seat has no playable tile, submit
+        /// its forced pass immediately. Chained via <see cref="OnMoveAppliedChanged"/>,
+        /// this resolves a blocked board in a few ticks — the round ends at once
+        /// instead of crawling player-to-player with a manual "pass" tap. Bots run
+        /// their own pass through <see cref="BotTurnRoutine"/>.
+        /// </summary>
+        private void DriveForcedPassIfNeeded()
+        {
+            if (!HasMatchAuthority || CurrentState == null || CurrentState.IsOver)
+            {
+                return;
+            }
+            int seat = CurrentState.CurrentPlayerIndex;
+            if (_match!.IsBotSeat(seat))
+            {
+                return;
+            }
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(CurrentState);
+            if (legal.Count == 1 && legal[0] is PassMove)
+            {
+                _match.RPC_SubmitMove(NetworkedMove.FromPass((byte)seat));
+            }
+        }
+
         private IEnumerator BotTurnRoutine(int seat)
         {
             yield return new WaitForSeconds(BotMoveDelaySeconds);
@@ -772,6 +825,7 @@ namespace Pose.Net
             _botRng = new SeededRandomSource(_match.Seed);
             MatchDealt?.Invoke(state);
             ScheduleBotIfNeeded();
+            DriveForcedPassIfNeeded();
         }
 
         private void OnRoundStarted()
@@ -785,6 +839,7 @@ namespace Pose.Net
             _botRng = new SeededRandomSource(_match!.Seed);
             RoundStarted?.Invoke(state);
             ScheduleBotIfNeeded();
+            DriveForcedPassIfNeeded();
         }
 
         private void OnRematchVotesChanged()
@@ -880,27 +935,30 @@ namespace Pose.Net
             _seriesRoundProcessed = true;
             _series = _series.ApplyRound(outcome);
 
-            int[] points = new int[CurrentState.Players.Count];
-            for (int i = 0; i < points.Length; i++)
+            int count = CurrentState.Players.Count;
+            int[] points = new int[count];
+            int[] games = new int[count];
+            for (int i = 0; i < count; i++)
             {
                 points[i] = _series.PointsOf(CurrentState.Players[i]);
+                games[i] = _series.GamesWonBy(CurrentState.Players[i]);
             }
 
             bool over = _series.IsOver;
-            int winnerSeat = -1;
-            if (over && _series.Winner is PlayerId winner)
+            int winnerSeat = over && _series.Winner is PlayerId winner ? SeatOf(winner) : -1;
+
+            // Encode the pending battle's players as a seat mask for replication.
+            int battleMask = 0;
+            foreach (PlayerId battler in _series.BattlePlayers)
             {
-                for (int i = 0; i < CurrentState.Players.Count; i++)
+                int seat = SeatOf(battler);
+                if (seat >= 0)
                 {
-                    if (CurrentState.Players[i].Equals(winner))
-                    {
-                        winnerSeat = i;
-                        break;
-                    }
+                    battleMask |= 1 << seat;
                 }
             }
 
-            _match!.RecordSeriesResult(points, over, winnerSeat);
+            _match!.RecordSeriesResult(points, games, over, winnerSeat, _series.PendingBattle, battleMask);
 
             if (!over)
             {
@@ -1107,6 +1165,7 @@ namespace Pose.Net
             TrySubmitSettlement();
             ProcessSeriesRoundEndIfNeeded();
             ScheduleBotIfNeeded();
+            DriveForcedPassIfNeeded();
         }
 
         /// <summary>

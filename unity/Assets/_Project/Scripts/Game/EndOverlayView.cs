@@ -128,6 +128,24 @@ namespace Pose.Game
             gameObject.SetActive(false);
         }
 
+        /// <summary>Updates just the subtitle line (used for the between-rounds countdown).</summary>
+        public void SetSubtitle(string subtitle)
+        {
+            if (_subtitleLabel == null)
+            {
+                return;
+            }
+            if (string.IsNullOrEmpty(subtitle))
+            {
+                _subtitleLabel.gameObject.SetActive(false);
+            }
+            else
+            {
+                _subtitleLabel.gameObject.SetActive(true);
+                _subtitleLabel.text = subtitle;
+            }
+        }
+
         /// <summary>True while the overlay is covering the board.</summary>
         public bool IsShowing => gameObject.activeSelf;
 

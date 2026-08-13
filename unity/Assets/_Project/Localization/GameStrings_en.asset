@@ -132,6 +132,26 @@ MonoBehaviour:
     m_Localized: (love)
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000023
+    m_Localized: "Player      W    Pts"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000024
+    m_Localized: "⚔ BATTLE"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000025
+    m_Localized: "Winner takes all · loser drops to LOVE"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000026
+    m_Localized: "Battle starts in {0}s"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000027
+    m_Localized: "Next round in {0}s"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

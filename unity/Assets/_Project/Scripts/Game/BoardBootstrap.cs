@@ -96,6 +96,11 @@ namespace Pose.Game
         // Scoreboard HUD for a Cut-Throat series (top-left); null offline.
         private TextMeshProUGUI? _scoreboardText;
 
+        // Between-rounds interstitial: shown once per round-over; a countdown
+        // coroutine then owns its subtitle until the next round deals.
+        private bool _seriesInterstitialShown;
+        private Coroutine? _seriesCountdownRoutine;
+
         // Bumped per offline "Play again" so each practice round deals a
         // different hand. Derived from SpikeSeed rather than a system RNG so
         // any given round remains reproducible from (SpikeSeed, index).
@@ -372,6 +377,12 @@ namespace Pose.Game
             _state = state;
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
             TileView.ClearSelection();
+            _seriesInterstitialShown = false;
+            if (_seriesCountdownRoutine != null)
+            {
+                StopCoroutine(_seriesCountdownRoutine);
+                _seriesCountdownRoutine = null;
+            }
             _endOverlay?.Hide();
             Render();
         }
@@ -1170,11 +1181,17 @@ namespace Pose.Game
             MatchFormatRules rules = MatchFormatRules.For(c.SeriesFormat);
             string header = L10n.Get("scoreboard_header_classic", c.SeriesRoundNumber, rules.TargetPoints);
 
-            string body = header + "\n";
+            // Columns: player · games won · points. A battler is flagged with ⚔.
+            string body = header + "\n" + L10n.Get("scoreboard_columns");
             for (int i = 0; i < _state.Players.Count; i++)
             {
                 string name = c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value;
-                body += $"\n{name}   {c.SeriesPointsForSeat(i)}";
+                if (name.Length > 10)
+                {
+                    name = name.Substring(0, 10);
+                }
+                string battle = c.IsBattleSeat(i) ? "  ⚔" : string.Empty;
+                body += $"\n{name}   {c.SeriesGamesForSeat(i)}W   {c.SeriesPointsForSeat(i)}{battle}";
             }
             _scoreboardText.text = body;
         }
@@ -1450,18 +1467,27 @@ namespace Pose.Game
                 }
                 if (!state.IsOver)
                 {
+                    _seriesInterstitialShown = false;
                     _endOverlay.Hide();
                     return;
                 }
-                // Round over, match continues → auto-advances after a beat. No
-                // buttons: it advances itself, and there's no lobby exit here.
+                // Round over, match continues → shows for ~10s (with a countdown)
+                // then auto-advances. If the next round is a cut-throat battle, the
+                // popup announces it. Shown once per round-over; the countdown
+                // coroutine then owns the subtitle.
                 _overlayMode = OverlayMode.RoundOver;
-                _endOverlay.Show(
-                    title: SeriesRoundAwardText(state),
-                    subtitle: L10n.Get("series_next_round"),
-                    primaryLabel: null,
-                    primaryInteractable: false,
-                    secondaryLabel: null);
+                if (!_seriesInterstitialShown)
+                {
+                    _seriesInterstitialShown = true;
+                    bool battle = _onlineMatchController.PendingBattle;
+                    _endOverlay.Show(
+                        title: battle ? BattleTitleText() : SeriesRoundAwardText(state),
+                        subtitle: string.Empty,
+                        primaryLabel: null,
+                        primaryInteractable: false,
+                        secondaryLabel: null);
+                    StartSeriesCountdown(battle);
+                }
                 return;
             }
 
@@ -1534,6 +1560,49 @@ namespace Pose.Game
                 body += (i == 0 ? string.Empty : "\n") + $"{name}   {points}{tag}";
             }
             return body;
+        }
+
+        // "⚔ BATTLE — Sly vs Noble" for the interstitial before a battle round.
+        private string BattleTitleText()
+        {
+            OnlineMatchController? c = _onlineMatchController;
+            if (c == null || _state == null)
+            {
+                return L10n.Get("battle_title");
+            }
+            List<string> names = new();
+            for (int i = 0; i < _state.Players.Count; i++)
+            {
+                if (c.IsBattleSeat(i))
+                {
+                    names.Add(c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value);
+                }
+            }
+            return L10n.Get("battle_title") + "\n" + string.Join(" vs ", names);
+        }
+
+        private void StartSeriesCountdown(bool battle)
+        {
+            if (_seriesCountdownRoutine != null)
+            {
+                StopCoroutine(_seriesCountdownRoutine);
+            }
+            _seriesCountdownRoutine = StartCoroutine(SeriesCountdownRoutine(battle));
+        }
+
+        private IEnumerator SeriesCountdownRoutine(bool battle)
+        {
+            int seconds = Mathf.RoundToInt(OnlineMatchController.SeriesAdvanceDelaySeconds);
+            for (int n = seconds; n >= 1; n--)
+            {
+                if (_endOverlay != null)
+                {
+                    string line = L10n.Get(battle ? "battle_countdown" : "series_countdown", n);
+                    _endOverlay.SetSubtitle(battle ? L10n.Get("battle_desc") + "\n" + line : line);
+                }
+                yield return new WaitForSeconds(1f);
+            }
+            _seriesCountdownRoutine = null;
         }
 
         // "<winner> wins the round  +1000" for the between-rounds interstitial.
@@ -1678,6 +1747,7 @@ namespace Pose.Game
             _opponentLeft = false;
             _abandonedWin = false;
             _matchEnded = false;
+            _seriesInterstitialShown = false;
             _localPlayer = HumanPlayer;
             _firstBotMove = true;
             _endOverlay?.Hide();

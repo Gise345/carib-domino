@@ -135,6 +135,15 @@ namespace Pose.Net
         /// <summary>Each seat's cumulative series points (1000 per round won).</summary>
         [Networked, Capacity(MaxPlayers)] public NetworkArray<int> SeriesPoints => default;
 
+        /// <summary>Each seat's games won in the series.</summary>
+        [Networked, Capacity(MaxPlayers)] public NetworkArray<int> SeriesGamesWon => default;
+
+        /// <summary>True when the NEXT round is a cut-throat battle (a lead tie).</summary>
+        [Networked] public bool PendingBattle { get; set; }
+
+        /// <summary>Bit <c>i</c> set means seat <c>i</c> is a battler in the pending battle.</summary>
+        [Networked] public int BattleSeatMask { get; set; }
+
         /// <summary>True once the series is decided (Classic target hit / Quick finished).</summary>
         [Networked] public bool MatchOver { get; set; }
 
@@ -496,7 +505,9 @@ namespace Pose.Net
         /// scoreboard and the match-over screen. Bumps <see cref="SeriesVersion"/>
         /// so clients notice even a same-shaped update.
         /// </summary>
-        public void RecordSeriesResult(int[] pointsBySeat, bool over, int winnerSeat)
+        public void RecordSeriesResult(
+            int[] pointsBySeat, int[] gamesBySeat, bool over, int winnerSeat,
+            bool pendingBattle, int battleSeatMask)
         {
             if (!Object.HasStateAuthority)
             {
@@ -506,9 +517,12 @@ namespace Pose.Net
             for (int i = 0; i < n; i++)
             {
                 SeriesPoints.Set(i, pointsBySeat[i]);
+                SeriesGamesWon.Set(i, gamesBySeat[i]);
             }
             MatchOver = over;
             WinnerSeat = winnerSeat;
+            PendingBattle = pendingBattle;
+            BattleSeatMask = battleSeatMask;
             SeriesVersion++;
         }
     }
