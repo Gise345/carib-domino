@@ -40,7 +40,7 @@ namespace Pose.Game
         private const float SubHeaderHeight = 74f;
         private const float NavHeight = 130f;
 
-        private const string BuildStamp = "build shell · Yard + tabs";
+        private const string BuildStamp = "build shell · full-screen modes";
 
         public event Action? PracticeChosen;
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
@@ -153,22 +153,26 @@ namespace Pose.Game
             scrimImg.color = Color.white;
             scrimImg.raycastTarget = false;
 
+            // Shell content (in the content area) + chrome first, then the
+            // full-screen overlays on top of them, then popups on top of all.
             BuildContentArea();
             BuildYard();
             _friendsPanel = BuildPlaceholderPanel("Friends", "Connect with friends to play and send coins.\nFacebook & in-game friends — coming soon.");
             _profilePanel = BuildProfilePanel();
             _settingsPanel = BuildSettingsPanel();
             _shopPanel = BuildPlaceholderPanel("Shop", "Buy coins and skins here — coming soon.");
+
+            BuildHeader();
+            BuildSubHeader();
+            BuildSideRail();
+            BuildBottomNav();
+
             _cutThroatScreen = BuildCutThroatScreen();
             _partnerScreen = BuildPartnerScreen();
             _friendsRoomScreen = BuildFriendsRoomScreen();
             _comingSoonScreen = BuildComingSoon();
             _rulesScreen = BuildRulesScreen();
 
-            BuildHeader();
-            BuildSubHeader();
-            BuildSideRail();
-            BuildBottomNav();
             _countryPopup = BuildCountryPopup();
             _waitingOverlay = BuildWaitingOverlay();
 
@@ -283,8 +287,8 @@ namespace Pose.Game
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
 
-            CreatePill(bar.transform, "🏆 Leaderboard", () => ShowContent(_comingSoonScreenForTitle("Leaderboard"), Tab.Yard));
-            CreatePill(bar.transform, "📊 Ranking", () => ShowContent(_comingSoonScreenForTitle("Ranking"), Tab.Yard));
+            CreatePill(bar.transform, "🏆 Leaderboard", () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
+            CreatePill(bar.transform, "📊 Ranking", () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
         }
 
         private void BuildSideRail()
@@ -302,7 +306,7 @@ namespace Pose.Game
             AddShadow(rail, new Color(0f, 0f, 0f, 0.5f), new Vector2(0f, -4f));
             Button btn = rail.AddComponent<Button>();
             btn.targetGraphic = bg;
-            btn.onClick.AddListener(() => ShowContent(_comingSoonScreenForTitle("Free Coins"), Tab.Yard));
+            btn.onClick.AddListener(() => ShowOverlay(_comingSoonScreenForTitle("Free Coins")));
             AddLabel(rail.transform, "🎬", 40f, Color.white, TextAlignmentOptions.Center);
         }
 
@@ -448,11 +452,11 @@ namespace Pose.Game
             sr.content = rowRt;
 
             CreateModeBlock(row.transform, "Cut Throat\nOnline", "Ranked · 2-4",
-                new[] { Hex("#FED100"), Hex("#009B3A"), Hex("#05351C") }, () => ShowContent(_cutThroatScreen, Tab.Yard));
+                new[] { Hex("#FED100"), Hex("#009B3A"), Hex("#05351C") }, () => ShowOverlay(_cutThroatScreen));
             CreateModeBlock(row.transform, "Partner", "2 v 2 teams",
-                new[] { Hex("#00A651"), Hex("#0B3D1E"), Hex("#04120A") }, () => ShowContent(_partnerScreen, Tab.Yard));
+                new[] { Hex("#00A651"), Hex("#0B3D1E"), Hex("#04120A") }, () => ShowOverlay(_partnerScreen));
             CreateModeBlock(row.transform, "One-Love\nWith Friends", "Private room",
-                new[] { Hex("#F7B500"), Hex("#B26A00"), Hex("#3A2200") }, () => ShowContent(_friendsRoomScreen, Tab.Yard));
+                new[] { Hex("#F7B500"), Hex("#B26A00"), Hex("#3A2200") }, () => ShowOverlay(_friendsRoomScreen));
             CreateModeBlock(row.transform, "Practice", "vs Bots · free",
                 new[] { Hex("#4A5568"), Hex("#2D3748"), Hex("#12161F") }, OnPracticeClicked);
         }
@@ -584,7 +588,7 @@ namespace Pose.Game
             }
             else
             {
-                ShowContent(_comingSoonScreenForCountry(index), Tab.Yard);
+                ShowOverlay(_comingSoonScreenForCountry(index));
             }
         }
 
@@ -592,73 +596,139 @@ namespace Pose.Game
 
         private GameObject BuildCutThroatScreen()
         {
-            GameObject screen = CreateContentPanel("CutThroatScreen");
-            CreateBackButton(screen.transform, () => ShowContent(_yardPanel, Tab.Yard));
-            CreateTitle(screen.transform, "Cut Throat Online", -20f, 52f);
+            (GameObject screen, RectTransform body) = CreateFullScreen("CutThroatScreen", "Cut Throat Online");
+            FillStack(body);
 
-            GameObject col = CreateColumn(screen.transform);
-            CreateSectionLabel(col.transform, "FORMAT");
-            GameObject fmtRow = CreateRow(col.transform);
+            CreateSectionLabel(body, "GAME FORMAT");
+            GameObject fmtRow = CreateRow(body);
             AddFormatButton(fmtRow.transform, "Classic 6 Love", MatchFormat.ClassicSixLove);
             AddFormatButton(fmtRow.transform, "Quick Love", MatchFormat.QuickLove);
 
-            CreateSectionLabel(col.transform, "PLAYERS");
-            GameObject sizeRow = CreateRow(col.transform);
+            CreateSectionLabel(body, "PLAYERS");
+            GameObject sizeRow = CreateRow(body);
             for (int n = 2; n <= 4; n++)
             {
                 AddSizeButton(sizeRow.transform, n);
             }
 
-            CreateRewardsCard(col.transform, "Winner takes the pot + 2,000 key bonus");
-            GameObject start = CreateButton("Start", () => StartOnline(GameMode.CutThroat, _selectedSize, _selectedFormat));
-            start.transform.SetParent(col.transform, worldPositionStays: false);
+            CreateRewardsCard(body, "Winner takes all", "Winner takes the pot + 2,000 key bonus");
+            CreateSpacer(body);
+            CreateEntryRow(body);
+            CreateBigButton(body, "Start", () => StartOnline(GameMode.CutThroat, _selectedSize, _selectedFormat));
             return screen;
         }
 
         private GameObject BuildPartnerScreen()
         {
-            GameObject screen = CreateContentPanel("PartnerScreen");
-            CreateBackButton(screen.transform, () => ShowContent(_yardPanel, Tab.Yard));
-            CreateTitle(screen.transform, "Partner", -20f, 56f);
+            (GameObject screen, RectTransform body) = CreateFullScreen("PartnerScreen", "Partner");
+            FillStack(body);
 
-            GameObject col = CreateColumn(screen.transform);
-            CreateSectionLabel(col.transform, "RANDOM 2 v 2 · 4 PLAYERS");
-            CreateRewardsCard(col.transform, "Winning team takes the pot + key bonus");
-            GameObject start = CreateButton("Find Match",
+            CreateSectionLabel(body, "RANDOM 2 v 2 · 4 PLAYERS");
+            CreatePartnerPieces(body);
+            CreateRewardsCard(body, "Winning team takes all", "The pot + key bonus, split with your partner");
+            CreateSpacer(body);
+            CreateEntryRow(body);
+            CreateBigButton(body, "Find Match",
                 () => StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers, MatchFormat.ClassicSixLove));
-            start.transform.SetParent(col.transform, worldPositionStays: false);
             return screen;
         }
 
         private GameObject BuildFriendsRoomScreen()
         {
-            GameObject screen = CreateContentPanel("FriendsRoomScreen");
-            CreateBackButton(screen.transform, () => ShowContent(_yardPanel, Tab.Yard));
-            CreateTitle(screen.transform, "One-Love With Friends", -20f, 40f);
+            (GameObject screen, RectTransform body) = CreateFullScreen("FriendsRoomScreen", "One-Love With Friends");
+            FillStack(body);
 
-            GameObject col = CreateColumn(screen.transform);
-            CreateSectionLabel(col.transform, "CREATE A ROOM");
-            GameObject modeRow = CreateRow(col.transform);
+            CreateSectionLabel(body, "CREATE A ROOM");
+            GameObject modeRow = CreateRow(body);
             AddCreateModeButton(modeRow.transform, "Cut-Throat", GameMode.CutThroat);
             AddCreateModeButton(modeRow.transform, "Partner", GameMode.Partner);
 
-            _friendsFormatRow = CreateRow(col.transform);
+            _friendsFormatRow = CreateRow(body);
             AddFormatButton(_friendsFormatRow.transform, "Classic 6 Love", MatchFormat.ClassicSixLove);
             AddFormatButton(_friendsFormatRow.transform, "Quick Love", MatchFormat.QuickLove);
 
-            _friendsSizeRow = CreateRow(col.transform);
+            _friendsSizeRow = CreateRow(body);
             for (int n = 2; n <= 4; n++)
             {
                 AddSizeButton(_friendsSizeRow.transform, n);
             }
 
-            GameObject create = CreateButton("Create", OnCreateRoomClicked);
-            create.transform.SetParent(col.transform, worldPositionStays: false);
+            CreateRewardsCard(body, "Winner takes all", "Beat your friends to win big!");
+            CreateSpacer(body);
+            CreateEntryRow(body);
+            CreateBigButton(body, "Create", OnCreateRoomClicked);
 
-            CreateSectionLabel(col.transform, "JOIN A ROOM");
-            GameObject joinRow = CreateJoinRow(col.transform);
-            joinRow.transform.SetParent(col.transform, worldPositionStays: false);
+            CreateSectionLabel(body, "HAVE A TABLE CODE?");
+            GameObject joinRow = CreateJoinRow(body);
+            joinRow.transform.SetParent(body, worldPositionStays: false);
             return screen;
+        }
+
+        private void CreateSpacer(Transform parent)
+        {
+            GameObject go = CreateChild(parent, "Spacer");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.flexibleHeight = 1f;
+            le.preferredHeight = 8f;
+        }
+
+        private void CreateEntryRow(Transform parent)
+        {
+            GameObject go = CreateChild(parent, "Entry");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 320f;
+            le.preferredHeight = 56f;
+            Image bg = go.AddComponent<Image>();
+            bg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
+            bg.color = Color.white;
+            AddLabel(go.transform, "Entry:  🪙 1,000", 28f, CodeTextColor, TextAlignmentOptions.Center);
+        }
+
+        private void CreateBigButton(Transform parent, string label, Action onClick)
+        {
+            GameObject go = CreateButton(label, onClick);
+            go.transform.SetParent(parent, worldPositionStays: false);
+            LayoutElement le = go.GetComponent<LayoutElement>();
+            le.preferredWidth = ButtonWidth + 60f;
+            le.preferredHeight = 116f;
+            TextMeshProUGUI? tmp = go.GetComponentInChildren<TextMeshProUGUI>();
+            if (tmp != null)
+            {
+                tmp.fontSize = 40f;
+            }
+            Image? img = go.GetComponent<Image>();
+            if (img != null)
+            {
+                img.sprite = GradientSprite.RoundedDiagonal(0.28f, Hex("#4CD964"), Hex("#1FA845"));
+                img.color = Color.white;
+            }
+        }
+
+        private void CreatePartnerPieces(Transform parent)
+        {
+            GameObject row = CreateChild(parent, "Pieces");
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.preferredWidth = ButtonWidth;
+            le.preferredHeight = 90f;
+            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 20f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            string[] colors = { "#3B7DFF", "#FF4D4D", "#3BD16F", "#FFD23B" };
+            foreach (string c in colors)
+            {
+                GameObject piece = CreateChild(row.transform, "Piece");
+                LayoutElement ple = piece.AddComponent<LayoutElement>();
+                ple.preferredWidth = 70f;
+                ple.preferredHeight = 80f;
+                Image img = piece.AddComponent<Image>();
+                img.sprite = GradientSprite.RoundedDiagonal(0.5f, Hex(c), new Color(0f, 0f, 0f, 0.4f));
+                img.color = Color.white;
+                img.raycastTarget = false;
+            }
         }
 
         private void OnCreateRoomClicked()
@@ -718,22 +788,18 @@ namespace Pose.Game
             GameObject col = CreateColumn(screen.transform);
             StatRow(col.transform, "Sound", "On");
             StatRow(col.transform, "Music", "On");
-            GameObject rules = CreateButton("How to Play", () => ShowContent(_rulesScreen, Tab.Settings));
+            GameObject rules = CreateButton("How to Play", () => ShowOverlay(_rulesScreen));
             rules.transform.SetParent(col.transform, worldPositionStays: false);
             return screen;
         }
 
         private GameObject BuildRulesScreen()
         {
-            GameObject screen = CreateContentPanel("RulesScreen");
-            CreateBackButton(screen.transform, () => ShowContent(_settingsPanel, Tab.Settings));
-            CreateTitle(screen.transform, "How to Play", -20f, 48f);
-            GameObject b = CreateChild(screen.transform, "Body");
-            RectTransform rt = (RectTransform)b.transform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(820f, 700f);
+            (GameObject screen, RectTransform body) = CreateFullScreen("RulesScreen", "How to Play");
+            GameObject b = CreateChild(body, "Body");
+            StretchFull((RectTransform)b.transform);
+            ((RectTransform)b.transform).offsetMin = new Vector2(10f, 10f);
+            ((RectTransform)b.transform).offsetMax = new Vector2(-10f, -10f);
             TextMeshProUGUI tmp = b.AddComponent<TextMeshProUGUI>();
             tmp.alignment = TextAlignmentOptions.TopLeft;
             tmp.fontSize = 24f;
@@ -795,8 +861,12 @@ namespace Pose.Game
 
         private GameObject BuildComingSoon()
         {
-            GameObject screen = CreateContentPanel("ComingSoonScreen");
-            CreateBackButton(screen.transform, () => ShowContent(_yardPanel, Tab.Yard));
+            GameObject screen = CreateChild(transform, "ComingSoonScreen");
+            StretchFull((RectTransform)screen.transform);
+            Image sbg = screen.AddComponent<Image>();
+            sbg.sprite = GradientSprite.Vertical(Hex("#0A3D22"), Hex("#062A17"), Hex("#04160C"));
+            sbg.color = Color.white;
+            CreateBackButton(screen.transform, HideOverlays);
 
             GameObject banner = CreateChild(screen.transform, "Banner");
             RectTransform bRt = (RectTransform)banner.transform;
@@ -804,26 +874,29 @@ namespace Pose.Game
             bRt.anchorMax = new Vector2(0.5f, 0.5f);
             bRt.pivot = new Vector2(0.5f, 0.5f);
             bRt.anchoredPosition = new Vector2(0f, 60f);
-            bRt.sizeDelta = new Vector2(560f, 200f);
+            bRt.sizeDelta = new Vector2(600f, 220f);
             _comingSoonHeader = banner.AddComponent<Image>();
             _comingSoonHeader.sprite = GradientSprite.RoundedDiagonal(0.1f, Hex("#FED100"), Hex("#009B3A"));
             _comingSoonHeader.color = Color.white;
             AddShadow(banner, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -6f));
-            _comingSoonTitle = AddLabel(banner.transform, "Coming soon", 48f, Color.white, TextAlignmentOptions.Center);
+            _comingSoonTitle = AddLabel(banner.transform, "Coming soon", 52f, Color.white, TextAlignmentOptions.Center);
 
             GameObject body = CreateChild(screen.transform, "Body");
             RectTransform bodyRt = (RectTransform)body.transform;
             bodyRt.anchorMin = new Vector2(0.5f, 0.5f);
             bodyRt.anchorMax = new Vector2(0.5f, 0.5f);
             bodyRt.pivot = new Vector2(0.5f, 0.5f);
-            bodyRt.anchoredPosition = new Vector2(0f, -100f);
+            bodyRt.anchoredPosition = new Vector2(0f, -120f);
             bodyRt.sizeDelta = new Vector2(700f, 100f);
             TextMeshProUGUI bodyTmp = body.AddComponent<TextMeshProUGUI>();
             bodyTmp.alignment = TextAlignmentOptions.Top;
-            bodyTmp.fontSize = 26f;
+            bodyTmp.fontSize = 28f;
             bodyTmp.color = new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.9f);
             bodyTmp.text = "On its way — check back soon.";
             bodyTmp.raycastTarget = false;
+
+            screen.SetActive(false);
+            _overlays.Add(screen);
             return screen;
         }
 
@@ -878,11 +951,79 @@ namespace Pose.Game
             yield return _profilePanel;
             yield return _settingsPanel;
             yield return _shopPanel;
-            yield return _cutThroatScreen;
-            yield return _partnerScreen;
-            yield return _friendsRoomScreen;
-            yield return _comingSoonScreen;
-            yield return _rulesScreen;
+        }
+
+        // Full-screen mode/info screens (over the whole shell) — Ludo-style.
+        private readonly List<GameObject> _overlays = new();
+
+        private void ShowOverlay(GameObject? overlay)
+        {
+            foreach (GameObject o in _overlays)
+            {
+                o.SetActive(o == overlay);
+            }
+        }
+
+        private void HideOverlays()
+        {
+            foreach (GameObject o in _overlays)
+            {
+                o.SetActive(false);
+            }
+        }
+
+        // A full-screen game-mode screen: opaque felt background, a coloured banner
+        // header (back + title), and a body region below it for the caller's content.
+        private (GameObject screen, RectTransform body) CreateFullScreen(string name, string title)
+        {
+            GameObject screen = CreateChild(transform, name);
+            StretchFull((RectTransform)screen.transform);
+            Image bg = screen.AddComponent<Image>();
+            bg.sprite = GradientSprite.Vertical(Hex("#0A3D22"), Hex("#062A17"), Hex("#04160C"));
+            bg.color = Color.white;
+            bg.raycastTarget = true;
+
+            GameObject banner = CreateChild(screen.transform, "Banner");
+            RectTransform bRt = (RectTransform)banner.transform;
+            bRt.anchorMin = new Vector2(0f, 1f);
+            bRt.anchorMax = new Vector2(1f, 1f);
+            bRt.pivot = new Vector2(0.5f, 1f);
+            bRt.offsetMin = new Vector2(0f, -150f);
+            bRt.offsetMax = Vector2.zero;
+            bRt.sizeDelta = new Vector2(0f, 150f);
+            Image bImg = banner.AddComponent<Image>();
+            bImg.sprite = GradientSprite.Vertical(Hex("#FED100"), Hex("#009B3A"));
+            bImg.color = Color.white;
+            AddShadow(banner, new Color(0f, 0f, 0f, 0.4f), new Vector2(0f, -4f));
+
+            AddLabel(banner.transform, title, 46f, Color.white, TextAlignmentOptions.Center);
+            CreateBackButton(banner.transform, HideOverlays);
+
+            GameObject body = CreateChild(screen.transform, "Body");
+            RectTransform bodyRt = (RectTransform)body.transform;
+            bodyRt.anchorMin = new Vector2(0f, 0f);
+            bodyRt.anchorMax = new Vector2(1f, 1f);
+            bodyRt.offsetMin = new Vector2(30f, 30f);
+            bodyRt.offsetMax = new Vector2(-30f, -170f);
+
+            screen.SetActive(false);
+            _overlays.Add(screen);
+            return (screen, bodyRt);
+        }
+
+        // A vertical stack that fills the body with generous spacing (fills the
+        // screen rather than clumping in the middle).
+        private VerticalLayoutGroup FillStack(RectTransform body)
+        {
+            VerticalLayoutGroup vlg = body.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.spacing = 26f;
+            vlg.padding = new RectOffset(10, 10, 10, 10);
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+            return vlg;
         }
 
         // ---- Matchmaking (preserved) --------------------------------------
@@ -1161,26 +1302,26 @@ namespace Pose.Game
             tmp.raycastTarget = false;
         }
 
-        private void CreateRewardsCard(Transform parent, string rewardLine)
+        private void CreateRewardsCard(Transform parent, string headline, string subline)
         {
             GameObject card = CreateChild(parent, "Rewards");
             LayoutElement le = card.AddComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth;
-            le.preferredHeight = 130f;
+            le.preferredWidth = ButtonWidth + 60f;
+            le.preferredHeight = 210f;
             Image bg = card.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.14f, new Color(0.10f, 0.42f, 0.26f), new Color(0.03f, 0.16f, 0.10f));
+            bg.sprite = GradientSprite.RoundedDiagonal(0.12f, new Color(0.10f, 0.42f, 0.26f), new Color(0.03f, 0.16f, 0.10f));
             bg.color = Color.white;
             AddShadow(card, new Color(0f, 0f, 0f, 0.45f), new Vector2(0f, -4f));
 
             GameObject text = CreateChild(card.transform, "Text");
             StretchFull((RectTransform)text.transform);
-            ((RectTransform)text.transform).offsetMin = new Vector2(16f, 12f);
-            ((RectTransform)text.transform).offsetMax = new Vector2(-16f, -12f);
+            ((RectTransform)text.transform).offsetMin = new Vector2(20f, 16f);
+            ((RectTransform)text.transform).offsetMax = new Vector2(-20f, -16f);
             TextMeshProUGUI tmp = text.AddComponent<TextMeshProUGUI>();
             tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 24f;
+            tmp.fontSize = 26f;
             tmp.color = BodyTextColor;
-            tmp.text = $"<size=30><b>Entry <color=#FFD54A>1,000</color></b></size>\n{rewardLine}";
+            tmp.text = $"<size=34><b><color=#FFD54A>Rewards</color></b></size>\n\n<size=40><b>{headline}</b></size>\n<size=24>{subline}</size>";
             tmp.raycastTarget = false;
         }
 
