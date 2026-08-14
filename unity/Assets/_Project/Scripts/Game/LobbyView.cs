@@ -532,7 +532,7 @@ namespace Pose.Game
             RectTransform lrt = (RectTransform)logo.transform;
             lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 1f);
             lrt.pivot = new Vector2(0.5f, 1f);
-            lrt.anchoredPosition = new Vector2(0f, -170f); // dropped down with the list
+            lrt.anchoredPosition = new Vector2(0f, -110f); // lifted a little to free room for the tagline
             lrt.sizeDelta = new Vector2(880f, 320f);       // bigger
             _logoImage = logo.AddComponent<Image>();
             _logoImage.preserveAspect = true;
@@ -543,7 +543,7 @@ namespace Pose.Game
             // Tagline.
             TextMeshProUGUI tagline = AddFixedLabel(
                 _yardPanel.transform, L10n.Get("lobby_welcome"),
-                new Vector2(0.5f, 1f), new Vector2(0f, -510f), new Vector2(820f, 100f), 52f, Hex("#F2D98A"));
+                new Vector2(0.5f, 1f), new Vector2(0f, -455f), new Vector2(820f, 100f), 52f, Hex("#F2D98A"));
             _taglineText = tagline;
             tagline.fontStyle = FontStyles.Bold;
             tagline.characterSpacing = 2f;
