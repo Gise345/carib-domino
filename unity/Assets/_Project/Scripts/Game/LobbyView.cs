@@ -683,8 +683,9 @@ namespace Pose.Game
             GameObject row = CreateChild(block.transform, "Row");
             StretchFull((RectTransform)row.transform);
             HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-            h.childAlignment = TextAnchor.MiddleCenter;
+            h.childAlignment = TextAnchor.MiddleLeft; // left-align so every row's icon + text line up
             h.spacing = 18f;
+            h.padding = new RectOffset(105, 20, 0, 0); // start past the left wooden end-cap
             h.childControlWidth = true;
             h.childControlHeight = true;
             h.childForceExpandWidth = false;
