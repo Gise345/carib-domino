@@ -105,6 +105,9 @@ namespace Pose.Game
         private Image? _backgroundImage;
         private Image? _logoImage;
         private Sprite? _logoSprite;
+        private Sprite? _modeButtonSprite;
+        private readonly List<Image> _modeFrames = new();
+        private readonly List<GameObject> _modeProcedural = new();
 
         private void Awake()
         {
@@ -148,6 +151,33 @@ namespace Pose.Game
             }
             _logoImage.sprite = sprite;
             _logoImage.color = sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+        }
+
+        /// <summary>
+        /// The wooden button-frame sprite (1560×384, transparent, no text) drawn
+        /// behind every mode block. When set, it replaces the procedurally-drawn
+        /// wood/teal/rivets; the icon + label stay drawn on top. Null keeps the
+        /// drawn fallback. Deferred like the logo/background.
+        /// </summary>
+        public void SetModeButtonSprite(Sprite? sprite)
+        {
+            _modeButtonSprite = sprite;
+            bool hasImage = sprite != null;
+            Sprite fallback = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
+            foreach (Image frame in _modeFrames)
+            {
+                if (frame != null)
+                {
+                    frame.sprite = hasImage ? sprite : fallback;
+                }
+            }
+            foreach (GameObject proc in _modeProcedural)
+            {
+                if (proc != null)
+                {
+                    proc.SetActive(!hasImage);
+                }
+            }
         }
 
         // ---- Build ---------------------------------------------------------
@@ -551,16 +581,24 @@ namespace Pose.Game
             le.preferredWidth = ModeBlockWidth; // fixed width, centred (not full-bleed)
             AddShadow(block, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -7f));
 
-            // Wooden frame.
+            // Background frame: the supplied wooden button image, or a drawn
+            // wood/teal fallback until one is assigned (see SetModeButtonSprite).
             Image frame = block.AddComponent<Image>();
-            frame.sprite = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
+            frame.sprite = _modeButtonSprite != null
+                ? _modeButtonSprite
+                : GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
             frame.color = Color.white;
             Button btn = block.AddComponent<Button>();
             btn.targetGraphic = frame;
             btn.onClick.AddListener(() => onClick());
+            _modeFrames.Add(frame);
 
-            // Teal inner, inset inside the frame.
-            GameObject inner = CreateChild(block.transform, "Inner");
+            // Drawn detail (teal inner + sheen + rivets), grouped so it can be
+            // hidden wholesale once a wooden frame image is supplied.
+            GameObject proc = CreateChild(block.transform, "Procedural");
+            StretchFull((RectTransform)proc.transform);
+
+            GameObject inner = CreateChild(proc.transform, "Inner");
             RectTransform irt = (RectTransform)inner.transform;
             irt.anchorMin = Vector2.zero;
             irt.anchorMax = Vector2.one;
@@ -571,7 +609,6 @@ namespace Pose.Game
             teal.color = Color.white;
             teal.raycastTarget = false;
 
-            // Top sheen.
             GameObject sheen = CreateChild(inner.transform, "Sheen");
             RectTransform shrt = (RectTransform)sheen.transform;
             shrt.anchorMin = new Vector2(0f, 0.55f);
@@ -582,10 +619,19 @@ namespace Pose.Game
             sheenImg.sprite = GradientSprite.Vertical(new Color(1f, 1f, 1f, 0.26f), new Color(1f, 1f, 1f, 0f));
             sheenImg.raycastTarget = false;
 
-            // Big icon on the left, centred title (no subtitle / chevron).
-            AddIconAt(inner.transform, icon, 66f, Cream, new Vector2(32f, 0f), TextAnchor.MiddleLeft);
+            AddRivet(proc.transform, new Vector2(0f, 1f), new Vector2(14f, -14f));
+            AddRivet(proc.transform, new Vector2(1f, 1f), new Vector2(-14f, -14f));
+            AddRivet(proc.transform, new Vector2(0f, 0f), new Vector2(14f, 14f));
+            AddRivet(proc.transform, new Vector2(1f, 0f), new Vector2(-14f, 14f));
 
-            GameObject titleGo = CreateChild(inner.transform, "Title");
+            proc.SetActive(_modeButtonSprite == null);
+            _modeProcedural.Add(proc);
+
+            // Big icon on the left + centred title, drawn on top of the frame
+            // (kept on the block so they survive when the drawn detail is hidden).
+            AddIconAt(block.transform, icon, 66f, Cream, new Vector2(32f, 0f), TextAnchor.MiddleLeft);
+
+            GameObject titleGo = CreateChild(block.transform, "Title");
             StretchFull((RectTransform)titleGo.transform);
             TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
             title.text = name;
@@ -595,12 +641,6 @@ namespace Pose.Game
             title.alignment = TextAlignmentOptions.Center;
             title.raycastTarget = false;
             title.margin = new Vector4(96f, 0f, 96f, 0f); // clear the left icon, stay centred
-
-            // Brass rivets in the four corners of the wooden frame.
-            AddRivet(block.transform, new Vector2(0f, 1f), new Vector2(14f, -14f));
-            AddRivet(block.transform, new Vector2(1f, 1f), new Vector2(-14f, -14f));
-            AddRivet(block.transform, new Vector2(0f, 0f), new Vector2(14f, 14f));
-            AddRivet(block.transform, new Vector2(1f, 0f), new Vector2(-14f, 14f));
         }
 
         private TextMeshProUGUI AddFixedLabel(

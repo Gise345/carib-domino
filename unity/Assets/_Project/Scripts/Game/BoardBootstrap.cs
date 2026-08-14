@@ -252,7 +252,7 @@ namespace Pose.Game
         private Fusion.NetworkObject? _networkedMatchPrefab;
 
         [SerializeField]
-        [Tooltip("Drag the lobby background sprite (poselobbyyardandsea.png in " +
+        [Tooltip("Drag the lobby background sprite (lobby-rum.png in " +
                  "Assets/images) here. Falls back to the felt-green panel " +
                  "color if left empty.")]
         private Sprite? _lobbyBackgroundSprite;
@@ -267,6 +267,12 @@ namespace Pose.Game
         [Tooltip("Drag the Pose logo sprite (Pose-logo.png in Assets/images) " +
                  "here. Shown above the lobby's mode list.")]
         private Sprite? _logoSprite;
+
+        [SerializeField]
+        [Tooltip("Optional wooden button-frame sprite (1560x384, transparent, no " +
+                 "text) drawn behind every lobby mode block. Leave empty to use " +
+                 "the drawn wood/teal fallback.")]
+        private Sprite? _modeButtonSprite;
 
         [SerializeField]
         [Tooltip("Drag the splash / loading sprite (posescreen.png in " +
@@ -298,6 +304,7 @@ namespace Pose.Game
             go.transform.SetParent(transform, worldPositionStays: false);
             _lobbyView = go.AddComponent<LobbyView>();
             _lobbyView.SetLogoSprite(_logoSprite);
+            _lobbyView.SetModeButtonSprite(_modeButtonSprite);
             _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;
