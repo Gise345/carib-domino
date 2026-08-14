@@ -171,6 +171,58 @@ MonoBehaviour:
     m_Key: btn_close
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000032
+    m_Key: scoreboard_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000033
+    m_Key: scoreboard_col_players
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000034
+    m_Key: scoreboard_col_games
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000035
+    m_Key: scoreboard_col_points
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000036
+    m_Key: scoreboard_round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000037
+    m_Key: scoreboard_on_board
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000038
+    m_Key: chat_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000039
+    m_Key: chat_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000040
+    m_Key: board_last_play
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000041
+    m_Key: board_turn_pick
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000042
+    m_Key: board_must_pass
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000043
+    m_Key: board_waiting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000044
+    m_Key: scoreboard_sub
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

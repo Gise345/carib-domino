@@ -168,6 +168,58 @@ MonoBehaviour:
     m_Localized: Close
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000032
+    m_Localized: SCOREBOARD
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000033
+    m_Localized: Players
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000034
+    m_Localized: Games
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000035
+    m_Localized: Points
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000036
+    m_Localized: Round
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000037
+    m_Localized: On Board
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000038
+    m_Localized: CHAT
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000039
+    m_Localized: "Type a message…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000040
+    m_Localized: Last Play
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000041
+    m_Localized: "Your turn · pick a domino"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000042
+    m_Localized: "No plays — you must pass"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000043
+    m_Localized: "Waiting…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000044
+    m_Localized: "Game to {0} Love"
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

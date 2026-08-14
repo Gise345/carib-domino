@@ -105,6 +105,40 @@ namespace Pose.Game
             }
         });
 
+        /// <summary>A hamburger menu — three stacked bars.</summary>
+        public static Sprite Menu() => Make(b =>
+        {
+            RoundRect(b, 14, 46, 58, 52, 3);
+            RoundRect(b, 14, 33, 58, 39, 3);
+            RoundRect(b, 14, 20, 58, 26, 3);
+        });
+
+        /// <summary>A speech bubble (chat).</summary>
+        public static Sprite Chat() => Make(b =>
+        {
+            RoundRect(b, 12, 24, 60, 58, 9);          // bubble
+            Tri(b, 20, 26, 34, 26, 18, 12);           // tail
+            ClearCircle(b, 27, 41, 3);                // three dots
+            ClearCircle(b, 36, 41, 3);
+            ClearCircle(b, 45, 41, 3);
+        });
+
+        /// <summary>A microphone (voice).</summary>
+        public static Sprite Mic() => Make(b =>
+        {
+            RoundRect(b, 30, 30, 42, 60, 6);          // capsule head
+            Ring(b, 36, 34, 17, 13);                  // pickup arc
+            ClearRect(b, 12, 34, 60, 60);             // keep only lower arc
+            Rect(b, 34, 12, 38, 24);                  // stem
+            Rect(b, 27, 10, 45, 14);                  // base
+        });
+
+        /// <summary>A send arrow (paper-plane-ish triangle).</summary>
+        public static Sprite Send() => Make(b =>
+        {
+            Tri(b, 18, 18, 18, 54, 58, 36);
+        });
+
         // ---- Baking + primitives ------------------------------------------
 
         private static Sprite Make(Action<Color[]> draw)

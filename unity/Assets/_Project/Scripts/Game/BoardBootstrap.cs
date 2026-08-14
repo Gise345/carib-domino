@@ -95,6 +95,11 @@ namespace Pose.Game
 
         // Scoreboard HUD for a Cut-Throat series (top-left); null offline.
         private TextMeshProUGUI? _scoreboardText;
+        private GameObject? _oldScoreboardPanel;
+
+        // Cinematic board-room chrome (scoreboard, seat avatars, chat, action bar).
+        private BoardRoomHud? _hud;
+        private readonly Dictionary<PlayerId, SeatPosition> _seatPosByPlayer = new();
 
         // Between-rounds interstitial: shown once per round-over; a countdown
         // coroutine then owns its subtitle until the next round deals.
@@ -936,6 +941,7 @@ namespace Pose.Game
             // offline practice deliberately does not count toward stats.
 
             UpdateScoreboard();
+            RefreshHud(state, isLocalTurn, currentPlayerHasPass);
 
             // Present (or dismiss) the end-of-round / opponent-left overlay.
             // Kept after the status/hand render so the board behind the
@@ -1137,6 +1143,31 @@ namespace Pose.Game
                 Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: false);
             _leftHandView = CreateHandView(
                 Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+
+            CreateBoardRoomHud();
+        }
+
+        // Builds the cinematic board-room chrome as a full-screen overlay and
+        // wires its buttons. Supersedes the plain scoreboard + status footer,
+        // which are hidden (kept only so existing Render calls stay valid).
+        private void CreateBoardRoomHud()
+        {
+            GameObject go = new("BoardRoomHud", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _hud = go.AddComponent<BoardRoomHud>();
+            _hud.Init();
+            _hud.PassClicked += OnPassClicked;
+            _hud.HomeClicked += OnHomePressed;
+            _hud.SettingsClicked += OnHomePressed;
+
+            if (_oldScoreboardPanel != null)
+            {
+                _oldScoreboardPanel.SetActive(false);
+            }
+            if (_statusView != null)
+            {
+                _statusView.gameObject.SetActive(false);
+            }
         }
 
         private void CreateVignette()
@@ -1184,7 +1215,8 @@ namespace Pose.Game
             _scoreboardText.raycastTarget = false;
             _scoreboardText.text = string.Empty;
 
-            go.SetActive(false); // shown only for an online Cut-Throat series
+            go.SetActive(false); // superseded by the BoardRoomHud scoreboard
+            _oldScoreboardPanel = go;
         }
 
         // Builds the "who poses" side popup: a panel anchored to the right edge,
@@ -1287,43 +1319,104 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// Refreshes the series scoreboard (round number, target, per-seat totals).
-        /// Hidden unless this is an online series. Each seat shows its TEAM's totals
-        /// — for Cut-Throat (solo teams) that's the player; for Partner both
-        /// partners show the shared team total.
+        /// Feeds the board-room scoreboard: subtitle (target), round, tiles on
+        /// board, and each seat's games + points. In a series those come from the
+        /// networked series totals (each seat shows its TEAM's totals — for
+        /// Cut-Throat solo teams that's the player; for Partner both partners show
+        /// the shared team total). Offline / non-series shows names with zeros.
         /// </summary>
         private void UpdateScoreboard()
         {
-            if (_scoreboardText == null)
+            if (_hud == null || _state == null)
             {
                 return;
             }
             OnlineMatchController? c = _onlineMatchController;
-            if (!_isOnline || c == null || !c.IsSeries || _state == null)
+            bool series = _isOnline && c != null && c.IsSeries;
+
+            MatchFormat format = series ? c!.SeriesFormat : MatchFormat.ClassicSixLove;
+            int loves = MatchFormatRules.For(format).TargetPoints / MatchFormatRules.PointsPerRoundWin;
+            _hud.SetScoreHeader(
+                L10n.Get("scoreboard_sub", loves),
+                series ? c!.SeriesRoundNumber : 1,
+                _state.Chain.Count);
+
+            for (int i = 0; i < 4; i++)
             {
-                _scoreboardText.transform.parent.gameObject.SetActive(false);
+                if (i >= _state.Players.Count)
+                {
+                    _hud.SetScoreRow(i, false, string.Empty, Color.white, 0, 0);
+                    continue;
+                }
+                bool bot = series && c!.IsBotSeat(i);
+                string name = bot ? L10n.Get("player_bot") : _state.Players[i].Value;
+                int games = series ? c!.SeriesGamesForSeat(i) : 0;
+                int points = series ? c!.SeriesPointsForSeat(i) : 0;
+                _hud.SetScoreRow(i, true, name, BoardRoomHud.SeatColors[i % 4], games, points);
+            }
+        }
+
+        // Pushes per-seat avatars, the turn tag / Pass state, and the last-play
+        // tile to the board-room HUD. Colours are stable per seat index.
+        private void RefreshHud(MatchState state, bool isLocalTurn, bool currentPlayerHasPass)
+        {
+            if (_hud == null)
+            {
                 return;
             }
+            OnlineMatchController? c = _onlineMatchController;
+            bool series = _isOnline && c != null && c.IsSeries;
 
-            _scoreboardText.transform.parent.gameObject.SetActive(true);
-
-            MatchFormatRules rules = MatchFormatRules.For(c.SeriesFormat);
-            string header = L10n.Get("scoreboard_header_classic", c.SeriesRoundNumber, rules.TargetPoints);
-
-            // Columns: player · games won · points. A battler is flagged with ⚔.
-            string body = header + "\n" + L10n.Get("scoreboard_columns");
-            for (int i = 0; i < _state.Players.Count; i++)
+            HashSet<SeatPosition> used = new();
+            for (int i = 0; i < state.Players.Count; i++)
             {
-                string name = c.IsBotSeat(i) ? L10n.Get("player_bot") : _state.Players[i].Value;
-                if (name.Length > 10)
+                PlayerId p = state.Players[i];
+                if (!_seatPosByPlayer.TryGetValue(p, out SeatPosition pos))
                 {
-                    name = name.Substring(0, 10);
+                    continue;
                 }
-                string battle = c.IsBattleSeat(i) ? "  <battle>" : string.Empty;
-                body += $"\n{name}   {c.SeriesGamesForSeat(i)}W   {c.SeriesPointsForSeat(i)}{battle}";
+                used.Add(pos);
+                bool bot = _isOnline && c != null && c.IsBotSeat(i);
+                bool isCurrent = !state.IsOver && p == state.CurrentPlayer;
+                string name = bot ? L10n.Get("player_bot") : p.Value;
+                int score = series ? c!.SeriesGamesForSeat(i) : 0;
+                _hud.SetSeat(pos, true, name, BoardRoomHud.SeatColors[i % 4], score, online: !bot, currentTurn: isCurrent);
             }
-            _scoreboardText.text = body;
+
+            // Hide any avatar slot not used by this table's player count.
+            foreach (SeatPosition pos in _allSeatPositions)
+            {
+                if (!used.Contains(pos))
+                {
+                    _hud.SetSeat(pos, false, string.Empty, Color.white, 0, false, false);
+                }
+            }
+
+            _hud.SetTurn(isLocalTurn, mustPass: isLocalTurn && currentPlayerHasPass);
+
+            PlaceMove? lastPlace = null;
+            for (int i = state.History.Count - 1; i >= 0; i--)
+            {
+                if (state.History[i] is PlaceMove pm)
+                {
+                    lastPlace = pm;
+                    break;
+                }
+            }
+            if (lastPlace != null)
+            {
+                _hud.SetLastPlay(true, lastPlace.Tile.A, lastPlace.Tile.B);
+            }
+            else
+            {
+                _hud.SetLastPlay(false, 0, 0);
+            }
         }
+
+        private static readonly SeatPosition[] _allSeatPositions =
+        {
+            SeatPosition.Bottom, SeatPosition.Right, SeatPosition.Top, SeatPosition.Left,
+        };
 
         // ---- Seat binding (per-round) -------------------------------------
 
@@ -1338,6 +1431,11 @@ namespace Pose.Game
             _handViewByPlayer[Players[1]] = _rightHandView!;
             _handViewByPlayer[Players[2]] = _topHandView!;
             _handViewByPlayer[Players[3]] = _leftHandView!;
+            _seatPosByPlayer.Clear();
+            _seatPosByPlayer[Players[0]] = SeatPosition.Bottom;
+            _seatPosByPlayer[Players[1]] = SeatPosition.Right;
+            _seatPosByPlayer[Players[2]] = SeatPosition.Top;
+            _seatPosByPlayer[Players[3]] = SeatPosition.Left;
             _bottomHandView!.gameObject.SetActive(true);
             _rightHandView!.gameObject.SetActive(true);
             _topHandView!.gameObject.SetActive(true);
@@ -1372,10 +1470,12 @@ namespace Pose.Game
             _topHandView!.gameObject.SetActive(false);
             _leftHandView!.gameObject.SetActive(false);
 
+            _seatPosByPlayer.Clear();
             for (int i = 0; i < players.Count; i++)
             {
                 HandView seat = HandViewForSeat(seats[i]);
                 _handViewByPlayer[players[i]] = seat;
+                _seatPosByPlayer[players[i]] = seats[i];
                 seat.gameObject.SetActive(true);
             }
         }
