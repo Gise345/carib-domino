@@ -1156,6 +1156,10 @@ namespace Pose.Game
         {
             GameObject go = new("BoardRoomHud", typeof(RectTransform));
             go.transform.SetParent(transform, worldPositionStays: false);
+            // Hide FIRST — the HUD is a match-only view (shown from RefreshHud).
+            // Doing this before we build/wire it guarantees it never flashes on
+            // the splash/lobby even if something below throws.
+            go.SetActive(false);
             _hud = go.AddComponent<BoardRoomHud>();
             _hud.Init();
             _hud.PassClicked += OnPassClicked;
@@ -1186,10 +1190,6 @@ namespace Pose.Game
                     le.minHeight = 120f;
                 }
             }
-
-            // Hidden until a round is actually being played (shown from RefreshHud);
-            // the lobby overlays the board at boot, and the HUD is a match-only view.
-            go.SetActive(false);
         }
 
         private void CreateVignette()
