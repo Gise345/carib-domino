@@ -163,12 +163,11 @@ namespace Pose.Game
         {
             _modeButtonSprite = sprite;
             bool hasImage = sprite != null;
-            Sprite fallback = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
             foreach (Image frame in _modeFrames)
             {
                 if (frame != null)
                 {
-                    frame.sprite = hasImage ? sprite : fallback;
+                    ApplyModeFrame(frame, sprite);
                 }
             }
             foreach (GameObject proc in _modeProcedural)
@@ -177,6 +176,24 @@ namespace Pose.Game
                 {
                     proc.SetActive(!hasImage);
                 }
+            }
+        }
+
+        // Sets a block's background frame: the supplied wooden image (9-sliced so
+        // the rivet end-caps stay crisp while the middle stretches) or the drawn
+        // wood fallback.
+        private void ApplyModeFrame(Image frame, Sprite? sprite)
+        {
+            if (sprite != null)
+            {
+                frame.sprite = sprite;
+                frame.type = Image.Type.Sliced;
+                frame.pixelsPerUnitMultiplier = ModeFrameSlicePpu;
+            }
+            else
+            {
+                frame.sprite = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
+                frame.type = Image.Type.Simple;
             }
         }
 
@@ -484,7 +501,10 @@ namespace Pose.Game
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
         private const float ModeBlockHeight = 128f;
-        private const float ModeBlockWidth = 520f;
+        private const float ModeBlockWidth = 840f;
+        // wodden-block.png is 573px tall; scale its 9-slice borders to the block
+        // height so the rivet end-caps render crisp while the middle stretches.
+        private const float ModeFrameSlicePpu = 573f / ModeBlockHeight;
 
         private void BuildYard()
         {
@@ -584,10 +604,8 @@ namespace Pose.Game
             // Background frame: the supplied wooden button image, or a drawn
             // wood/teal fallback until one is assigned (see SetModeButtonSprite).
             Image frame = block.AddComponent<Image>();
-            frame.sprite = _modeButtonSprite != null
-                ? _modeButtonSprite
-                : GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
             frame.color = Color.white;
+            ApplyModeFrame(frame, _modeButtonSprite);
             Button btn = block.AddComponent<Button>();
             btn.targetGraphic = frame;
             btn.onClick.AddListener(() => onClick());
@@ -629,7 +647,7 @@ namespace Pose.Game
 
             // Big icon on the left + centred title, drawn on top of the frame
             // (kept on the block so they survive when the drawn detail is hidden).
-            AddIconAt(block.transform, icon, 66f, Cream, new Vector2(32f, 0f), TextAnchor.MiddleLeft);
+            AddIconAt(block.transform, icon, 66f, Cream, new Vector2(48f, 0f), TextAnchor.MiddleLeft);
 
             GameObject titleGo = CreateChild(block.transform, "Title");
             StretchFull((RectTransform)titleGo.transform);
@@ -640,7 +658,7 @@ namespace Pose.Game
             title.color = Cream;
             title.alignment = TextAlignmentOptions.Center;
             title.raycastTarget = false;
-            title.margin = new Vector4(96f, 0f, 96f, 0f); // clear the left icon, stay centred
+            title.margin = new Vector4(128f, 0f, 128f, 0f); // clear the left icon, stay centred
         }
 
         private TextMeshProUGUI AddFixedLabel(
