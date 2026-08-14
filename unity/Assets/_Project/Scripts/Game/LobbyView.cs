@@ -516,11 +516,12 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private const float ModeBlockHeight = 168f;
+        private const float ModeBlockHeight = 200f;
         private const float ModeBlockWidth = 700f;
-        // wodden-block.png is 573px tall; scale its 9-slice borders to the block
-        // height so the rivet end-caps render crisp while the middle stretches.
-        private const float ModeFrameSlicePpu = 573f / ModeBlockHeight;
+        // wodden-block.png is 327px tall (transparent margins cropped off); scale
+        // its 9-slice borders to the block height so the rivet end-caps render
+        // crisp while the middle stretches.
+        private const float ModeFrameSlicePpu = 327f / ModeBlockHeight;
 
         private void BuildYard()
         {
@@ -589,7 +590,7 @@ namespace Pose.Game
             crt.anchorMax = new Vector2(1f, 1f);
             crt.pivot = new Vector2(0.5f, 1f);
             VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
-            vlg.spacing = 16f;
+            vlg.spacing = 4f; // boards very close together
             vlg.padding = new RectOffset(4, 4, 2, 12);
             vlg.childAlignment = TextAnchor.UpperCenter; // centre the narrower blocks
             vlg.childControlWidth = true;
@@ -675,20 +676,34 @@ namespace Pose.Game
             proc.SetActive(_modeButtonSprite == null);
             _modeProcedural.Add(proc);
 
-            // Big icon on the left + centred title, drawn on top of the frame
-            // (kept on the block so they survive when the drawn detail is hidden).
-            AddIconAt(block.transform, icon, 66f, Cream, new Vector2(48f, 0f), TextAnchor.MiddleLeft);
+            // Icon + title as one centred group, drawn on top of the frame — it
+            // sits on the teal middle, clear of the wooden end-caps, and centres
+            // regardless of label length. Kept on the block so it survives when
+            // the drawn detail is hidden.
+            GameObject row = CreateChild(block.transform, "Row");
+            StretchFull((RectTransform)row.transform);
+            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
+            h.childAlignment = TextAnchor.MiddleCenter;
+            h.spacing = 18f;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = false;
+            h.childForceExpandHeight = false;
 
-            GameObject titleGo = CreateChild(block.transform, "Title");
-            StretchFull((RectTransform)titleGo.transform);
+            GameObject icoWrap = CreateChild(row.transform, "Ico");
+            LayoutElement ile = icoWrap.AddComponent<LayoutElement>();
+            ile.preferredWidth = 70f;
+            ile.preferredHeight = 70f;
+            AddIcon(icoWrap.transform, icon, 64f, Cream);
+
+            GameObject titleGo = CreateChild(row.transform, "Title");
             TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
             title.text = name;
             title.fontSize = 40f;
             title.fontStyle = FontStyles.Bold;
             title.color = Cream;
-            title.alignment = TextAlignmentOptions.Center;
+            title.alignment = TextAlignmentOptions.Left;
             title.raycastTarget = false;
-            title.margin = new Vector4(128f, 0f, 128f, 0f); // clear the left icon, stay centred
         }
 
         private TextMeshProUGUI AddFixedLabel(
