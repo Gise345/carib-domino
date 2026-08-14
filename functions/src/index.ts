@@ -14,6 +14,14 @@ export { submitRoundLog } from './settlement/submitRoundLog';
 // behind the Hosting rewrite /api/tester-signup. See ADR 0009.
 export { testerSignup } from './web/testerSignup';
 
+// Coin economy (M6): server-authoritative wallet + series roster. A player reads
+// their balance via getWallet (lazily funded on first access); a series is opened
+// (openSeries) and each client stakes into it by claiming its own authenticated
+// seat (joinSeries) — the roster that closes the result->uid trust gap. See ADR 0016.
+export { getWallet } from './wallet/getWallet';
+export { openSeries } from './economy/openSeries';
+export { joinSeries } from './economy/joinSeries';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

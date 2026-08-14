@@ -61,6 +61,30 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // /wallets/{userId} — coin balance (M6). Server-authoritative money: only
+    // Cloud Functions (Admin SDK) ever write it — staking an entry, paying a
+    // pot out. A player may READ their OWN balance (the client shows it in the
+    // header), but never write it and never read anyone else's. ADR 0016.
+    // -----------------------------------------------------------------------
+    match /wallets/{userId} {
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // -----------------------------------------------------------------------
+    // /series/{seriesId} — server-side match series (M6): roster (seat -> the
+    // player's own authenticated uid), pot, and running team-points. Written
+    // and read only by Cloud Functions (openSeries / joinSeries / settlement);
+    // the seriesId reaches clients through openSeries' return value. Holding the
+    // roster server-side is what makes result->uid attribution trustworthy
+    // (closes the ADR 0007 gap). No client access at all. ADR 0016.
+    // -----------------------------------------------------------------------
+    match /series/{seriesId} {
+      allow read, write: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // /testerSignups/{hash} — soft-launch tester signups from the marketing
     // site (caribbeandominos.com). ADR 0009.
     //
