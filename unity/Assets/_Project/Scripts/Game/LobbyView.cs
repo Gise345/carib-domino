@@ -455,6 +455,7 @@ namespace Pose.Game
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
         private static readonly Color CreamDim = new(0.957f, 0.906f, 0.788f, 0.82f);
         private const float ModeBlockHeight = 150f;
+        private const float ModeBlockWidth = 640f;
 
         private void BuildYard()
         {
@@ -485,7 +486,7 @@ namespace Pose.Game
             srt.anchorMin = new Vector2(0f, 0f);
             srt.anchorMax = new Vector2(1f, 1f);
             srt.offsetMin = new Vector2(20f, 12f);
-            srt.offsetMax = new Vector2(-20f, -276f);
+            srt.offsetMax = new Vector2(-20f, -404f); // start the list lower, under the logo
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
             sr.horizontal = false;
             sr.vertical = true;
@@ -511,9 +512,10 @@ namespace Pose.Game
             VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
             vlg.spacing = 16f;
             vlg.padding = new RectOffset(4, 4, 2, 12);
+            vlg.childAlignment = TextAnchor.UpperCenter; // centre the narrower blocks
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
             ContentSizeFitter cfit = content.AddComponent<ContentSizeFitter>();
             cfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -551,7 +553,7 @@ namespace Pose.Game
             LayoutElement le = block.AddComponent<LayoutElement>();
             le.preferredHeight = ModeBlockHeight;
             le.minHeight = ModeBlockHeight;
-            le.flexibleWidth = 1f;
+            le.preferredWidth = ModeBlockWidth; // fixed width, centred (not full-bleed)
             AddShadow(block, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -7f));
 
             // Wooden frame.
