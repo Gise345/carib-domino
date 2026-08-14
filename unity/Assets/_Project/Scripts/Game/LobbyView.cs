@@ -36,12 +36,18 @@ namespace Pose.Game
         private const float ButtonFontSize = 28f;
         private const float ButtonWidth = 440f;
         private const float ButtonHeight = 84f;
-        private const float HeaderHeight = 130f;
-        private const float CountryBarHeight = 84f;
-        private const float SubHeaderHeight = 116f;
-        private const float NavHeight = 130f;
+        private const float HeaderHeight = 236f;
+        private const float CountryBarHeight = 88f;
+        private const float SubHeaderHeight = 120f;
+        private const float NavHeight = 196f;
 
-        private const string BuildStamp = "build shell · big bars";
+        // Mode-card geometry (Yard). Cards are 3:4 portrait; a full-bleed image
+        // (when supplied) is authored at 3x for crisp high-DPI rendering — see
+        // ModeImagePixels. Keep these in sync with that constant.
+        private const float ModeCardWidth = 360f;
+        private const float ModeCardHeight = 480f;
+
+        private const string BuildStamp = "build shell · tall header/nav · 3D cards";
 
         public event Action? PracticeChosen;
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
@@ -85,6 +91,17 @@ namespace Pose.Game
 
         // Bottom-nav tabs, for highlighting.
         private readonly List<(GameObject go, Tab tab)> _navButtons = new();
+
+        // Mode-card hero-image slots, keyed by the card's display name. Empty until
+        // art is delivered and pushed in via SetModeImage.
+        private readonly Dictionary<string, Image> _modeImages = new();
+
+        /// <summary>
+        /// The pixel size to author each mode-card hero image at: 3:4 portrait,
+        /// full-bleed, 3x the 360x480 card for crisp high-DPI rendering. Keep the
+        /// most important art out of the bottom ~30% (a scrim + title sit there).
+        /// </summary>
+        public const string ModeImagePixels = "1080 x 1440 px (3:4 portrait, full-bleed)";
 
         // Waiting overlay.
         private GameObject? _waitingOverlay;
@@ -210,35 +227,40 @@ namespace Pose.Game
             Image bg = header.AddComponent<Image>();
             bg.color = HeaderColor;
 
+            // Header content sits slightly above centre so the taller bar reads
+            // as a proper top region rather than a floating strip.
+            const float rowY = 26f;
+
             // Profile picture (left) → Profile tab.
             GameObject pic = CreateChild(header.transform, "ProfilePic");
             RectTransform picRt = (RectTransform)pic.transform;
             picRt.anchorMin = new Vector2(0f, 0.5f);
             picRt.anchorMax = new Vector2(0f, 0.5f);
             picRt.pivot = new Vector2(0f, 0.5f);
-            picRt.anchoredPosition = new Vector2(20f, 0f);
-            picRt.sizeDelta = new Vector2(84f, 84f);
+            picRt.anchoredPosition = new Vector2(30f, rowY);
+            picRt.sizeDelta = new Vector2(132f, 132f);
             Image picBg = pic.AddComponent<Image>();
             picBg.sprite = GradientSprite.RoundedDiagonal(0.5f, Hex("#FED100"), Hex("#009B3A"));
             picBg.color = Color.white;
+            AddShadow(pic, new Color(0f, 0f, 0f, 0.4f), new Vector2(0f, -3f));
             Button picBtn = pic.AddComponent<Button>();
             picBtn.targetGraphic = picBg;
             picBtn.onClick.AddListener(() => ShowTab(Tab.Profile, _profilePanel));
-            AddIcon(pic.transform, IconFactory.Person(), 52f, ButtonTextColor);
+            AddIcon(pic.transform, IconFactory.Person(), 80f, ButtonTextColor);
 
-            // Coin value (center-left).
+            // Coin value (center).
             GameObject coin = CreateChild(header.transform, "Coins");
             RectTransform coinRt = (RectTransform)coin.transform;
             coinRt.anchorMin = new Vector2(0.5f, 0.5f);
             coinRt.anchorMax = new Vector2(0.5f, 0.5f);
             coinRt.pivot = new Vector2(0.5f, 0.5f);
-            coinRt.anchoredPosition = new Vector2(0f, 0f);
-            coinRt.sizeDelta = new Vector2(360f, 64f);
+            coinRt.anchoredPosition = new Vector2(0f, rowY);
+            coinRt.sizeDelta = new Vector2(480f, 100f);
             Image coinBg = coin.AddComponent<Image>();
             coinBg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
             coinBg.color = Color.white;
-            AddIconAt(coin.transform, IconFactory.Coin(), 40f, Hex("#FFD24A"), new Vector2(28f, 0f), TextAnchor.MiddleLeft);
-            AddLabel(coin.transform, "10,000", 34f, CodeTextColor, TextAlignmentOptions.Center);
+            AddIconAt(coin.transform, IconFactory.Coin(), 58f, Hex("#FFD24A"), new Vector2(36f, 0f), TextAnchor.MiddleLeft);
+            AddLabel(coin.transform, "10,000", 50f, CodeTextColor, TextAlignmentOptions.Center);
 
             // Gear (right) → Settings tab.
             GameObject gear = CreateChild(header.transform, "Gear");
@@ -246,15 +268,15 @@ namespace Pose.Game
             gearRt.anchorMin = new Vector2(1f, 0.5f);
             gearRt.anchorMax = new Vector2(1f, 0.5f);
             gearRt.pivot = new Vector2(1f, 0.5f);
-            gearRt.anchoredPosition = new Vector2(-20f, 0f);
-            gearRt.sizeDelta = new Vector2(76f, 76f);
+            gearRt.anchoredPosition = new Vector2(-30f, rowY);
+            gearRt.sizeDelta = new Vector2(112f, 112f);
             Image gearBg = gear.AddComponent<Image>();
             gearBg.sprite = GradientSprite.RoundedDiagonal(0.4f, new Color(1f, 1f, 1f, 0.16f), new Color(1f, 1f, 1f, 0.08f));
             gearBg.color = Color.white;
             Button gearBtn = gear.AddComponent<Button>();
             gearBtn.targetGraphic = gearBg;
             gearBtn.onClick.AddListener(() => ShowTab(Tab.Settings, _settingsPanel));
-            AddIcon(gear.transform, IconFactory.Gear(), 46f, BodyTextColor);
+            AddIcon(gear.transform, IconFactory.Gear(), 70f, BodyTextColor);
 
             GameObject stamp = CreateChild(header.transform, "BuildStamp");
             RectTransform stampRt = (RectTransform)stamp.transform;
@@ -393,8 +415,8 @@ namespace Pose.Game
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
 
-            AddIconRow(stack.transform, icon, raised ? 52f : 44f, raised ? ButtonTextColor : BodyTextColor);
-            AddLabelRow(stack.transform, label, 16f, raised ? ButtonTextColor : new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.8f));
+            AddIconRow(stack.transform, icon, raised ? 72f : 60f, raised ? ButtonTextColor : BodyTextColor);
+            AddLabelRow(stack.transform, label, 24f, raised ? ButtonTextColor : new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.85f));
 
             _navButtons.Add((go, tab));
         }
@@ -431,7 +453,7 @@ namespace Pose.Game
             scrollRt.anchorMax = new Vector2(1f, 0.5f);
             scrollRt.pivot = new Vector2(0.5f, 0.5f);
             scrollRt.anchoredPosition = new Vector2(0f, -10f);
-            scrollRt.sizeDelta = new Vector2(-40f, 360f);
+            scrollRt.sizeDelta = new Vector2(-40f, ModeCardHeight + 40f);
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
             sr.horizontal = true;
             sr.vertical = false;
@@ -485,24 +507,47 @@ namespace Pose.Game
         {
             GameObject card = CreateChild(parent, $"Mode_{name}");
             LayoutElement le = card.AddComponent<LayoutElement>();
-            le.preferredWidth = 300f;
-            le.preferredHeight = 340f;
+            le.preferredWidth = ModeCardWidth;
+            le.preferredHeight = ModeCardHeight;
+
+            // A big, soft drop shadow lifts the card off the felt (the "3D" pop).
+            AddShadow(card, new Color(0f, 0f, 0f, 0.6f), new Vector2(0f, -10f));
+
+            // Base: rounded gradient. When a mode image is wired later it slots in
+            // over this (see AddModeImageSlot); the gradient stays as the fallback.
             Image bg = card.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.14f, colors);
+            bg.sprite = GradientSprite.RoundedDiagonal(0.12f, colors);
             bg.color = Color.white;
-            AddShadow(card, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -6f));
             Button btn = card.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
 
+            // Rounded, masked slot for a full-bleed card image (empty for now —
+            // drop a sprite in via SetModeImage once art is delivered). Sits above
+            // the gradient, below the scrim + text.
+            AddModeImageSlot(card.transform, name);
+
+            // Glossy top highlight — a light sheen fading down over the top third
+            // gives the flat gradient a raised, 3-D sheen.
+            GameObject gloss = CreateChild(card.transform, "Gloss");
+            RectTransform glossRt = (RectTransform)gloss.transform;
+            glossRt.anchorMin = new Vector2(0f, 0.62f);
+            glossRt.anchorMax = new Vector2(1f, 1f);
+            glossRt.offsetMin = Vector2.zero;
+            glossRt.offsetMax = Vector2.zero;
+            Image glossImg = gloss.AddComponent<Image>();
+            glossImg.sprite = GradientSprite.Vertical(new Color(1f, 1f, 1f, 0.22f), new Color(1f, 1f, 1f, 0f));
+            glossImg.raycastTarget = false;
+
+            // Bottom scrim so the title stays legible over any image.
             GameObject foot = CreateChild(card.transform, "Foot");
             RectTransform footRt = (RectTransform)foot.transform;
             footRt.anchorMin = new Vector2(0f, 0f);
-            footRt.anchorMax = new Vector2(1f, 0.6f);
+            footRt.anchorMax = new Vector2(1f, 0.58f);
             footRt.offsetMin = Vector2.zero;
             footRt.offsetMax = Vector2.zero;
             Image footImg = foot.AddComponent<Image>();
-            footImg.sprite = GradientSprite.Vertical(new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.72f));
+            footImg.sprite = GradientSprite.Vertical(new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.78f));
             footImg.raycastTarget = false;
 
             GameObject nameGo = CreateChild(card.transform, "Name");
@@ -510,31 +555,68 @@ namespace Pose.Game
             nameRt.anchorMin = new Vector2(0f, 0f);
             nameRt.anchorMax = new Vector2(1f, 0f);
             nameRt.pivot = new Vector2(0.5f, 0f);
-            nameRt.anchoredPosition = new Vector2(0f, 58f);
-            nameRt.sizeDelta = new Vector2(-24f, 80f);
+            nameRt.anchoredPosition = new Vector2(0f, 78f);
+            nameRt.sizeDelta = new Vector2(-28f, 104f);
             TextMeshProUGUI nameTmp = nameGo.AddComponent<TextMeshProUGUI>();
             nameTmp.alignment = TextAlignmentOptions.BottomLeft;
-            nameTmp.fontSize = 32f;
+            nameTmp.fontSize = 42f;
             nameTmp.fontStyle = FontStyles.Bold;
             nameTmp.color = Color.white;
             nameTmp.text = name;
             nameTmp.raycastTarget = false;
-            nameTmp.margin = new Vector4(18f, 0f, 10f, 0f);
+            nameTmp.margin = new Vector4(22f, 0f, 12f, 0f);
 
             GameObject tagGo = CreateChild(card.transform, "Tag");
             RectTransform tagRt = (RectTransform)tagGo.transform;
             tagRt.anchorMin = new Vector2(0f, 0f);
             tagRt.anchorMax = new Vector2(1f, 0f);
             tagRt.pivot = new Vector2(0.5f, 0f);
-            tagRt.anchoredPosition = new Vector2(0f, 24f);
-            tagRt.sizeDelta = new Vector2(-24f, 28f);
+            tagRt.anchoredPosition = new Vector2(0f, 32f);
+            tagRt.sizeDelta = new Vector2(-28f, 34f);
             TextMeshProUGUI tagTmp = tagGo.AddComponent<TextMeshProUGUI>();
             tagTmp.alignment = TextAlignmentOptions.BottomLeft;
-            tagTmp.fontSize = 18f;
+            tagTmp.fontSize = 24f;
             tagTmp.color = CodeTextColor;
             tagTmp.text = tag;
             tagTmp.raycastTarget = false;
-            tagTmp.margin = new Vector4(18f, 0f, 10f, 0f);
+            tagTmp.margin = new Vector4(22f, 0f, 12f, 0f);
+        }
+
+        // Adds a rounded, masked, full-bleed slot for a mode card's hero image and
+        // registers it by mode name. The image is empty until art is delivered;
+        // call SetModeImage(name, sprite) to fill it. Author images at
+        // ModeImagePixels (3:4, 3x). The gradient card shows through until then.
+        private void AddModeImageSlot(Transform card, string modeName)
+        {
+            GameObject holder = CreateChild(card, "ImageHolder");
+            StretchFull((RectTransform)holder.transform);
+            Image mask = holder.AddComponent<Image>();
+            // A white rounded sprite as the mask shape → the image gets rounded corners.
+            mask.sprite = GradientSprite.RoundedDiagonal(0.12f, Color.white, Color.white);
+            Mask m = holder.AddComponent<Mask>();
+            m.showMaskGraphic = false;
+
+            GameObject img = CreateChild(holder.transform, "Image");
+            StretchFull((RectTransform)img.transform);
+            Image photo = img.AddComponent<Image>();
+            photo.color = new Color(1f, 1f, 1f, 0f); // hidden until a sprite is set
+            photo.raycastTarget = false;
+            photo.preserveAspect = false;
+            _modeImages[modeName] = photo;
+        }
+
+        /// <summary>
+        /// Fills a mode card's hero-image slot with <paramref name="sprite"/>.
+        /// Author art at <see cref="ModeImagePixels"/> (3:4, full-bleed). No-op if
+        /// the named card doesn't exist. Call after the lobby is built.
+        /// </summary>
+        public void SetModeImage(string modeName, Sprite sprite)
+        {
+            if (_modeImages.TryGetValue(modeName, out Image? img) && img != null)
+            {
+                img.sprite = sprite;
+                img.color = Color.white;
+            }
         }
 
         // ---- Country popup -------------------------------------------------
