@@ -453,9 +453,8 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private static readonly Color CreamDim = new(0.957f, 0.906f, 0.788f, 0.82f);
-        private const float ModeBlockHeight = 150f;
-        private const float ModeBlockWidth = 640f;
+        private const float ModeBlockHeight = 128f;
+        private const float ModeBlockWidth = 520f;
 
         private void BuildYard()
         {
@@ -527,14 +526,10 @@ namespace Pose.Game
             sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
             // Same modes + functions as before, in the new wooden-teal block style.
-            CreateModeBlock(content.transform, "Cut Throat", "Ranked · 2–4 players",
-                IconFactory.People(), () => ShowOverlay(_cutThroatScreen));
-            CreateModeBlock(content.transform, "Partner", "2 v 2 teams",
-                IconFactory.People(), () => ShowOverlay(_partnerScreen));
-            CreateModeBlock(content.transform, "One-Love", "Private room · friends",
-                IconFactory.People(), () => ShowOverlay(_friendsRoomScreen));
-            CreateModeBlock(content.transform, "Practice", "vs Bots · free",
-                IconFactory.Person(), OnPracticeClicked);
+            CreateModeBlock(content.transform, "Cut Throat", IconFactory.People(), () => ShowOverlay(_cutThroatScreen));
+            CreateModeBlock(content.transform, "Partner", IconFactory.People(), () => ShowOverlay(_partnerScreen));
+            CreateModeBlock(content.transform, "One-Love W/ Friends", IconFactory.People(), () => ShowOverlay(_friendsRoomScreen));
+            CreateModeBlock(content.transform, "Practice", IconFactory.Person(), OnPracticeClicked);
         }
 
         private void OnPracticeClicked()
@@ -547,7 +542,7 @@ namespace Pose.Game
 
         // A wooden-framed teal mode block: icon · title + subtitle · chevron, with
         // brass corner rivets and a top sheen. Full width in the vertical list.
-        private void CreateModeBlock(Transform parent, string name, string subtitle, Sprite icon, Action onClick)
+        private void CreateModeBlock(Transform parent, string name, Sprite icon, Action onClick)
         {
             GameObject block = CreateChild(parent, $"Mode_{name}");
             LayoutElement le = block.AddComponent<LayoutElement>();
@@ -587,66 +582,25 @@ namespace Pose.Game
             sheenImg.sprite = GradientSprite.Vertical(new Color(1f, 1f, 1f, 0.26f), new Color(1f, 1f, 1f, 0f));
             sheenImg.raycastTarget = false;
 
-            // Content row: icon · (title + subtitle) · chevron.
-            GameObject row = CreateChild(inner.transform, "Row");
-            StretchFull((RectTransform)row.transform);
-            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-            h.childAlignment = TextAnchor.MiddleLeft;
-            h.spacing = 16f;
-            h.padding = new RectOffset(24, 18, 0, 0);
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = false;
-            h.childForceExpandHeight = true;
+            // Big icon on the left, centred title (no subtitle / chevron).
+            AddIconAt(inner.transform, icon, 66f, Cream, new Vector2(32f, 0f), TextAnchor.MiddleLeft);
 
-            GameObject icoWrap = CreateChild(row.transform, "Ico");
-            icoWrap.AddComponent<LayoutElement>().preferredWidth = 58f;
-            AddIcon(icoWrap.transform, icon, 52f, Cream);
-
-            GameObject txt = CreateChild(row.transform, "Txt");
-            txt.AddComponent<LayoutElement>().flexibleWidth = 1f;
-            VerticalLayoutGroup tv = txt.AddComponent<VerticalLayoutGroup>();
-            tv.childAlignment = TextAnchor.MiddleLeft;
-            tv.spacing = 0f;
-            tv.childControlWidth = true;
-            tv.childControlHeight = true;
-            tv.childForceExpandWidth = true;
-            tv.childForceExpandHeight = false;
-            AddStackLabel(txt.transform, name, 34f, Cream, FontStyles.Bold, TextAlignmentOptions.Left, 42f);
-            AddStackLabel(txt.transform, subtitle, 19f, CreamDim, FontStyles.Normal, TextAlignmentOptions.Left, 24f);
-
-            GameObject chevWrap = CreateChild(row.transform, "Chev");
-            chevWrap.AddComponent<LayoutElement>().preferredWidth = 28f;
-            GameObject chev = CreateChild(chevWrap.transform, "Label");
-            StretchFull((RectTransform)chev.transform);
-            TextMeshProUGUI chevTmp = chev.AddComponent<TextMeshProUGUI>();
-            chevTmp.text = "›";
-            chevTmp.fontSize = 42f;
-            chevTmp.color = new Color(0.957f, 0.906f, 0.788f, 0.7f);
-            chevTmp.alignment = TextAlignmentOptions.Right;
-            chevTmp.raycastTarget = false;
+            GameObject titleGo = CreateChild(inner.transform, "Title");
+            StretchFull((RectTransform)titleGo.transform);
+            TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
+            title.text = name;
+            title.fontSize = 40f;
+            title.fontStyle = FontStyles.Bold;
+            title.color = Cream;
+            title.alignment = TextAlignmentOptions.Center;
+            title.raycastTarget = false;
+            title.margin = new Vector4(96f, 0f, 96f, 0f); // clear the left icon, stay centred
 
             // Brass rivets in the four corners of the wooden frame.
             AddRivet(block.transform, new Vector2(0f, 1f), new Vector2(14f, -14f));
             AddRivet(block.transform, new Vector2(1f, 1f), new Vector2(-14f, -14f));
             AddRivet(block.transform, new Vector2(0f, 0f), new Vector2(14f, 14f));
             AddRivet(block.transform, new Vector2(1f, 0f), new Vector2(-14f, 14f));
-        }
-
-        private TextMeshProUGUI AddStackLabel(
-            Transform parent, string text, float size, Color color, FontStyles style,
-            TextAlignmentOptions align, float prefHeight)
-        {
-            GameObject go = CreateChild(parent, "Label");
-            go.AddComponent<LayoutElement>().preferredHeight = prefHeight;
-            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.text = text;
-            tmp.fontSize = size;
-            tmp.color = color;
-            tmp.fontStyle = style;
-            tmp.alignment = align;
-            tmp.raycastTarget = false;
-            return tmp;
         }
 
         private TextMeshProUGUI AddFixedLabel(
