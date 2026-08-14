@@ -287,6 +287,8 @@ namespace Pose.Game
             {
                 return;
             }
+            // The board-room HUD is a match-only view — hide it behind the lobby.
+            _hud?.gameObject.SetActive(false);
             GameObject go = new("LobbyView", typeof(RectTransform));
             go.transform.SetParent(transform, worldPositionStays: false);
             _lobbyView = go.AddComponent<LobbyView>();
@@ -1168,6 +1170,10 @@ namespace Pose.Game
             {
                 _statusView.gameObject.SetActive(false);
             }
+
+            // Hidden until a round is actually being played (shown from RefreshHud);
+            // the lobby overlays the board at boot, and the HUD is a match-only view.
+            go.SetActive(false);
         }
 
         private void CreateVignette()
@@ -1364,6 +1370,8 @@ namespace Pose.Game
             {
                 return;
             }
+            // A round is being rendered → the board-room HUD is now the active view.
+            _hud.gameObject.SetActive(true);
             OnlineMatchController? c = _onlineMatchController;
             bool series = _isOnline && c != null && c.IsSeries;
 

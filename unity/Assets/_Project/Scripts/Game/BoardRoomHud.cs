@@ -378,7 +378,7 @@ namespace Pose.Game
 
             if (withName)
             {
-                w.Name = AddChildLabel(root.transform, "Player", 22f, TextCol, TextAlignmentOptions.Center, FontStyles.Bold);
+                w.Name = AddLabel(root.transform, "Player", 22f, TextCol, TextAlignmentOptions.Center, FontStyles.Bold);
                 w.Name.GetComponent<LayoutElement>().preferredHeight = 28f;
             }
             else
