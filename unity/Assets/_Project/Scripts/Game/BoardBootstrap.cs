@@ -1288,7 +1288,9 @@ namespace Pose.Game
 
         /// <summary>
         /// Refreshes the series scoreboard (round number, target, per-seat totals).
-        /// Hidden unless this is an online Cut-Throat series.
+        /// Hidden unless this is an online series. Each seat shows its TEAM's totals
+        /// — for Cut-Throat (solo teams) that's the player; for Partner both
+        /// partners show the shared team total.
         /// </summary>
         private void UpdateScoreboard()
         {

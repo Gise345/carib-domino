@@ -165,7 +165,8 @@ namespace Pose.Net
         public event Action? MatchEnded;
 
         /// <summary>True for a Cut-Throat game, which is played as a scored series (M5).</summary>
-        public bool IsSeries => _match != null && _match.GameMode == GameMode.CutThroat;
+        public bool IsSeries => _match != null
+            && (_match.GameMode == GameMode.CutThroat || _match.GameMode == GameMode.Partner);
 
         /// <summary>The series format (Classic / Quick).</summary>
         public MatchFormat SeriesFormat => _match != null ? _match.SeriesFormat : MatchFormat.ClassicSixLove;
@@ -224,6 +225,24 @@ namespace Pose.Net
 
             int seat = SeatOf(winner);
             return seat >= 0 ? (seat, true) : (-1, false);
+        }
+
+        // The lowest seat index belonging to a team — the representative "winner
+        // seat" for a team series (both partners share a team; we report one).
+        private int FirstSeatOnTeam(TeamId team)
+        {
+            if (CurrentState == null)
+            {
+                return -1;
+            }
+            for (int i = 0; i < CurrentState.Players.Count; i++)
+            {
+                if (CurrentState.Partnership.GetTeamOf(CurrentState.Players[i]).Equals(team))
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         private int SeatOf(PlayerId player)
@@ -847,10 +866,18 @@ namespace Pose.Net
             if (_match!.Object.HasStateAuthority)
             {
                 _match.MoveValidator = ValidateNetworkedMove;
-                // Start the score series for a Cut-Throat game (M5).
+                // Start the score series (M5). Team-keyed: Cut-Throat's solo teams
+                // make it a per-player series; Partner's two teams accumulate
+                // together. Battles (lead-tie replays) are Cut-Throat only.
                 if (IsSeries && _series == null)
                 {
-                    _series = SeriesState.New(state.Players, _match.SeriesFormat);
+                    List<TeamId> teams = new(state.Partnership.Teams.Count);
+                    foreach (Team t in state.Partnership.Teams)
+                    {
+                        teams.Add(t.Id);
+                    }
+                    bool battlesEnabled = _match.GameMode == GameMode.CutThroat;
+                    _series = SeriesState.New(teams, _match.SeriesFormat, battlesEnabled);
                 }
             }
 
@@ -978,26 +1005,36 @@ namespace Pose.Net
             _seriesRoundProcessed = true;
             _series = _series.ApplyRound(outcome);
 
+            // Replicate per-seat: each seat carries its TEAM's totals. For
+            // Cut-Throat (solo teams) that's the player's own total; for Partner
+            // both partners show the shared team total.
+            Partnership partnership = CurrentState.Partnership;
             int count = CurrentState.Players.Count;
             int[] points = new int[count];
             int[] games = new int[count];
             for (int i = 0; i < count; i++)
             {
-                points[i] = _series.PointsOf(CurrentState.Players[i]);
-                games[i] = _series.GamesWonBy(CurrentState.Players[i]);
+                TeamId team = partnership.GetTeamOf(CurrentState.Players[i]);
+                points[i] = _series.PointsOf(team);
+                games[i] = _series.GamesWonBy(team);
             }
 
             bool over = _series.IsOver;
-            int winnerSeat = over && _series.Winner is PlayerId winner ? SeatOf(winner) : -1;
+            int winnerSeat = over && _series.WinnerTeam is TeamId winningTeam
+                ? FirstSeatOnTeam(winningTeam)
+                : -1;
 
-            // Encode the pending battle's players as a seat mask for replication.
+            // Encode the pending battle's teams as a seat mask for replication —
+            // every seat on a battling team is flagged.
             int battleMask = 0;
-            foreach (PlayerId battler in _series.BattlePlayers)
+            foreach (TeamId battleTeam in _series.BattleTeams)
             {
-                int seat = SeatOf(battler);
-                if (seat >= 0)
+                for (int i = 0; i < count; i++)
                 {
-                    battleMask |= 1 << seat;
+                    if (partnership.GetTeamOf(CurrentState.Players[i]).Equals(battleTeam))
+                    {
+                        battleMask |= 1 << i;
+                    }
                 }
             }
 
