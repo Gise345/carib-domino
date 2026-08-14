@@ -516,8 +516,8 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private const float ModeBlockHeight = 200f;
-        private const float ModeBlockWidth = 700f;
+        private const float ModeBlockHeight = 170f;
+        private const float ModeBlockWidth = 600f;
         // wodden-block.png is 327px tall (transparent margins cropped off); scale
         // its 9-slice borders to the block height so the rivet end-caps render
         // crisp while the middle stretches.
@@ -692,14 +692,14 @@ namespace Pose.Game
 
             GameObject icoWrap = CreateChild(row.transform, "Ico");
             LayoutElement ile = icoWrap.AddComponent<LayoutElement>();
-            ile.preferredWidth = 70f;
-            ile.preferredHeight = 70f;
-            AddIcon(icoWrap.transform, icon, 64f, Cream);
+            ile.preferredWidth = 60f;
+            ile.preferredHeight = 60f;
+            AddIcon(icoWrap.transform, icon, 54f, Cream);
 
             GameObject titleGo = CreateChild(row.transform, "Title");
             TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
             title.text = name;
-            title.fontSize = 40f;
+            title.fontSize = 34f;
             title.fontStyle = FontStyles.Bold;
             title.color = Cream;
             title.alignment = TextAlignmentOptions.Left;
