@@ -264,6 +264,12 @@ namespace Pose.Game
         private Sprite? _boardBackgroundSprite;
 
         [SerializeField]
+        [Tooltip("Drag the Pose logo sprite (Pose-logo.png in " +
+                 "Assets/_Project/Art/UI) here — set its Texture Type to " +
+                 "'Sprite (2D and UI)'. Shown above the lobby's mode list.")]
+        private Sprite? _logoSprite;
+
+        [SerializeField]
         [Tooltip("Drag the splash / loading sprite (posescreen.png in " +
                  "Assets/images) here. Shown during Firebase init before the " +
                  "lobby appears.")]
@@ -292,6 +298,7 @@ namespace Pose.Game
             GameObject go = new("LobbyView", typeof(RectTransform));
             go.transform.SetParent(transform, worldPositionStays: false);
             _lobbyView = go.AddComponent<LobbyView>();
+            _lobbyView.SetLogoSprite(_logoSprite);
             _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;

@@ -29,7 +29,6 @@ namespace Pose.Game
         private static readonly Color InputBgColor = new(0.04f, 0.20f, 0.12f);
         private static readonly Color StatusErrorColor = new(1.0f, 0.55f, 0.45f);
         private static readonly Color HeaderColor = new(0.03f, 0.18f, 0.11f, 0.96f);
-        private static readonly Color NavColor = new(0.03f, 0.16f, 0.10f, 0.98f);
         private static readonly Color SelectedTint = Color.white;
         private static readonly Color UnselectedTint = new(0.5f, 0.5f, 0.5f, 1f);
 
@@ -40,12 +39,6 @@ namespace Pose.Game
         private const float CountryBarHeight = 88f;
         private const float SubHeaderHeight = 120f;
         private const float NavHeight = 196f;
-
-        // Mode-card geometry (Yard). Cards are 3:4 portrait; a full-bleed image
-        // (when supplied) is authored at 3x for crisp high-DPI rendering — see
-        // ModeImagePixels. Keep these in sync with that constant.
-        private const float ModeCardWidth = 360f;
-        private const float ModeCardHeight = 480f;
 
         private const string BuildStamp = "build shell · tall header/nav · 3D cards";
 
@@ -92,17 +85,6 @@ namespace Pose.Game
         // Bottom-nav tabs, for highlighting.
         private readonly List<(GameObject go, Tab tab)> _navButtons = new();
 
-        // Mode-card hero-image slots, keyed by the card's display name. Empty until
-        // art is delivered and pushed in via SetModeImage.
-        private readonly Dictionary<string, Image> _modeImages = new();
-
-        /// <summary>
-        /// The pixel size to author each mode-card hero image at: 3:4 portrait,
-        /// full-bleed, 3x the 360x480 card for crisp high-DPI rendering. Keep the
-        /// most important art out of the bottom ~30% (a scrim + title sit there).
-        /// </summary>
-        public const string ModeImagePixels = "1080 x 1440 px (3:4 portrait, full-bleed)";
-
         // Waiting overlay.
         private GameObject? _waitingOverlay;
         private TextMeshProUGUI? _waitingStatus;
@@ -121,6 +103,8 @@ namespace Pose.Game
 
         private bool _busy;
         private Image? _backgroundImage;
+        private Image? _logoImage;
+        private Sprite? _logoSprite;
 
         private void Awake()
         {
@@ -151,6 +135,19 @@ namespace Pose.Game
             _backgroundImage.color = Color.white;
             _backgroundImage.type = Image.Type.Simple;
             _backgroundImage.preserveAspect = false;
+        }
+
+        /// <summary>The Pose logo shown above the Yard's mode list. Applied to the
+        /// logo Image built in <see cref="BuildYard"/> (deferred like the background).</summary>
+        public void SetLogoSprite(Sprite? sprite)
+        {
+            _logoSprite = sprite;
+            if (_logoImage == null)
+            {
+                return;
+            }
+            _logoImage.sprite = sprite;
+            _logoImage.color = sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
         }
 
         // ---- Build ---------------------------------------------------------
@@ -371,8 +368,22 @@ namespace Pose.Game
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = new Vector2(0f, NavHeight);
             rt.sizeDelta = new Vector2(0f, NavHeight);
+            // Brown wooden bar with a gold top edge.
             Image bg = nav.AddComponent<Image>();
-            bg.color = NavColor;
+            bg.sprite = GradientSprite.Vertical(Hex("#3A2614"), Hex("#231409"));
+            bg.color = Color.white;
+
+            GameObject topEdge = CreateChild(nav.transform, "TopEdge");
+            topEdge.AddComponent<LayoutElement>().ignoreLayout = true;
+            RectTransform ert = (RectTransform)topEdge.transform;
+            ert.anchorMin = new Vector2(0f, 1f);
+            ert.anchorMax = new Vector2(1f, 1f);
+            ert.pivot = new Vector2(0.5f, 1f);
+            ert.sizeDelta = new Vector2(0f, 3f);
+            ert.anchoredPosition = Vector2.zero;
+            Image edgeImg = topEdge.AddComponent<Image>();
+            edgeImg.color = new Color(0.91f, 0.78f, 0.41f, 0.55f);
+            edgeImg.raycastTarget = false;
 
             HorizontalLayoutGroup hlg = nav.AddComponent<HorizontalLayoutGroup>();
             hlg.childAlignment = TextAnchor.MiddleCenter;
@@ -439,60 +450,89 @@ namespace Pose.Game
             }
         }
 
-        // ---- Yard (country selector + horizontal mode row) ----------------
+        // ---- Yard (logo + scrollable vertical mode list) ------------------
+
+        private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
+        private static readonly Color CreamDim = new(0.957f, 0.906f, 0.788f, 0.82f);
+        private const float ModeBlockHeight = 150f;
 
         private void BuildYard()
         {
             _yardPanel = CreateContentPanel("YardPanel");
 
-            // Horizontal scrolling mode row (centre of the Yard). The country
-            // selector lives in the shell bar above the Leaderboard / Ranking.
+            // Logo at the top of the Yard content (sprite applied via SetLogoSprite).
+            GameObject logo = CreateChild(_yardPanel.transform, "Logo");
+            RectTransform lrt = (RectTransform)logo.transform;
+            lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 1f);
+            lrt.pivot = new Vector2(0.5f, 1f);
+            lrt.anchoredPosition = new Vector2(0f, -6f);
+            lrt.sizeDelta = new Vector2(640f, 208f);
+            _logoImage = logo.AddComponent<Image>();
+            _logoImage.preserveAspect = true;
+            _logoImage.raycastTarget = false;
+            _logoImage.sprite = _logoSprite;
+            _logoImage.color = _logoSprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+
+            // Tagline.
+            TextMeshProUGUI tagline = AddFixedLabel(
+                _yardPanel.transform, L10n.Get("lobby_welcome"),
+                new Vector2(0.5f, 1f), new Vector2(0f, -220f), new Vector2(640f, 42f), 30f, Hex("#E9C66A"));
+            tagline.fontStyle = FontStyles.Italic;
+
+            // Scrollable vertical list (below the tagline, down to the panel bottom).
             GameObject scroll = CreateChild(_yardPanel.transform, "ModeScroll");
-            RectTransform scrollRt = (RectTransform)scroll.transform;
-            scrollRt.anchorMin = new Vector2(0f, 0.5f);
-            scrollRt.anchorMax = new Vector2(1f, 0.5f);
-            scrollRt.pivot = new Vector2(0.5f, 0.5f);
-            scrollRt.anchoredPosition = new Vector2(0f, -10f);
-            scrollRt.sizeDelta = new Vector2(-40f, ModeCardHeight + 40f);
+            RectTransform srt = (RectTransform)scroll.transform;
+            srt.anchorMin = new Vector2(0f, 0f);
+            srt.anchorMax = new Vector2(1f, 1f);
+            srt.offsetMin = new Vector2(20f, 12f);
+            srt.offsetMax = new Vector2(-20f, -276f);
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
-            sr.horizontal = true;
-            sr.vertical = false;
+            sr.horizontal = false;
+            sr.vertical = true;
             sr.movementType = ScrollRect.MovementType.Elastic;
-            sr.scrollSensitivity = 30f;
+            sr.scrollSensitivity = 36f;
 
             GameObject viewport = CreateChild(scroll.transform, "Viewport");
-            StretchFull((RectTransform)viewport.transform);
+            RectTransform vprt = (RectTransform)viewport.transform;
+            vprt.anchorMin = Vector2.zero;
+            vprt.anchorMax = Vector2.one;
+            vprt.offsetMin = Vector2.zero;
+            vprt.offsetMax = new Vector2(-18f, 0f); // room for the scrollbar
             Image vpImg = viewport.AddComponent<Image>();
             vpImg.color = new Color(1f, 1f, 1f, 0f);
             viewport.AddComponent<RectMask2D>();
-            sr.viewport = (RectTransform)viewport.transform;
+            sr.viewport = vprt;
 
-            GameObject row = CreateChild(viewport.transform, "Row");
-            RectTransform rowRt = (RectTransform)row.transform;
-            rowRt.anchorMin = new Vector2(0f, 0.5f);
-            rowRt.anchorMax = new Vector2(0f, 0.5f);
-            rowRt.pivot = new Vector2(0f, 0.5f);
-            HorizontalLayoutGroup rowHlg = row.AddComponent<HorizontalLayoutGroup>();
-            rowHlg.childAlignment = TextAnchor.MiddleLeft;
-            rowHlg.spacing = 24f;
-            rowHlg.padding = new RectOffset(24, 24, 0, 0);
-            rowHlg.childControlWidth = true;
-            rowHlg.childControlHeight = true;
-            rowHlg.childForceExpandWidth = false;
-            rowHlg.childForceExpandHeight = false;
-            ContentSizeFitter fit = row.AddComponent<ContentSizeFitter>();
-            fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            sr.content = rowRt;
+            GameObject content = CreateChild(viewport.transform, "Content");
+            RectTransform crt = (RectTransform)content.transform;
+            crt.anchorMin = new Vector2(0f, 1f);
+            crt.anchorMax = new Vector2(1f, 1f);
+            crt.pivot = new Vector2(0.5f, 1f);
+            VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 16f;
+            vlg.padding = new RectOffset(4, 4, 2, 12);
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+            ContentSizeFitter cfit = content.AddComponent<ContentSizeFitter>();
+            cfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr.content = crt;
 
-            CreateModeBlock(row.transform, "Cut Throat\nOnline", "Ranked · 2-4",
-                new[] { Hex("#FED100"), Hex("#009B3A"), Hex("#05351C") }, () => ShowOverlay(_cutThroatScreen));
-            CreateModeBlock(row.transform, "Partner", "2 v 2 teams",
-                new[] { Hex("#00A651"), Hex("#0B3D1E"), Hex("#04120A") }, () => ShowOverlay(_partnerScreen));
-            CreateModeBlock(row.transform, "One-Love\nWith Friends", "Private room",
-                new[] { Hex("#F7B500"), Hex("#B26A00"), Hex("#3A2200") }, () => ShowOverlay(_friendsRoomScreen));
-            CreateModeBlock(row.transform, "Practice", "vs Bots · free",
-                new[] { Hex("#4A5568"), Hex("#2D3748"), Hex("#12161F") }, OnPracticeClicked);
+            // Gold scroll indicator on the right (auto-hides when nothing to scroll).
+            Scrollbar bar = BuildVerticalScrollbar(scroll.transform);
+            sr.verticalScrollbar = bar;
+            sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            // Same modes + functions as before, in the new wooden-teal block style.
+            CreateModeBlock(content.transform, "Cut Throat", "Ranked · 2–4 players",
+                IconFactory.People(), () => ShowOverlay(_cutThroatScreen));
+            CreateModeBlock(content.transform, "Partner", "2 v 2 teams",
+                IconFactory.People(), () => ShowOverlay(_partnerScreen));
+            CreateModeBlock(content.transform, "One-Love", "Private room · friends",
+                IconFactory.People(), () => ShowOverlay(_friendsRoomScreen));
+            CreateModeBlock(content.transform, "Practice", "vs Bots · free",
+                IconFactory.Person(), OnPracticeClicked);
         }
 
         private void OnPracticeClicked()
@@ -503,120 +543,175 @@ namespace Pose.Game
             }
         }
 
-        private void CreateModeBlock(Transform parent, string name, string tag, Color[] colors, Action onClick)
+        // A wooden-framed teal mode block: icon · title + subtitle · chevron, with
+        // brass corner rivets and a top sheen. Full width in the vertical list.
+        private void CreateModeBlock(Transform parent, string name, string subtitle, Sprite icon, Action onClick)
         {
-            GameObject card = CreateChild(parent, $"Mode_{name}");
-            LayoutElement le = card.AddComponent<LayoutElement>();
-            le.preferredWidth = ModeCardWidth;
-            le.preferredHeight = ModeCardHeight;
+            GameObject block = CreateChild(parent, $"Mode_{name}");
+            LayoutElement le = block.AddComponent<LayoutElement>();
+            le.preferredHeight = ModeBlockHeight;
+            le.minHeight = ModeBlockHeight;
+            le.flexibleWidth = 1f;
+            AddShadow(block, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -7f));
 
-            // A big, soft drop shadow lifts the card off the felt (the "3D" pop).
-            AddShadow(card, new Color(0f, 0f, 0f, 0.6f), new Vector2(0f, -10f));
-
-            // Base: rounded gradient. When a mode image is wired later it slots in
-            // over this (see AddModeImageSlot); the gradient stays as the fallback.
-            Image bg = card.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.12f, colors);
-            bg.color = Color.white;
-            Button btn = card.AddComponent<Button>();
-            btn.targetGraphic = bg;
+            // Wooden frame.
+            Image frame = block.AddComponent<Image>();
+            frame.sprite = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
+            frame.color = Color.white;
+            Button btn = block.AddComponent<Button>();
+            btn.targetGraphic = frame;
             btn.onClick.AddListener(() => onClick());
 
-            // Rounded, masked slot for a full-bleed card image (empty for now —
-            // drop a sprite in via SetModeImage once art is delivered). Sits above
-            // the gradient, below the scrim + text.
-            AddModeImageSlot(card.transform, name);
+            // Teal inner, inset inside the frame.
+            GameObject inner = CreateChild(block.transform, "Inner");
+            RectTransform irt = (RectTransform)inner.transform;
+            irt.anchorMin = Vector2.zero;
+            irt.anchorMax = Vector2.one;
+            irt.offsetMin = new Vector2(7f, 7f);
+            irt.offsetMax = new Vector2(-7f, -7f);
+            Image teal = inner.AddComponent<Image>();
+            teal.sprite = GradientSprite.RoundedDiagonal(0.16f, Hex("#42BEB1"), Hex("#1F8A83"), Hex("#12615D"));
+            teal.color = Color.white;
+            teal.raycastTarget = false;
 
-            // Glossy top highlight — a light sheen fading down over the top third
-            // gives the flat gradient a raised, 3-D sheen.
-            GameObject gloss = CreateChild(card.transform, "Gloss");
-            RectTransform glossRt = (RectTransform)gloss.transform;
-            glossRt.anchorMin = new Vector2(0f, 0.62f);
-            glossRt.anchorMax = new Vector2(1f, 1f);
-            glossRt.offsetMin = Vector2.zero;
-            glossRt.offsetMax = Vector2.zero;
-            Image glossImg = gloss.AddComponent<Image>();
-            glossImg.sprite = GradientSprite.Vertical(new Color(1f, 1f, 1f, 0.22f), new Color(1f, 1f, 1f, 0f));
-            glossImg.raycastTarget = false;
+            // Top sheen.
+            GameObject sheen = CreateChild(inner.transform, "Sheen");
+            RectTransform shrt = (RectTransform)sheen.transform;
+            shrt.anchorMin = new Vector2(0f, 0.55f);
+            shrt.anchorMax = new Vector2(1f, 1f);
+            shrt.offsetMin = new Vector2(6f, 0f);
+            shrt.offsetMax = new Vector2(-6f, -4f);
+            Image sheenImg = sheen.AddComponent<Image>();
+            sheenImg.sprite = GradientSprite.Vertical(new Color(1f, 1f, 1f, 0.26f), new Color(1f, 1f, 1f, 0f));
+            sheenImg.raycastTarget = false;
 
-            // Bottom scrim so the title stays legible over any image.
-            GameObject foot = CreateChild(card.transform, "Foot");
-            RectTransform footRt = (RectTransform)foot.transform;
-            footRt.anchorMin = new Vector2(0f, 0f);
-            footRt.anchorMax = new Vector2(1f, 0.58f);
-            footRt.offsetMin = Vector2.zero;
-            footRt.offsetMax = Vector2.zero;
-            Image footImg = foot.AddComponent<Image>();
-            footImg.sprite = GradientSprite.Vertical(new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.78f));
-            footImg.raycastTarget = false;
+            // Content row: icon · (title + subtitle) · chevron.
+            GameObject row = CreateChild(inner.transform, "Row");
+            StretchFull((RectTransform)row.transform);
+            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
+            h.childAlignment = TextAnchor.MiddleLeft;
+            h.spacing = 16f;
+            h.padding = new RectOffset(24, 18, 0, 0);
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = false;
+            h.childForceExpandHeight = true;
 
-            GameObject nameGo = CreateChild(card.transform, "Name");
-            RectTransform nameRt = (RectTransform)nameGo.transform;
-            nameRt.anchorMin = new Vector2(0f, 0f);
-            nameRt.anchorMax = new Vector2(1f, 0f);
-            nameRt.pivot = new Vector2(0.5f, 0f);
-            nameRt.anchoredPosition = new Vector2(0f, 78f);
-            nameRt.sizeDelta = new Vector2(-28f, 104f);
-            TextMeshProUGUI nameTmp = nameGo.AddComponent<TextMeshProUGUI>();
-            nameTmp.alignment = TextAlignmentOptions.BottomLeft;
-            nameTmp.fontSize = 42f;
-            nameTmp.fontStyle = FontStyles.Bold;
-            nameTmp.color = Color.white;
-            nameTmp.text = name;
-            nameTmp.raycastTarget = false;
-            nameTmp.margin = new Vector4(22f, 0f, 12f, 0f);
+            GameObject icoWrap = CreateChild(row.transform, "Ico");
+            icoWrap.AddComponent<LayoutElement>().preferredWidth = 58f;
+            AddIcon(icoWrap.transform, icon, 52f, Cream);
 
-            GameObject tagGo = CreateChild(card.transform, "Tag");
-            RectTransform tagRt = (RectTransform)tagGo.transform;
-            tagRt.anchorMin = new Vector2(0f, 0f);
-            tagRt.anchorMax = new Vector2(1f, 0f);
-            tagRt.pivot = new Vector2(0.5f, 0f);
-            tagRt.anchoredPosition = new Vector2(0f, 32f);
-            tagRt.sizeDelta = new Vector2(-28f, 34f);
-            TextMeshProUGUI tagTmp = tagGo.AddComponent<TextMeshProUGUI>();
-            tagTmp.alignment = TextAlignmentOptions.BottomLeft;
-            tagTmp.fontSize = 24f;
-            tagTmp.color = CodeTextColor;
-            tagTmp.text = tag;
-            tagTmp.raycastTarget = false;
-            tagTmp.margin = new Vector4(22f, 0f, 12f, 0f);
+            GameObject txt = CreateChild(row.transform, "Txt");
+            txt.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            VerticalLayoutGroup tv = txt.AddComponent<VerticalLayoutGroup>();
+            tv.childAlignment = TextAnchor.MiddleLeft;
+            tv.spacing = 0f;
+            tv.childControlWidth = true;
+            tv.childControlHeight = true;
+            tv.childForceExpandWidth = true;
+            tv.childForceExpandHeight = false;
+            AddStackLabel(txt.transform, name, 34f, Cream, FontStyles.Bold, TextAlignmentOptions.Left, 42f);
+            AddStackLabel(txt.transform, subtitle, 19f, CreamDim, FontStyles.Normal, TextAlignmentOptions.Left, 24f);
+
+            GameObject chevWrap = CreateChild(row.transform, "Chev");
+            chevWrap.AddComponent<LayoutElement>().preferredWidth = 28f;
+            GameObject chev = CreateChild(chevWrap.transform, "Label");
+            StretchFull((RectTransform)chev.transform);
+            TextMeshProUGUI chevTmp = chev.AddComponent<TextMeshProUGUI>();
+            chevTmp.text = "›";
+            chevTmp.fontSize = 42f;
+            chevTmp.color = new Color(0.957f, 0.906f, 0.788f, 0.7f);
+            chevTmp.alignment = TextAlignmentOptions.Right;
+            chevTmp.raycastTarget = false;
+
+            // Brass rivets in the four corners of the wooden frame.
+            AddRivet(block.transform, new Vector2(0f, 1f), new Vector2(14f, -14f));
+            AddRivet(block.transform, new Vector2(1f, 1f), new Vector2(-14f, -14f));
+            AddRivet(block.transform, new Vector2(0f, 0f), new Vector2(14f, 14f));
+            AddRivet(block.transform, new Vector2(1f, 0f), new Vector2(-14f, 14f));
         }
 
-        // Adds a rounded, masked, full-bleed slot for a mode card's hero image and
-        // registers it by mode name. The image is empty until art is delivered;
-        // call SetModeImage(name, sprite) to fill it. Author images at
-        // ModeImagePixels (3:4, 3x). The gradient card shows through until then.
-        private void AddModeImageSlot(Transform card, string modeName)
+        private TextMeshProUGUI AddStackLabel(
+            Transform parent, string text, float size, Color color, FontStyles style,
+            TextAlignmentOptions align, float prefHeight)
         {
-            GameObject holder = CreateChild(card, "ImageHolder");
-            StretchFull((RectTransform)holder.transform);
-            Image mask = holder.AddComponent<Image>();
-            // A white rounded sprite as the mask shape → the image gets rounded corners.
-            mask.sprite = GradientSprite.RoundedDiagonal(0.12f, Color.white, Color.white);
-            Mask m = holder.AddComponent<Mask>();
-            m.showMaskGraphic = false;
-
-            GameObject img = CreateChild(holder.transform, "Image");
-            StretchFull((RectTransform)img.transform);
-            Image photo = img.AddComponent<Image>();
-            photo.color = new Color(1f, 1f, 1f, 0f); // hidden until a sprite is set
-            photo.raycastTarget = false;
-            photo.preserveAspect = false;
-            _modeImages[modeName] = photo;
+            GameObject go = CreateChild(parent, "Label");
+            go.AddComponent<LayoutElement>().preferredHeight = prefHeight;
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = size;
+            tmp.color = color;
+            tmp.fontStyle = style;
+            tmp.alignment = align;
+            tmp.raycastTarget = false;
+            return tmp;
         }
 
-        /// <summary>
-        /// Fills a mode card's hero-image slot with <paramref name="sprite"/>.
-        /// Author art at <see cref="ModeImagePixels"/> (3:4, full-bleed). No-op if
-        /// the named card doesn't exist. Call after the lobby is built.
-        /// </summary>
-        public void SetModeImage(string modeName, Sprite sprite)
+        private TextMeshProUGUI AddFixedLabel(
+            Transform parent, string text, Vector2 anchor, Vector2 pos, Vector2 size, float fontSize, Color color)
         {
-            if (_modeImages.TryGetValue(modeName, out Image? img) && img != null)
-            {
-                img.sprite = sprite;
-                img.color = Color.white;
-            }
+            GameObject go = CreateChild(parent, "Label");
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = anchor;
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = color;
+            tmp.fontStyle = FontStyles.Bold;
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.raycastTarget = false;
+            return tmp;
+        }
+
+        private void AddRivet(Transform parent, Vector2 anchor, Vector2 offset)
+        {
+            GameObject go = CreateChild(parent, "Rivet");
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = offset;
+            rt.sizeDelta = new Vector2(11f, 11f);
+            Image img = go.AddComponent<Image>();
+            img.sprite = GradientSprite.RoundedDiagonal(0.5f, Hex("#F0D28A"), Hex("#A9791F"));
+            img.color = Color.white;
+            img.raycastTarget = false;
+        }
+
+        private Scrollbar BuildVerticalScrollbar(Transform parent)
+        {
+            GameObject go = CreateChild(parent, "Scrollbar");
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.sizeDelta = new Vector2(10f, 0f);
+            rt.anchoredPosition = Vector2.zero;
+            Image track = go.AddComponent<Image>();
+            track.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.35f), new Color(0f, 0f, 0f, 0.35f));
+            track.color = Color.white;
+
+            Scrollbar sb = go.AddComponent<Scrollbar>();
+            sb.direction = Scrollbar.Direction.BottomToTop;
+
+            GameObject area = CreateChild(go.transform, "Sliding Area");
+            RectTransform art = (RectTransform)area.transform;
+            art.anchorMin = Vector2.zero;
+            art.anchorMax = Vector2.one;
+            art.offsetMin = new Vector2(1f, 1f);
+            art.offsetMax = new Vector2(-1f, -1f);
+
+            GameObject handle = CreateChild(area.transform, "Handle");
+            RectTransform hrt = (RectTransform)handle.transform;
+            hrt.sizeDelta = Vector2.zero;
+            Image hImg = handle.AddComponent<Image>();
+            hImg.sprite = GradientSprite.RoundedDiagonal(0.5f, Hex("#F0D28A"), Hex("#A9791F"));
+            hImg.color = Color.white;
+
+            sb.handleRect = hrt;
+            sb.targetGraphic = hImg;
+            return sb;
         }
 
         // ---- Country popup -------------------------------------------------

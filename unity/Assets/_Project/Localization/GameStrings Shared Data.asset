@@ -223,6 +223,10 @@ MonoBehaviour:
     m_Key: scoreboard_sub
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000045
+    m_Key: lobby_welcome
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:

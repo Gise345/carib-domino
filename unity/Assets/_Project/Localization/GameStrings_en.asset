@@ -220,6 +220,10 @@ MonoBehaviour:
     m_Localized: "Game to {0} Love"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000045
+    m_Localized: "Welcome to the table."
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:
