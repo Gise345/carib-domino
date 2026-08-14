@@ -213,7 +213,7 @@ namespace Pose.Game
             rt.sizeDelta = new Vector2(360f, 300f);
             PanelBg(panel);
             VerticalLayoutGroup vlg = panel.AddComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(0, 0, 0, 12);
+            vlg.padding = new RectOffset(0, 0, 0, 0); // bottom padding lives in the body
             vlg.spacing = 0f;
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
@@ -221,9 +221,9 @@ namespace Pose.Game
             vlg.childForceExpandHeight = false;
             panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // Crown header (tap to collapse).
+            // Crown header (tap to collapse). Tight so a collapsed panel is compact.
             GameObject head = Child(panel.transform, "Crown");
-            head.AddComponent<LayoutElement>().preferredHeight = 52f;
+            head.AddComponent<LayoutElement>().preferredHeight = 44f;
             HorizontalLayoutGroup hh = head.AddComponent<HorizontalLayoutGroup>();
             hh.padding = new RectOffset(16, 12, 0, 0);
             hh.childAlignment = TextAnchor.MiddleCenter;
@@ -236,7 +236,7 @@ namespace Pose.Game
 
             _scoreBody = Child(panel.transform, "Body");
             VerticalLayoutGroup bvl = _scoreBody.AddComponent<VerticalLayoutGroup>();
-            bvl.padding = new RectOffset(16, 16, 0, 0);
+            bvl.padding = new RectOffset(16, 16, 4, 12);
             bvl.spacing = 2f;
             bvl.childControlWidth = true; bvl.childControlHeight = true; bvl.childForceExpandWidth = true; bvl.childForceExpandHeight = false;
 
@@ -515,7 +515,7 @@ namespace Pose.Game
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.offsetMin = new Vector2(0f, 0f);
-            rt.offsetMax = new Vector2(0f, 150f);
+            rt.offsetMax = new Vector2(0f, 110f);
 
             // Last Play (bottom-left).
             GameObject lp = Child(bar.transform, "LastPlay");
@@ -545,7 +545,7 @@ namespace Pose.Game
             RectTransform crt = (RectTransform)center.transform;
             crt.anchorMin = crt.anchorMax = new Vector2(0.5f, 0.5f);
             crt.pivot = new Vector2(0.5f, 0.5f);
-            crt.sizeDelta = new Vector2(300f, 120f);
+            crt.sizeDelta = new Vector2(300f, 100f);
             VerticalLayoutGroup cvl = center.AddComponent<VerticalLayoutGroup>();
             cvl.childAlignment = TextAnchor.MiddleCenter; cvl.spacing = 10f;
             cvl.childControlWidth = true; cvl.childControlHeight = true; cvl.childForceExpandWidth = false; cvl.childForceExpandHeight = false;

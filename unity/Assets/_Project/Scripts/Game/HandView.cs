@@ -180,7 +180,7 @@ namespace Pose.Game
         private void BuildVerticalLayout()
         {
             VerticalLayoutGroup outer = gameObject.AddComponent<VerticalLayoutGroup>();
-            outer.childAlignment = TextAnchor.UpperCenter;
+            outer.childAlignment = TextAnchor.MiddleCenter; // centre the side hand vertically
             outer.spacing = 8f;
             outer.padding = new RectOffset(4, 4, 8, 8);
             outer.childControlWidth = true;

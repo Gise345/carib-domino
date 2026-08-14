@@ -1168,7 +1168,21 @@ namespace Pose.Game
             }
             if (_statusView != null)
             {
-                _statusView.gameObject.SetActive(false);
+                // Keep the old status footer as an INVISIBLE spacer, not disabled:
+                // it sits in the bottom region's vertical stack, so removing it
+                // would let the local hand drop down onto the HUD's Pass button.
+                // Reserve enough height that the hand clears the action bar.
+                CanvasGroup cg = _statusView.gameObject.GetComponent<CanvasGroup>()
+                    ?? _statusView.gameObject.AddComponent<CanvasGroup>();
+                cg.alpha = 0f;
+                cg.interactable = false;
+                cg.blocksRaycasts = false;
+                LayoutElement le = _statusView.GetComponent<LayoutElement>();
+                if (le != null)
+                {
+                    le.preferredHeight = 120f;
+                    le.minHeight = 120f;
+                }
             }
 
             // Hidden until a round is actually being played (shown from RefreshHud);
