@@ -500,8 +500,8 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private const float ModeBlockHeight = 128f;
-        private const float ModeBlockWidth = 840f;
+        private const float ModeBlockHeight = 168f;
+        private const float ModeBlockWidth = 700f;
         // wodden-block.png is 573px tall; scale its 9-slice borders to the block
         // height so the rivet end-caps render crisp while the middle stretches.
         private const float ModeFrameSlicePpu = 573f / ModeBlockHeight;
