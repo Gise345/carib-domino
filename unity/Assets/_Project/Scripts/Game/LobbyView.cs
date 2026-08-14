@@ -516,8 +516,8 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private const float ModeBlockHeight = 145f;
-        private const float ModeBlockWidth = 520f;
+        private const float ModeBlockHeight = 125f;
+        private const float ModeBlockWidth = 470f;
         // wodden-block.png is 327px tall (transparent margins cropped off); scale
         // its 9-slice borders to the block height so the rivet end-caps render
         // crisp while the middle stretches.
@@ -533,7 +533,7 @@ namespace Pose.Game
             lrt.anchorMin = lrt.anchorMax = new Vector2(0f, 0f);
             lrt.pivot = new Vector2(0f, 0f);
             lrt.anchoredPosition = new Vector2(16f, 16f);
-            lrt.sizeDelta = new Vector2(250f, 120f);
+            lrt.sizeDelta = new Vector2(440f, 210f); // much bigger
             _logoImage = logo.AddComponent<Image>();
             _logoImage.preserveAspect = true;
             _logoImage.raycastTarget = false;
@@ -545,7 +545,7 @@ namespace Pose.Game
             RectTransform srt = (RectTransform)scroll.transform;
             srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 0.5f);
             srt.pivot = new Vector2(0.5f, 0.5f);
-            srt.anchoredPosition = new Vector2(0f, 40f);
+            srt.anchoredPosition = new Vector2(0f, 150f); // higher up on the screen
             srt.sizeDelta = new Vector2(ModeBlockWidth + 70f, (ModeBlockHeight * 4f) + 40f);
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
             sr.horizontal = false;
@@ -665,7 +665,7 @@ namespace Pose.Game
             HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
             h.childAlignment = TextAnchor.MiddleLeft; // left-align so every row's icon + text line up
             h.spacing = 18f;
-            h.padding = new RectOffset(105, 20, 0, 0); // start past the left wooden end-cap
+            h.padding = new RectOffset(88, 18, 0, 0); // start past the left wooden end-cap
             h.childControlWidth = true;
             h.childControlHeight = true;
             h.childForceExpandWidth = false;
@@ -673,14 +673,14 @@ namespace Pose.Game
 
             GameObject icoWrap = CreateChild(row.transform, "Ico");
             LayoutElement ile = icoWrap.AddComponent<LayoutElement>();
-            ile.preferredWidth = 60f;
-            ile.preferredHeight = 60f;
-            AddIcon(icoWrap.transform, icon, 54f, Cream);
+            ile.preferredWidth = 52f;
+            ile.preferredHeight = 52f;
+            AddIcon(icoWrap.transform, icon, 46f, Cream);
 
             GameObject titleGo = CreateChild(row.transform, "Title");
             TextMeshProUGUI title = titleGo.AddComponent<TextMeshProUGUI>();
             title.text = name;
-            title.fontSize = 34f;
+            title.fontSize = 30f;
             title.fontStyle = FontStyles.Bold;
             title.color = Cream;
             title.alignment = TextAlignmentOptions.Left;
