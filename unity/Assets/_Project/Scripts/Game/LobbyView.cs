@@ -467,7 +467,7 @@ namespace Pose.Game
             lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 1f);
             lrt.pivot = new Vector2(0.5f, 1f);
             lrt.anchoredPosition = new Vector2(0f, -90f); // dropped down with the list
-            lrt.sizeDelta = new Vector2(800f, 280f);      // bigger
+            lrt.sizeDelta = new Vector2(880f, 320f);      // bigger
             _logoImage = logo.AddComponent<Image>();
             _logoImage.preserveAspect = true;
             _logoImage.raycastTarget = false;
@@ -477,7 +477,7 @@ namespace Pose.Game
             // Tagline.
             TextMeshProUGUI tagline = AddFixedLabel(
                 _yardPanel.transform, L10n.Get("lobby_welcome"),
-                new Vector2(0.5f, 1f), new Vector2(0f, -378f), new Vector2(720f, 44f), 30f, Hex("#E9C66A"));
+                new Vector2(0.5f, 1f), new Vector2(0f, -424f), new Vector2(740f, 46f), 30f, Hex("#E9C66A"));
             tagline.fontStyle = FontStyles.Italic;
 
             // Scrollable vertical list (below the tagline, down to the panel bottom).
@@ -486,7 +486,7 @@ namespace Pose.Game
             srt.anchorMin = new Vector2(0f, 0f);
             srt.anchorMax = new Vector2(1f, 1f);
             srt.offsetMin = new Vector2(20f, 12f);
-            srt.offsetMax = new Vector2(-20f, -430f); // start the list lower, under the bigger logo
+            srt.offsetMax = new Vector2(-20f, -540f); // gap below the logo/tagline before the list
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
             sr.horizontal = false;
             sr.vertical = true;
