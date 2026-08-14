@@ -856,6 +856,10 @@ namespace Pose.Net
 
             _botRng = new SeededRandomSource(_match.Seed);
             MatchDealt?.Invoke(state);
+            // A seat may already be empty at deal time (a player left during the
+            // pre-deal wait). Resolve it now — otherwise its turn stalls with no
+            // human and no bot. Authority-gated and idempotent inside.
+            HandleDepartures();
             ScheduleBotIfNeeded();
             DriveForcedPassIfNeeded();
         }
@@ -870,6 +874,13 @@ namespace Pose.Net
 
             _botRng = new SeededRandomSource(_match!.Seed);
             RoundStarted?.Invoke(state);
+            // Critical for series: a player who left during the between-rounds
+            // interstitial isn't caught by the edge-triggered leave detection
+            // (the count already dropped while the round was over, when
+            // HandleDepartures early-returns). Re-check now that a fresh, live
+            // round is current so the vacated seat becomes a bot (or, if only one
+            // human is left, the round resigns) instead of stalling.
+            HandleDepartures();
             ScheduleBotIfNeeded();
             DriveForcedPassIfNeeded();
         }
