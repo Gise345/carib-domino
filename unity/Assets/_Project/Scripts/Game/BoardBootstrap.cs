@@ -275,6 +275,12 @@ namespace Pose.Game
         private Sprite? _modeButtonSprite;
 
         [SerializeField]
+        [Tooltip("Optional cursive TMP font asset for the 'Welcome to the Yard' " +
+                 "lobby title. Create it from a cursive .ttf/.otf via " +
+                 "Window > TextMeshPro > Font Asset Creator, then assign here.")]
+        private TMPro.TMP_FontAsset? _titleFont;
+
+        [SerializeField]
         [Tooltip("Drag the splash / loading sprite (posescreen.png in " +
                  "Assets/images) here. Shown during Firebase init before the " +
                  "lobby appears.")]
@@ -305,6 +311,7 @@ namespace Pose.Game
             _lobbyView = go.AddComponent<LobbyView>();
             _lobbyView.SetLogoSprite(_logoSprite);
             _lobbyView.SetModeButtonSprite(_modeButtonSprite);
+            _lobbyView.SetTitleFont(_titleFont);
             _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;

@@ -108,6 +108,8 @@ namespace Pose.Game
         private Sprite? _modeButtonSprite;
         private readonly List<Image> _modeFrames = new();
         private readonly List<GameObject> _modeProcedural = new();
+        private TextMeshProUGUI? _taglineText;
+        private TMP_FontAsset? _titleFont;
 
         private void Awake()
         {
@@ -194,6 +196,20 @@ namespace Pose.Game
             {
                 frame.sprite = GradientSprite.RoundedDiagonal(0.2f, Hex("#7A5230"), Hex("#3A2614"));
                 frame.type = Image.Type.Simple;
+            }
+        }
+
+        /// <summary>
+        /// The cursive font for the "Welcome to the Yard" title. Assign a TMP font
+        /// asset (created from a cursive .ttf/.otf). Deferred like the logo — applied
+        /// to the tagline built in <see cref="BuildYard"/>.
+        /// </summary>
+        public void SetTitleFont(TMP_FontAsset? font)
+        {
+            _titleFont = font;
+            if (_taglineText != null && font != null)
+            {
+                _taglineText.font = font;
             }
         }
 
@@ -526,8 +542,22 @@ namespace Pose.Game
             // Tagline.
             TextMeshProUGUI tagline = AddFixedLabel(
                 _yardPanel.transform, L10n.Get("lobby_welcome"),
-                new Vector2(0.5f, 1f), new Vector2(0f, -560f), new Vector2(740f, 46f), 30f, Hex("#E9C66A"));
-            tagline.fontStyle = FontStyles.Italic;
+                new Vector2(0.5f, 1f), new Vector2(0f, -560f), new Vector2(820f, 100f), 52f, Hex("#F2D98A"));
+            _taglineText = tagline;
+            tagline.fontStyle = FontStyles.Bold;
+            tagline.characterSpacing = 2f;
+            // Gold face gradient + dark outline + soft shadow so the cursive title
+            // reads rich, not flat. (The cursive shape comes from SetTitleFont.)
+            tagline.enableVertexGradient = true;
+            tagline.colorGradient = new VertexGradient(
+                Hex("#FFF0B8"), Hex("#FFF0B8"), Hex("#D6A63C"), Hex("#D6A63C"));
+            tagline.outlineWidth = 0.18f;
+            tagline.outlineColor = new Color32(60, 34, 10, 255);
+            AddShadow(tagline.gameObject, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -4f));
+            if (_titleFont != null)
+            {
+                tagline.font = _titleFont;
+            }
 
             // Scrollable vertical list (below the tagline, down to the panel bottom).
             GameObject scroll = CreateChild(_yardPanel.transform, "ModeScroll");
