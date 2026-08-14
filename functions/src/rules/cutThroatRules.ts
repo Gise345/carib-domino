@@ -27,8 +27,15 @@ export class CutThroatRules {
     const hand = state.handOf(player);
 
     if (state.chain.isEmpty) {
-      // Opening turn — only the leading tile, by its holder. Re-derived from
-      // state so the engine stays a pure function with no dealer-private input.
+      // Free pose (pose rule): the opener is the previous round's winner and
+      // may lead with any tile. Every tile is a legal opener on the empty chain;
+      // place canonically on the left.
+      if (state.freeOpening) {
+        return hand.tiles.map((tile) => placeMove(player, tile, 'left'));
+      }
+      // Forced open (round 1 / battle) — only the leading tile, by its holder.
+      // Re-derived from state so the engine stays a pure function with no
+      // dealer-private input.
       const lead = findLead(state.players, state.hands, this.maxPip);
       return [placeMove(player, lead.tile, 'left')];
     }

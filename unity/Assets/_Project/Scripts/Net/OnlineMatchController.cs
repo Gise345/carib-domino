@@ -194,6 +194,38 @@ namespace Pose.Net
         public bool IsBattleSeat(int seat) =>
             _match != null && seat >= 0 && seat < NetworkedMatch.MaxPlayers && (_match.BattleSeatMask & (1 << seat)) != 0;
 
+        // Decides who opens the round being dealt and whether it is a free pose.
+        // Returns (-1, false) for the standard forced open (highest double leads):
+        // round 1 of the series, a battle round, a non-series game, or when the
+        // previous round had no single winner (a draw). Otherwise returns the
+        // previous winner's seat with freeOpening = true. Must be called while
+        // CurrentState still holds the PREVIOUS round (before it is overwritten).
+        private (int openerIndex, bool freeOpening) ComputeOpening(GameMode mode)
+        {
+            if (!IsSeries || _match == null || _match.RoundNumber <= 1 || PendingBattle)
+            {
+                return (-1, false);
+            }
+            if (CurrentState == null || !CurrentState.IsOver)
+            {
+                return (-1, false);
+            }
+
+            // Same mode across the series, so a fresh engine reproduces the
+            // previous round's outcome (GetOutcome is a pure function of state).
+            IRuleEngine engine = mode == GameMode.Partner
+                ? new JamaicanPartnerRules()
+                : new CutThroatRules();
+            MatchOutcome? previous = engine.GetOutcome(CurrentState);
+            if (previous?.WinnerId is not PlayerId winner)
+            {
+                return (-1, false);
+            }
+
+            int seat = SeatOf(winner);
+            return seat >= 0 ? (seat, true) : (-1, false);
+        }
+
         private int SeatOf(PlayerId player)
         {
             if (CurrentState == null)
@@ -1032,11 +1064,22 @@ namespace Pose.Net
                 _rules = new CutThroatRules();
             }
 
+            // Pose rule (ADR 0015): in a series, after round 1 the previous
+            // round's winner poses and may open with ANY tile (free opening).
+            // Round 1 and cut-throat battle rounds keep the forced highest-double
+            // open. Derived locally from state every client already holds — the
+            // seed, RoundNumber and battle flag are all replicated, and the
+            // previous round is still in CurrentState here (overwritten below), so
+            // every client computes the same opener without a networked field.
+            (int openerIndex, bool freeOpening) = ComputeOpening(mode);
+
             MatchState state = Dealer.Deal(
                 DealConfig.CutThroatDoubleSix(count),
                 players,
                 partnership,
-                new SeededRandomSource(seed));
+                new SeededRandomSource(seed),
+                openerIndex,
+                freeOpening);
 
             CurrentState = state;
             _settlementSubmitted = false; // fresh round — allow one settlement submit

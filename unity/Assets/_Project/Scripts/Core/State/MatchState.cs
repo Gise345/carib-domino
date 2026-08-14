@@ -30,6 +30,15 @@ namespace Pose.Core
         public IReadOnlyList<Move> History { get; }
         public bool IsOver { get; }
 
+        /// <summary>
+        /// True when this round's opening is a "free pose": the opener (the
+        /// previous round's winner) may lead with ANY tile, not the forced
+        /// highest double. Round-level constant — carried unchanged through
+        /// <see cref="With"/> and only consulted while the chain is empty. See
+        /// <see cref="StartingPlayerRule"/> and the pose rule (ADR 0015).
+        /// </summary>
+        public bool FreeOpening { get; }
+
         public PlayerId CurrentPlayer => Players[CurrentPlayerIndex];
 
         public MatchState(
@@ -41,7 +50,8 @@ namespace Pose.Core
             int turnNumber,
             int consecutivePassCount,
             IReadOnlyList<Move> history,
-            bool isOver)
+            bool isOver,
+            bool freeOpening = false)
         {
             if (players == null)
             {
@@ -82,6 +92,7 @@ namespace Pose.Core
             ConsecutivePassCount = consecutivePassCount;
             History = history ?? throw new ArgumentNullException(nameof(history));
             IsOver = isOver;
+            FreeOpening = freeOpening;
         }
 
         /// <summary>
@@ -107,7 +118,8 @@ namespace Pose.Core
                 turnNumber ?? TurnNumber,
                 consecutivePassCount ?? ConsecutivePassCount,
                 history ?? History,
-                isOver ?? IsOver);
+                isOver ?? IsOver,
+                FreeOpening);
         }
 
         private static void ValidatePartnershipMatchesPlayers(

@@ -101,6 +101,14 @@ namespace Pose.Game
         private bool _seriesInterstitialShown;
         private Coroutine? _seriesCountdownRoutine;
 
+        // "Who poses" side popup (pose rule): announces the round's opener when a
+        // new series round deals. Auto-dismisses after PoserPopupSeconds; tapping
+        // the close button dismisses it early.
+        private const float PoserPopupSeconds = 10f;
+        private GameObject? _poserPopup;
+        private TextMeshProUGUI? _poserText;
+        private Coroutine? _poserRoutine;
+
         // Bumped per offline "Play again" so each practice round deals a
         // different hand. Derived from SpikeSeed rather than a system RNG so
         // any given round remains reproducible from (SpikeSeed, index).
@@ -384,7 +392,26 @@ namespace Pose.Game
                 _seriesCountdownRoutine = null;
             }
             _endOverlay?.Hide();
+
+            // Pose rule: announce the round's opener. The dealt state's current
+            // player is the poser; FreeOpening marks the previous-winner free pose.
+            AnnouncePoser(state);
             Render();
+        }
+
+        // Shows the "who poses" popup at the start of a series round. Skipped for
+        // non-series play (single rounds / practice keep the forced double-six).
+        private void AnnouncePoser(MatchState state)
+        {
+            if (!_isOnline || _onlineMatchController == null || !_onlineMatchController.IsSeries)
+            {
+                return;
+            }
+            int seat = state.CurrentPlayerIndex;
+            string name = _onlineMatchController.IsBotSeat(seat)
+                ? L10n.Get("player_bot")
+                : state.Players[seat].Value;
+            ShowPoserPopup(name, state.FreeOpening);
         }
 
         private void OnOnlineMoveApplied(MatchState state, Move move)
@@ -1055,6 +1082,7 @@ namespace Pose.Game
             // seat, tile and the chain; never intercepts input.
             CreateVignette();
             CreateScoreboard();
+            CreatePoserPopup();
 
             RectTransform topRegion = CreateRegion(
                 "TopRegion",
@@ -1157,6 +1185,105 @@ namespace Pose.Game
             _scoreboardText.text = string.Empty;
 
             go.SetActive(false); // shown only for an online Cut-Throat series
+        }
+
+        // Builds the "who poses" side popup: a panel anchored to the right edge,
+        // vertically centred, with a message and a close button. Hidden until a
+        // series round announces its opener (see ShowPoserPopup).
+        private void CreatePoserPopup()
+        {
+            GameObject go = new("PoserPopup", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(1f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.anchoredPosition = new Vector2(-16f, 0f);
+            rt.sizeDelta = new Vector2(300f, 132f);
+
+            Image bg = go.AddComponent<Image>();
+            bg.sprite = GradientSprite.Vertical(
+                new Color(0.10f, 0.36f, 0.20f), new Color(0.05f, 0.20f, 0.11f));
+            bg.color = Color.white;
+
+            GameObject textGo = new("Text", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, worldPositionStays: false);
+            RectTransform trt = (RectTransform)textGo.transform;
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(16f, 44f);
+            trt.offsetMax = new Vector2(-16f, -14f);
+            _poserText = textGo.AddComponent<TextMeshProUGUI>();
+            _poserText.alignment = TextAlignmentOptions.Center;
+            _poserText.fontSize = 24f;
+            _poserText.color = new Color(0.98f, 0.96f, 0.9f);
+            _poserText.raycastTarget = false;
+            _poserText.text = string.Empty;
+
+            GameObject btnGo = new("Close", typeof(RectTransform));
+            btnGo.transform.SetParent(go.transform, worldPositionStays: false);
+            RectTransform brt = (RectTransform)btnGo.transform;
+            brt.anchorMin = new Vector2(0.5f, 0f);
+            brt.anchorMax = new Vector2(0.5f, 0f);
+            brt.pivot = new Vector2(0.5f, 0f);
+            brt.anchoredPosition = new Vector2(0f, 12f);
+            brt.sizeDelta = new Vector2(160f, 40f);
+            Image btnBg = btnGo.AddComponent<Image>();
+            btnBg.color = new Color(1f, 1f, 1f, 0.16f);
+            Button btn = btnGo.AddComponent<Button>();
+            btn.onClick.AddListener(HidePoserPopup);
+
+            GameObject btnLabelGo = new("Label", typeof(RectTransform));
+            btnLabelGo.transform.SetParent(btnGo.transform, worldPositionStays: false);
+            RectTransform lrt = (RectTransform)btnLabelGo.transform;
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+            TextMeshProUGUI btnLabel = btnLabelGo.AddComponent<TextMeshProUGUI>();
+            btnLabel.alignment = TextAlignmentOptions.Center;
+            btnLabel.fontSize = 20f;
+            btnLabel.color = new Color(0.98f, 0.96f, 0.9f);
+            btnLabel.text = L10n.Get("btn_close");
+
+            go.SetActive(false);
+            _poserPopup = go;
+        }
+
+        // Announces who opens the round. `free` distinguishes a free pose (the
+        // previous winner may lead any tile) from a forced open (highest double).
+        private void ShowPoserPopup(string poserName, bool free)
+        {
+            if (_poserPopup == null || _poserText == null)
+            {
+                return;
+            }
+            _poserText.text = free
+                ? L10n.Get("poser_announce_free", poserName)
+                : L10n.Get("poser_announce", poserName);
+            _poserPopup.SetActive(true);
+            if (_poserRoutine != null)
+            {
+                StopCoroutine(_poserRoutine);
+            }
+            _poserRoutine = StartCoroutine(PoserPopupRoutine());
+        }
+
+        private IEnumerator PoserPopupRoutine()
+        {
+            yield return new WaitForSeconds(PoserPopupSeconds);
+            _poserRoutine = null;
+            HidePoserPopup();
+        }
+
+        private void HidePoserPopup()
+        {
+            if (_poserRoutine != null)
+            {
+                StopCoroutine(_poserRoutine);
+                _poserRoutine = null;
+            }
+            _poserPopup?.SetActive(false);
         }
 
         /// <summary>

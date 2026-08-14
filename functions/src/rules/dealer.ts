@@ -14,11 +14,20 @@ import { Tile } from './tile';
  * for the same seed + players + config — the property the settlement validator
  * relies on.
  */
+/**
+ * @param openerIndex - seat that must open the round. -1 (default) uses the
+ *   standard rule (highest-double holder leads); a seat >= 0 forces that seat
+ *   to lead, which the pose rule uses to seat the previous round's winner.
+ * @param freeOpening - when true the opener may lead with any tile (a "free
+ *   pose"), not the forced highest double. Ignored when openerIndex is -1.
+ */
 export function deal(
   config: DealConfig,
   players: readonly PlayerId[],
   partnership: Partnership,
   random: SeededRandomSource,
+  openerIndex = -1,
+  freeOpening = false,
 ): MatchState {
   if (players.length < 2) {
     throw new Error('A round requires at least two players.');
@@ -39,10 +48,21 @@ export function deal(
     hands.push(new Hand(shuffled.slice(start, start + config.tilesPerHand)));
   }
 
-  const lead = findLead(players, hands, config.maxPip);
-  const startingIndex = players.indexOf(lead.player);
-  if (startingIndex < 0) {
-    throw new Error(`Starting player ${lead.player} not found in players list.`);
+  // Pose rule: a valid openerIndex forces that seat to lead (the previous
+  // round's winner). Otherwise the standard rule applies — the highest-double
+  // holder leads with that tile.
+  let startingIndex: number;
+  let free: boolean;
+  if (openerIndex >= 0 && openerIndex < players.length) {
+    startingIndex = openerIndex;
+    free = freeOpening;
+  } else {
+    const lead = findLead(players, hands, config.maxPip);
+    startingIndex = players.indexOf(lead.player);
+    if (startingIndex < 0) {
+      throw new Error(`Starting player ${lead.player} not found in players list.`);
+    }
+    free = false;
   }
 
   return new MatchState({
@@ -55,6 +75,7 @@ export function deal(
     consecutivePassCount: 0,
     history: [],
     isOver: false,
+    freeOpening: free,
   });
 }
 

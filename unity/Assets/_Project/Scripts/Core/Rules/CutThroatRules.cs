@@ -49,11 +49,24 @@ namespace Pose.Core
 
             if (state.Chain.IsEmpty)
             {
-                // Opening turn — only the leading tile (highest double, or highest
-                // single tile if no doubles exist anywhere) may be played, by its
-                // holder. The Dealer set CurrentPlayer to that holder; here we
-                // re-derive the tile so the rule engine remains a pure function of
-                // state with no Dealer-private knowledge.
+                // Free pose (pose rule): the opener is the previous round's
+                // winner and may lead with ANY tile. Every tile is a legal
+                // opener on the empty chain (both ends are open); place canonically
+                // on the left. The Dealer set CurrentPlayer to that opener.
+                if (state.FreeOpening)
+                {
+                    foreach (Tile tile in hand)
+                    {
+                        moves.Add(new PlaceMove(player, tile, ChainEnd.Left));
+                    }
+                    return moves;
+                }
+
+                // Forced open (round 1 / battle) — only the leading tile (highest
+                // double, or highest single if no doubles exist anywhere) may be
+                // played, by its holder. The Dealer set CurrentPlayer to that
+                // holder; here we re-derive the tile so the rule engine remains a
+                // pure function of state with no Dealer-private knowledge.
                 StartingPlayerRule.Lead lead = StartingPlayerRule.FindLead(
                     state.Players,
                     state.Hands,

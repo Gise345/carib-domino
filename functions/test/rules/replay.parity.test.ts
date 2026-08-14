@@ -10,6 +10,8 @@ interface ReplayFixture {
   mode: GameMode;
   players: string[];
   moves: ReplayMove[];
+  openerIndex?: number;
+  freeOpening?: boolean;
   expected: {
     reason: string;
     winnerIndex: number;
@@ -57,6 +59,8 @@ describe('replayRound parity with the C# engine', () => {
         mode: fx.mode,
         players: fx.players,
         moves: fx.moves,
+        openerIndex: fx.openerIndex ?? -1,
+        freeOpening: fx.freeOpening ?? false,
       });
 
       expect(outcome.reason).toBe(fx.expected.reason);

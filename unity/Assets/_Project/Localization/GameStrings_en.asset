@@ -156,6 +156,18 @@ MonoBehaviour:
     m_Localized: "KEY! {0} mash up the board   +{1}"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000029
+    m_Localized: "{0} poses this round"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000030
+    m_Localized: "{0} won last round — poses with any tile"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000031
+    m_Localized: Close
+    m_Metadata:
+      m_Items: []
   - m_Id: 50470000000011
     m_Localized: Resigned
     m_Metadata:

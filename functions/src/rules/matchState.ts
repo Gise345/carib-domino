@@ -20,6 +20,14 @@ export interface MatchStateFields {
   readonly consecutivePassCount: number;
   readonly history: readonly Move[];
   readonly isOver: boolean;
+  /**
+   * True when this round's opening is a "free pose": the opener (the previous
+   * round's winner) may lead with any tile, not the forced highest double.
+   * Round-level constant; only consulted while the chain is empty. Optional in
+   * the fields (defaults false) so pre-pose callers stay valid. Port of
+   * `Pose.Core.MatchState.FreeOpening`.
+   */
+  readonly freeOpening?: boolean;
 }
 
 export class MatchState {
@@ -32,6 +40,7 @@ export class MatchState {
   readonly consecutivePassCount: number;
   readonly history: readonly Move[];
   readonly isOver: boolean;
+  readonly freeOpening: boolean;
 
   constructor(fields: MatchStateFields) {
     if (fields.players.length < 2) {
@@ -52,6 +61,7 @@ export class MatchState {
     this.consecutivePassCount = fields.consecutivePassCount;
     this.history = fields.history;
     this.isOver = fields.isOver;
+    this.freeOpening = fields.freeOpening ?? false;
   }
 
   get currentPlayer(): PlayerId {
@@ -99,6 +109,7 @@ export class MatchState {
       consecutivePassCount: patch.consecutivePassCount ?? this.consecutivePassCount,
       history: patch.history ?? this.history,
       isOver: patch.isOver ?? this.isOver,
+      freeOpening: this.freeOpening,
     });
   }
 }

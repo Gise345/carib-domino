@@ -38,6 +38,15 @@ export interface ReplayInput {
   readonly mode: GameMode;
   readonly players: readonly PlayerId[];
   readonly moves: readonly ReplayMove[];
+  /**
+   * Pose rule (ADR 0015). The seat that opened the round: -1 / omitted means the
+   * standard forced open (highest double leads); a seat >= 0 forces that seat.
+   * `freeOpening` lets that opener lead with any tile. These describe the SERIES
+   * context of the round and must be server-derived from the previous round's
+   * winner — never trusted from the client — exactly like `seed` and `mode`.
+   */
+  readonly openerIndex?: number | undefined;
+  readonly freeOpening?: boolean | undefined;
 }
 
 /**
@@ -78,7 +87,14 @@ export function replayRound(input: ReplayInput): MatchOutcome {
   const partnership = partnershipFor(input.mode, input.players);
   const rng = new SeededRandomSource(BigInt(input.seed));
 
-  let state = deal(config, input.players, partnership, rng);
+  let state = deal(
+    config,
+    input.players,
+    partnership,
+    rng,
+    input.openerIndex ?? -1,
+    input.freeOpening ?? false,
+  );
   const rules = ruleEngineFor(input.mode, config.maxPip);
 
   for (const [i, m] of input.moves.entries()) {

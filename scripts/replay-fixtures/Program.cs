@@ -119,6 +119,28 @@ namespace Pose.Tools.ReplayFixtures
             replays.AddRange(FindKeyGames("cutthroat", 4, count: 1));
             replays.AddRange(FindKeyGames("partner", 4, count: 2));
 
+            // FREE-OPENING fixtures (pose rule): rounds where a designated opener
+            // (the previous round's winner) leads with any tile rather than the
+            // forced highest double. Exercises the opener/freeOpening replay path
+            // across every seat and both modes, so C#/TS agree on free poses.
+            foreach (int playerCount in new[] { 2, 3, 4 })
+            {
+                for (int opener = 0; opener < playerCount; opener++)
+                {
+                    ulong seed = unchecked((ulong)(0xC00000000UL + (uint)chooser.Next()) * (ulong)(playerCount * 13 + opener + 1));
+                    replays.Add(PlayGame(
+                        seed, playerCount, chooser, forceResignAfter: -1, "cutthroat",
+                        openerIndex: opener, freeOpening: true).Fixture);
+                }
+            }
+            for (int opener = 0; opener < 4; opener++)
+            {
+                ulong seed = unchecked((ulong)(0xD00000000UL + (uint)chooser.Next()) * (ulong)(opener + 5));
+                replays.Add(PlayGame(
+                    seed, 4, chooser, forceResignAfter: -1, "partner",
+                    openerIndex: opener, freeOpening: true).Fixture);
+            }
+
             return new { replays };
         }
 
@@ -153,7 +175,7 @@ namespace Pose.Tools.ReplayFixtures
 
         private static (object Fixture, bool IsKey) PlayGame(
             ulong seed, int playerCount, Random chooser, int forceResignAfter, string mode,
-            bool keyBias = false)
+            bool keyBias = false, int openerIndex = -1, bool freeOpening = false)
         {
             PlayerId[] players = new PlayerId[playerCount];
             for (int i = 0; i < playerCount; i++)
@@ -168,7 +190,8 @@ namespace Pose.Tools.ReplayFixtures
             IRuleEngine rules = mode == "partner"
                 ? new JamaicanPartnerRules(config.MaxPip)
                 : new CutThroatRules(config.MaxPip);
-            MatchState state = Dealer.Deal(config, players, partnership, new SeededRandomSource(seed));
+            MatchState state = Dealer.Deal(
+                config, players, partnership, new SeededRandomSource(seed), openerIndex, freeOpening);
 
             List<object> moves = new();
             int applied = 0;
@@ -199,6 +222,8 @@ namespace Pose.Tools.ReplayFixtures
                 seed = seed.ToString(CultureInfo.InvariantCulture),
                 mode,
                 players = PlayerValues(players),
+                openerIndex,
+                freeOpening,
                 moves,
                 expected = EncodeOutcome(outcome, players),
             };

@@ -159,6 +159,18 @@ MonoBehaviour:
     m_Key: series_key_award
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000029
+    m_Key: poser_announce
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000030
+    m_Key: poser_announce_free
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000031
+    m_Key: btn_close
+    m_Metadata:
+      m_Items: []
   - m_Id: 50427654561792
     m_Key: "status_signing_in\t"
     m_Metadata:
