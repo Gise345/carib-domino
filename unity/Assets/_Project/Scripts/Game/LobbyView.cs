@@ -516,8 +516,8 @@ namespace Pose.Game
         // ---- Yard (logo + scrollable vertical mode list) ------------------
 
         private static readonly Color Cream = new(0.957f, 0.906f, 0.788f);
-        private const float ModeBlockHeight = 170f;
-        private const float ModeBlockWidth = 600f;
+        private const float ModeBlockHeight = 145f;
+        private const float ModeBlockWidth = 520f;
         // wodden-block.png is 327px tall (transparent margins cropped off); scale
         // its 9-slice borders to the block height so the rivet end-caps render
         // crisp while the middle stretches.
@@ -527,46 +527,26 @@ namespace Pose.Game
         {
             _yardPanel = CreateContentPanel("YardPanel");
 
-            // Logo at the top of the Yard content (sprite applied via SetLogoSprite).
+            // Logo tucked into the bottom-left corner, just above the bottom nav.
             GameObject logo = CreateChild(_yardPanel.transform, "Logo");
             RectTransform lrt = (RectTransform)logo.transform;
-            lrt.anchorMin = lrt.anchorMax = new Vector2(0.5f, 1f);
-            lrt.pivot = new Vector2(0.5f, 1f);
-            lrt.anchoredPosition = new Vector2(0f, -110f); // lifted a little to free room for the tagline
-            lrt.sizeDelta = new Vector2(880f, 320f);       // bigger
+            lrt.anchorMin = lrt.anchorMax = new Vector2(0f, 0f);
+            lrt.pivot = new Vector2(0f, 0f);
+            lrt.anchoredPosition = new Vector2(16f, 16f);
+            lrt.sizeDelta = new Vector2(250f, 120f);
             _logoImage = logo.AddComponent<Image>();
             _logoImage.preserveAspect = true;
             _logoImage.raycastTarget = false;
             _logoImage.sprite = _logoSprite;
             _logoImage.color = _logoSprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
 
-            // Tagline.
-            TextMeshProUGUI tagline = AddFixedLabel(
-                _yardPanel.transform, L10n.Get("lobby_welcome"),
-                new Vector2(0.5f, 1f), new Vector2(0f, -455f), new Vector2(820f, 100f), 52f, Hex("#F2D98A"));
-            _taglineText = tagline;
-            tagline.fontStyle = FontStyles.Bold;
-            tagline.characterSpacing = 2f;
-            // Gold face gradient + dark outline + soft shadow so the cursive title
-            // reads rich, not flat. (The cursive shape comes from SetTitleFont.)
-            tagline.enableVertexGradient = true;
-            tagline.colorGradient = new VertexGradient(
-                Hex("#FFF0B8"), Hex("#FFF0B8"), Hex("#D6A63C"), Hex("#D6A63C"));
-            tagline.outlineWidth = 0.18f;
-            tagline.outlineColor = new Color32(60, 34, 10, 255);
-            AddShadow(tagline.gameObject, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -4f));
-            if (_titleFont != null)
-            {
-                tagline.font = _titleFont;
-            }
-
-            // Scrollable vertical list (below the tagline, down to the panel bottom).
+            // Vertical mode list, centred on the Yard (no logo/tagline above it now).
             GameObject scroll = CreateChild(_yardPanel.transform, "ModeScroll");
             RectTransform srt = (RectTransform)scroll.transform;
-            srt.anchorMin = new Vector2(0f, 0f);
-            srt.anchorMax = new Vector2(1f, 1f);
-            srt.offsetMin = new Vector2(20f, 12f);
-            srt.offsetMax = new Vector2(-20f, -570f); // raised so the bottom block clears the board art
+            srt.anchorMin = srt.anchorMax = new Vector2(0.5f, 0.5f);
+            srt.pivot = new Vector2(0.5f, 0.5f);
+            srt.anchoredPosition = new Vector2(0f, 40f);
+            srt.sizeDelta = new Vector2(ModeBlockWidth + 70f, (ModeBlockHeight * 4f) + 40f);
             ScrollRect sr = scroll.AddComponent<ScrollRect>();
             sr.horizontal = false;
             sr.vertical = true;
