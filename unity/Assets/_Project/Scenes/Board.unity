@@ -271,8 +271,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Pose.Game::Pose.Game.BoardBootstrap
   _networkedMatchPrefab: {fileID: 1889307895991726986, guid: 307c7ee04ff5c54478a03f90a100e9ca, type: 3}
-  _lobbyBackgroundSprite: {fileID: 21300000, guid: d4f83b1c76a05e29c8b3d47e10a9f6b2, type: 3}
+  _lobbyBackgroundSprite: {fileID: 21300000, guid: e2b6c04d9a17f358b4e0d276c1a3f984, type: 3}
   _boardBackgroundSprite: {fileID: 21300000, guid: 047d046b62247c0419415193ab7c73c0, type: 3}
+  _logoSprite: {fileID: 21300000, guid: 72e12dfbcd52435998fbb81675a93355, type: 3}
+  _modeButtonSprite: {fileID: 21300000, guid: 347f4f936fda45ebaa29da13404761b7, type: 3}
   _splashBackgroundSprite: {fileID: 21300000, guid: 8ad8a0c4713a59246a3d93126ab17d4f, type: 3}
 --- !u!1 &1100844632
 GameObject:
