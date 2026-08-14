@@ -1607,6 +1607,14 @@ namespace Pose.Game
                 {
                     _seriesInterstitialShown = true;
                     bool battle = _onlineMatchController.PendingBattle;
+
+                    // A KEY win "mashes up the board": scatter the laid tiles once,
+                    // as the interstitial announces the bonus.
+                    if (_rules.GetOutcome(state)?.IsKey == true)
+                    {
+                        _chainView?.MashUp();
+                    }
+
                     _endOverlay.Show(
                         title: battle ? BattleTitleText() : SeriesRoundAwardText(state),
                         subtitle: string.Empty,

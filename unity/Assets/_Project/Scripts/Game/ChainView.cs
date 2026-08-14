@@ -1,4 +1,5 @@
 #nullable enable
+using System.Collections;
 using System.Collections.Generic;
 using Pose.Core;
 using TMPro;
@@ -227,6 +228,11 @@ namespace Pose.Game
 
         private void ClearTiles()
         {
+            if (_mashRoutine != null)
+            {
+                StopCoroutine(_mashRoutine);
+                _mashRoutine = null;
+            }
             for (int i = _spawnedTiles.Count - 1; i >= 0; i--)
             {
                 if (_spawnedTiles[i] != null)
@@ -235,6 +241,67 @@ namespace Pose.Game
                 }
             }
             _spawnedTiles.Clear();
+        }
+
+        // "Mash up the board" — the celebratory flourish for a KEY win. Flings
+        // the laid chain tiles outward with a quick tumbling burst. Purely
+        // cosmetic and transient: the next deal rebuilds the chain from scratch
+        // (Setup → ClearTiles), so no gameplay state is disturbed. Cosmetic-only
+        // randomness, so the default RNG is fine (per the RNG rule).
+        private Coroutine? _mashRoutine;
+
+        /// <summary>Scatters the currently-laid chain tiles for a KEY celebration.</summary>
+        public void MashUp()
+        {
+            if (!isActiveAndEnabled || _spawnedTiles.Count == 0)
+            {
+                return;
+            }
+            if (_mashRoutine != null)
+            {
+                StopCoroutine(_mashRoutine);
+            }
+            _mashRoutine = StartCoroutine(MashUpRoutine());
+        }
+
+        private IEnumerator MashUpRoutine()
+        {
+            int n = _spawnedTiles.Count;
+            RectTransform[] rts = new RectTransform[n];
+            Vector2[] starts = new Vector2[n];
+            Vector2[] targets = new Vector2[n];
+            float[] spins = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                rts[i] = (RectTransform)_spawnedTiles[i].transform;
+                starts[i] = rts[i].anchoredPosition;
+                // Fling outward from the container centre, plus a random flourish.
+                Vector2 outward = starts[i].sqrMagnitude > 1f ? starts[i].normalized : Vector2.up;
+                float dist = Random.Range(220f, 480f);
+                Vector2 jitter = new(Random.Range(-120f, 120f), Random.Range(-120f, 120f));
+                targets[i] = starts[i] + (outward * dist) + jitter;
+                spins[i] = Random.Range(-360f, 360f);
+            }
+
+            const float duration = 0.9f;
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                float k = Mathf.Clamp01(t / duration);
+                float ease = 1f - ((1f - k) * (1f - k)); // ease-out quad
+                for (int i = 0; i < n; i++)
+                {
+                    if (rts[i] == null)
+                    {
+                        continue;
+                    }
+                    rts[i].anchoredPosition = Vector2.LerpUnclamped(starts[i], targets[i], ease);
+                    rts[i].localRotation = Quaternion.Euler(0f, 0f, spins[i] * ease);
+                }
+                yield return null;
+            }
+            _mashRoutine = null;
         }
     }
 }
