@@ -264,9 +264,8 @@ namespace Pose.Game
         private Sprite? _boardBackgroundSprite;
 
         [SerializeField]
-        [Tooltip("Drag the Pose logo sprite (Pose-logo.png in " +
-                 "Assets/_Project/Art/UI) here — set its Texture Type to " +
-                 "'Sprite (2D and UI)'. Shown above the lobby's mode list.")]
+        [Tooltip("Drag the Pose logo sprite (Pose-logo.png in Assets/images) " +
+                 "here. Shown above the lobby's mode list.")]
         private Sprite? _logoSprite;
 
         [SerializeField]
