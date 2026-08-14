@@ -1172,8 +1172,10 @@ namespace Pose.Game
                 // it sits in the bottom region's vertical stack, so removing it
                 // would let the local hand drop down onto the HUD's Pass button.
                 // Reserve enough height that the hand clears the action bar.
-                CanvasGroup cg = _statusView.gameObject.GetComponent<CanvasGroup>()
-                    ?? _statusView.gameObject.AddComponent<CanvasGroup>();
+                if (!_statusView.TryGetComponent(out CanvasGroup cg))
+                {
+                    cg = _statusView.gameObject.AddComponent<CanvasGroup>();
+                }
                 cg.alpha = 0f;
                 cg.interactable = false;
                 cg.blocksRaycasts = false;
