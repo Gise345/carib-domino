@@ -34,6 +34,20 @@ namespace Pose.Game
         public event Action? HomeClicked;
         public event Action? SettingsClicked;
 
+        /// <summary>
+        /// Height of the bottom action bar (Last Play · Pass · turn tag).
+        /// Public because anything docking above the bar needs to clear it —
+        /// see <see cref="TurnTimerView"/> — and two copies of this number
+        /// would drift the first time the bar is resized.
+        /// </summary>
+        public const float ActionBarHeight = 110f;
+
+        /// <summary>
+        /// Left inset shared by the Last Play block and anything stacked above
+        /// it, so the bottom-left column reads as one edge.
+        /// </summary>
+        public const float ActionBarLeftInset = 24f;
+
         // ---- palette ------------------------------------------------------
         private static readonly Color Panel = new(0.075f, 0.059f, 0.047f, 0.92f);
         private static readonly Color Gold = new(0.961f, 0.769f, 0.318f);
@@ -515,15 +529,15 @@ namespace Pose.Game
             rt.anchorMax = new Vector2(1f, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.offsetMin = new Vector2(0f, 0f);
-            rt.offsetMax = new Vector2(0f, 110f);
+            rt.offsetMax = new Vector2(0f, ActionBarHeight);
 
-            // Last Play (bottom-left).
+            // Last Play (bottom-left). The turn clock docks directly above it.
             GameObject lp = Child(bar.transform, "LastPlay");
             RectTransform lprt = (RectTransform)lp.transform;
             lprt.anchorMin = lprt.anchorMax = new Vector2(0f, 0.5f);
             lprt.pivot = new Vector2(0f, 0.5f);
-            lprt.anchoredPosition = new Vector2(24f, 0f);
-            lprt.sizeDelta = new Vector2(150f, 110f);
+            lprt.anchoredPosition = new Vector2(ActionBarLeftInset, 0f);
+            lprt.sizeDelta = new Vector2(150f, ActionBarHeight);
             VerticalLayoutGroup lpv = lp.AddComponent<VerticalLayoutGroup>();
             lpv.childAlignment = TextAnchor.MiddleLeft; lpv.spacing = 6f;
             AddLabel(lp.transform, L10n.Get("board_last_play"), 15f, Faint, TextAlignmentOptions.Left).GetComponent<LayoutElement>().preferredHeight = 20f;

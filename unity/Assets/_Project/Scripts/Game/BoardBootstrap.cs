@@ -43,8 +43,6 @@ namespace Pose.Game
         // Opponent's seat sits ~60 px below the top edge so it reads as in-game
         // rather than glued to the safe-area boundary.
         private const float TopRegionTopMargin = 60f;
-        // Turn clock hangs below the scoreboard band, clear of the top seat.
-        private const float TurnTimerTopMargin = 300f;
 
         private static readonly PlayerId HumanPlayer = new("alice");
 
@@ -1347,21 +1345,15 @@ namespace Pose.Game
 
         /// <summary>
         /// The turn clock overlay. Built last so it draws above the board-room
-        /// HUD — the countdown has to stay readable over the scoreboard and seat
-        /// plates. It hides itself on Awake and only appears once a live turn is
-        /// being timed.
+        /// HUD — the countdown has to stay readable over the felt and the
+        /// action bar. <see cref="TurnTimerView"/> docks itself bottom-left
+        /// above Last Play, so there is nothing to position here. It hides
+        /// itself on Awake and only appears once a live turn is being timed.
         /// </summary>
         private void CreateTurnTimerView()
         {
             GameObject go = new("TurnTimerView", typeof(RectTransform));
             go.transform.SetParent(transform, worldPositionStays: false);
-            RectTransform rt = (RectTransform)go.transform;
-            // Top-centre, below the scoreboard band.
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -TurnTimerTopMargin);
-
             _turnTimerView = go.AddComponent<TurnTimerView>();
         }
 

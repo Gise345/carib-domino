@@ -7,8 +7,16 @@ namespace Pose.Game
 {
     /// <summary>
     /// The turn clock: a radial countdown ring with the seconds remaining in its
-    /// centre, plus a nudge banner that appears once the current player has
-    /// stalled. Purely a display — it owns no timing logic. The driver
+    /// centre, plus a nudge banner that appears beside it once the current
+    /// player has stalled.
+    ///
+    /// Docks bottom-left, directly above the Last Play block in
+    /// <see cref="BoardRoomHud"/>'s action bar, so "the tile just played" and
+    /// "how long until the next one" sit together in one corner and the middle
+    /// of the board stays clear. It positions itself — the caller only creates
+    /// the object.
+    ///
+    /// Purely a display — it owns no timing logic. The driver
     /// (<see cref="BoardBootstrap"/> offline, <c>OnlineMatchController</c> on the
     /// table authority) ticks a <see cref="Pose.Core.TurnTimer"/> and pushes the
     /// readout here via <see cref="SetProgress"/>.
@@ -23,10 +31,15 @@ namespace Pose.Game
     {
         private const float RingSize = 108f;
         private const float SecondsFontSize = 40f;
-        private const float BannerFontSize = 26f;
-        private const float BannerHeight = 58f;
-        private const float BannerWidth = 620f;
+        private const float BannerFontSize = 24f;
+        private const float BannerHeight = 54f;
+        private const float BannerWidth = 470f;
+
+        // Gap between the ring and the banner sitting beside it.
         private const float BannerGap = 14f;
+
+        // Clearance between the ring and the Last Play block underneath.
+        private const float BottomGap = 16f;
 
         // Below this many seconds the ring switches to the urgent palette and
         // starts pulsing. Matches the point where the nudge has already fired.
@@ -134,11 +147,18 @@ namespace Pose.Game
 
         private void BuildLayout()
         {
+            // Docks in the bottom-left column, directly above the Last Play
+            // block in the action bar — the clock and the last tile played read
+            // as one "what just happened / what happens next" corner, and the
+            // centre of the board stays clear of chrome.
             RectTransform root = (RectTransform)transform;
-            root.anchorMin = new Vector2(0.5f, 1f);
-            root.anchorMax = new Vector2(0.5f, 1f);
-            root.pivot = new Vector2(0.5f, 1f);
-            root.sizeDelta = new Vector2(BannerWidth, RingSize + BannerGap + BannerHeight);
+            root.anchorMin = new Vector2(0f, 0f);
+            root.anchorMax = new Vector2(0f, 0f);
+            root.pivot = new Vector2(0f, 0f);
+            root.anchoredPosition = new Vector2(
+                BoardRoomHud.ActionBarLeftInset,
+                BoardRoomHud.ActionBarHeight + BottomGap);
+            root.sizeDelta = new Vector2(RingSize + BannerGap + BannerWidth, RingSize);
 
             _ringRoot = CreateRing(root);
             (_banner, _bannerLabel) = CreateBanner(root);
@@ -149,10 +169,13 @@ namespace Pose.Game
             GameObject go = new("TurnRing", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             RectTransform rt = (RectTransform)go.transform;
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = Vector2.zero;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            // Centre pivot even though we anchor bottom-left: the urgent pulse
+            // scales this transform, and an off-centre pivot would make it
+            // lurch out of the corner instead of breathing in place.
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(RingSize * 0.5f, RingSize * 0.5f);
             rt.sizeDelta = new Vector2(RingSize, RingSize);
 
             // Track sits behind the fill so the drained portion still reads as
@@ -200,13 +223,17 @@ namespace Pose.Game
 
         private (GameObject banner, TextMeshProUGUI label) CreateBanner(RectTransform parent)
         {
+            // Beside the ring, not beneath it: below is the action bar, and a
+            // banner there would sit on top of Last Play and the Pass button.
             GameObject go = new("NudgeBanner", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             RectTransform rt = (RectTransform)go.transform;
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, -(RingSize + BannerGap));
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.anchoredPosition = new Vector2(
+                RingSize + BannerGap,
+                (RingSize - BannerHeight) * 0.5f);
             rt.sizeDelta = new Vector2(BannerWidth, BannerHeight);
 
             Image bg = go.AddComponent<Image>();
@@ -222,7 +249,7 @@ namespace Pose.Game
             labelRt.offsetMax = new Vector2(-16f, 0f);
 
             TextMeshProUGUI tmp = labelGo.AddComponent<TextMeshProUGUI>();
-            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.alignment = TextAlignmentOptions.MidlineLeft;
             tmp.fontSize = BannerFontSize;
             tmp.fontStyle = FontStyles.Bold;
             tmp.color = BannerTextColor;

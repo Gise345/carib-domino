@@ -1,0 +1,1265 @@
+<title>Pose Turn Clock</title>
+
+<style>
+  /* ------------------------------------------------------------------
+     Pose — Turn Clock design study
+     Tokens are lifted verbatim from docs/DESIGN_SYSTEM.md §2 so this page
+     and the Unity build cannot drift. Single-theme by intent: the game is
+     an outdoor yard table at night (ADR 0014). Every colour is painted
+     explicitly so the page holds on any host ground.
+     ------------------------------------------------------------------ */
+  :root {
+    /* Surfaces */
+    --night:        #14322E;
+    --night-deep:   #0C201D;
+    --ink:          #101F1C;
+    --board-raw:    #C2A178;
+    --board-grain:  #8A6A45;
+    --dust:         #DCC9A8;
+
+    /* Tiles */
+    --bone:         #F2EADA;
+    --bone-worn:    #DCD2BC;
+    --pip:          #1A1614;
+
+    /* Accents & semantics */
+    --lamplight:    #E8D5A8;
+    --cta:          #EE7F5F;
+    --brass:        #CA8A04;
+    --success:      #7BB661;
+    --warning:      #E9A23B;
+    --danger:       #F2705A;
+    --muted:        #A89F8E;
+
+    /* Motion — DOTween vocabulary, §4 */
+    --ui-tap:       180ms;
+    --ui-panel:     260ms;
+    --ease-out-cubic: cubic-bezier(0.33, 1, 0.68, 1);
+    --ease-out-back:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* Type — Baloo 2 / Nunito are the shipping pair. Font CDNs are blocked
+       here, so this stands in with the closest rounded system faces. */
+    --display: ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display",
+               "Nunito", "Trebuchet MS", system-ui, sans-serif;
+    --body:    ui-rounded, "SF Pro Rounded", "Segoe UI Variable Text",
+               "Nunito", system-ui, sans-serif;
+
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--night-deep);
+    color: var(--bone);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ---- Masthead ---------------------------------------------------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 56px 0 32px;
+  }
+  .eyebrow {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  .masthead h1 {
+    font-family: var(--display);
+    font-size: clamp(38px, 6vw, 60px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+    color: var(--bone);
+  }
+  .standfirst {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--muted);
+  }
+  .standfirst strong { color: var(--lamplight); font-weight: 600; }
+
+  /* ---- The stage --------------------------------------------------- */
+
+  .stage {
+    position: relative;
+    isolation: isolate;
+    border-radius: 20px;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 8%,
+        rgba(232, 213, 168, 0.16) 0%,
+        rgba(232, 213, 168, 0.04) 34%,
+        rgba(0, 0, 0, 0) 62%),
+      radial-gradient(100% 100% at 50% 42%, var(--night) 0%, var(--night-deep) 78%);
+    border: 1px solid rgba(232, 213, 168, 0.14);
+    padding: 40px 24px 32px;
+    display: grid;
+    justify-items: center;
+    gap: 26px;
+  }
+  /* Vignette — darkens the corners so the dial is the brightest thing. */
+  .stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    /* Sits above the atmosphere but below the UI — the vignette darkens the
+       scene, never the readout or the tiles. */
+    z-index: 2;
+    background: radial-gradient(75% 65% at 50% 45%,
+      rgba(0, 0, 0, 0) 46%, rgba(4, 14, 12, 0.62) 100%);
+  }
+  #motes {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* String lights strung across the top of the stage. */
+  .lights {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 92px;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+
+  .seat-line {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .seat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 16px 7px 9px;
+    border-radius: 999px;
+    background: rgba(232, 213, 168, 0.09);
+    border: 1px solid rgba(232, 213, 168, 0.2);
+    color: var(--bone);
+  }
+  .seat-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--ink);
+    background: var(--lamplight);
+  }
+
+  /* ---- Dial -------------------------------------------------------- */
+
+  .dial-wrap {
+    position: relative;
+    z-index: 3;
+    width: 340px;
+    height: 340px;
+    display: grid;
+    place-items: center;
+  }
+  /* Shake is applied to a wrapper so it never fights the SVG transforms. */
+  .dial-shake { width: 100%; height: 100%; display: grid; place-items: center; }
+
+  #grain {
+    position: absolute;
+    width: 246px; height: 246px;
+    border-radius: 50%;
+    z-index: 0;
+    opacity: 0.5;
+  }
+  .dial-svg { position: relative; z-index: 1; overflow: visible; }
+
+  .readout {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    pointer-events: none;
+  }
+  .readout .count {
+    font-family: var(--display);
+    font-size: 92px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
+    text-shadow: 0 0 26px rgba(232, 213, 168, 0.4);
+    transition: color var(--ui-tap) linear;
+  }
+  .readout .unit {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---- Banner ------------------------------------------------------ */
+
+  .banner {
+    position: relative;
+    z-index: 3;
+    min-height: 54px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 26px;
+    border-radius: 999px;
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--warning);
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+    transition:
+      opacity var(--ui-panel) var(--ease-out-cubic),
+      transform var(--ui-panel) var(--ease-out-back),
+      background-color var(--ui-tap) linear;
+  }
+  .banner.is-shown { opacity: 1; transform: translateY(0) scale(1); }
+  .banner.is-expired { background: var(--danger); }
+  .buzz {
+    display: inline-grid;
+    place-items: center;
+    width: 26px; height: 26px;
+  }
+  .buzz svg { display: block; }
+  .banner.is-shown .buzz { animation: buzz 620ms var(--ease-out-cubic) 2; }
+  @keyframes buzz {
+    0%, 100% { transform: rotate(0deg); }
+    18% { transform: rotate(-13deg); }
+    38% { transform: rotate(11deg); }
+    58% { transform: rotate(-7deg); }
+    78% { transform: rotate(4deg); }
+  }
+
+  /* ---- Hand -------------------------------------------------------- */
+
+  .hand-block {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+  }
+  .hand-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .hand { display: flex; gap: 12px; }
+
+  .tile {
+    width: 58px;
+    height: 106px;
+    border-radius: 8px;
+    background: linear-gradient(168deg, var(--bone) 0%, var(--bone-worn) 100%);
+    box-shadow:
+      0 5px 0 rgba(0, 0, 0, 0.34),
+      0 12px 22px rgba(0, 0, 0, 0.42);
+    display: grid;
+    grid-template-rows: 1fr 2px 1fr;
+    align-items: center;
+    padding: 7px 0;
+    transition:
+      transform var(--ui-panel) var(--ease-out-back),
+      box-shadow var(--ui-panel) var(--ease-out-cubic);
+  }
+  .tile .divider { background: rgba(26, 22, 20, 0.26); margin: 0 9px; }
+  .tile .face {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    padding: 0 9px;
+    height: 100%;
+  }
+  .tile .pip {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--pip);
+    align-self: center;
+    justify-self: center;
+  }
+  /* The tile auto-play will choose. Marked before expiry so the rule is
+     legible, then lifted when it actually fires. */
+  .tile.is-pick {
+    outline: 2px solid var(--brass);
+    outline-offset: 4px;
+  }
+  .tile.is-played {
+    transform: translateY(-22px) rotate(-4deg) scale(1.06);
+    box-shadow:
+      0 16px 0 rgba(0, 0, 0, 0.3),
+      0 30px 44px rgba(0, 0, 0, 0.55);
+  }
+  .pick-note {
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 20px;
+    text-align: center;
+  }
+  .pick-note b { color: var(--brass); font-weight: 700; }
+
+  /* ---- Controls ---------------------------------------------------- */
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 0 0;
+  }
+  .btn {
+    font-family: var(--body);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--bone);
+    background: rgba(232, 213, 168, 0.1);
+    border: 1px solid rgba(232, 213, 168, 0.24);
+    border-radius: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: background-color var(--ui-tap) var(--ease-out-cubic),
+                border-color var(--ui-tap) var(--ease-out-cubic);
+  }
+  .btn:hover { background: rgba(232, 213, 168, 0.18); }
+  .btn:focus-visible { outline: 2px solid var(--lamplight); outline-offset: 3px; }
+  .btn.is-primary {
+    background: var(--cta);
+    border-color: var(--cta);
+    color: var(--ink);
+  }
+  .btn.is-primary:hover { background: #F29076; border-color: #F29076; }
+  .controls .spacer { flex: 1 1 auto; }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .toggle input { accent-color: var(--cta); width: 17px; height: 17px; cursor: pointer; }
+
+  /* ---- Sections ---------------------------------------------------- */
+
+  section { padding-top: 64px; }
+  h2 {
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    color: var(--bone);
+    text-wrap: balance;
+  }
+  .section-intro {
+    max-width: 62ch;
+    margin: 0 0 30px;
+    color: var(--muted);
+  }
+
+  /* Escalation ladder — four frozen states. */
+  .ladder {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 18px;
+  }
+  .rung {
+    background: rgba(20, 50, 46, 0.6);
+    border: 1px solid rgba(232, 213, 168, 0.13);
+    border-radius: 16px;
+    padding: 22px 20px 24px;
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    text-align: center;
+  }
+  .rung .mini { width: 132px; height: 132px; display: grid; place-items: center; position: relative; }
+  .rung .mini .mini-count {
+    position: absolute;
+    font-family: var(--display);
+    font-size: 34px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--bone);
+  }
+  .rung h3 {
+    font-family: var(--display);
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--bone);
+  }
+  .rung .window {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+  .rung p { margin: 0; font-size: 15px; color: var(--muted); }
+
+  /* Spec table */
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    min-width: 540px;
+  }
+  th, td {
+    text-align: left;
+    padding: 13px 16px;
+    border-bottom: 1px solid rgba(232, 213, 168, 0.12);
+    vertical-align: top;
+  }
+  th {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--brass);
+  }
+  td { color: var(--muted); }
+  td:first-child { color: var(--bone); font-weight: 600; white-space: nowrap; }
+  td code, .swatch code {
+    font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--lamplight);
+  }
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 12px;
+  }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 13px;
+    border-radius: 11px;
+    background: rgba(20, 50, 46, 0.6);
+    border: 1px solid rgba(232, 213, 168, 0.13);
+  }
+  .chip {
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(0, 0, 0, 0.35);
+  }
+  .swatch .meta { display: grid; gap: 1px; line-height: 1.35; }
+  .swatch .name { font-size: 14px; font-weight: 700; color: var(--bone); }
+
+  .note {
+    border-left: 3px solid var(--brass);
+    padding: 4px 0 4px 18px;
+    margin: 26px 0 0;
+    color: var(--muted);
+    max-width: 66ch;
+  }
+  .note strong { color: var(--lamplight); font-weight: 700; }
+
+  footer {
+    padding-top: 60px;
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 66ch;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition-duration: 1ms !important; }
+  }
+
+  @media (max-width: 560px) {
+    .dial-wrap { width: 290px; height: 290px; }
+    .readout .count { font-size: 78px; }
+    .stage { padding: 32px 14px 26px; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Pose · Caribbean Dominoes</span>
+    <h1>The Turn Clock</h1>
+    <p class="standfirst">
+      Thirty seconds a turn. The dial is <strong>carved into the board</strong>, not
+      floating over it — so it escalates the way the table itself does: hairline
+      cracks, then the paint gives, then it breaks and the tile goes down for you.
+    </p>
+  </header>
+
+  <div class="stage">
+    <svg class="lights" viewBox="0 0 1000 92" preserveAspectRatio="none" aria-hidden="true">
+      <path id="wire" d="M -20 6 Q 250 74 500 40 T 1020 12" fill="none"
+            stroke="rgba(232,213,168,0.28)" stroke-width="1.5" />
+      <g id="bulbs"></g>
+    </svg>
+
+    <canvas id="motes" aria-hidden="true"></canvas>
+
+    <p class="seat-line">
+      <span class="seat-chip">
+        <span class="seat-avatar" id="seatInitial">M</span>
+        <span id="seatName">Marlon</span>
+      </span>
+      <span id="seatRole">is on the clock</span>
+    </p>
+
+    <div class="dial-wrap">
+      <div class="dial-shake" id="dialShake">
+        <canvas id="grain" aria-hidden="true"></canvas>
+        <svg class="dial-svg" id="dial" width="340" height="340" viewBox="0 0 340 340"
+             role="img" aria-labelledby="dialTitle">
+          <title id="dialTitle">Turn countdown dial</title>
+          <defs>
+            <radialGradient id="face" cx="50%" cy="38%" r="68%">
+              <stop offset="0%"  stop-color="#3B6B5E" />
+              <stop offset="62%" stop-color="#1D4A42" />
+              <stop offset="100%" stop-color="#12332D" />
+            </radialGradient>
+            <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stop-color="#E8D5A8" />
+              <stop offset="46%"  stop-color="#CA8A04" />
+              <stop offset="100%" stop-color="#6E4B08" />
+            </linearGradient>
+            <filter id="arcGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="7" result="b" />
+              <feMerge>
+                <feMergeNode in="b" /><feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Carved seat: the recess the dial sits in -->
+          <circle cx="170" cy="170" r="132" fill="#0A1C19" opacity="0.85" />
+          <circle cx="170" cy="170" r="126" fill="url(#face)" />
+          <circle cx="170" cy="170" r="126" fill="none"
+                  stroke="rgba(10,26,22,0.85)" stroke-width="3" />
+
+          <!-- Cracks, drawn in as the turn burns down -->
+          <g id="cracks"></g>
+
+          <!-- Tick marks: one per 5 seconds -->
+          <g id="ticks"></g>
+
+          <!-- Track + draining arc -->
+          <circle cx="170" cy="170" r="146" fill="none"
+                  stroke="rgba(10,26,22,0.72)" stroke-width="15" />
+          <circle cx="170" cy="170" r="146" fill="none"
+                  stroke="url(#bezel)" stroke-width="1.5" opacity="0.5" />
+          <circle id="arc" cx="170" cy="170" r="146" fill="none"
+                  stroke="#E8D5A8" stroke-width="11" stroke-linecap="round"
+                  filter="url(#arcGlow)"
+                  transform="rotate(-90 170 170)" />
+        </svg>
+      </div>
+
+      <div class="readout">
+        <span class="count" id="count">30</span>
+        <span class="unit">seconds</span>
+      </div>
+    </div>
+
+    <div class="banner" id="banner">
+      <span class="buzz" id="buzz">
+        <svg width="18" height="26" viewBox="0 0 18 26" aria-hidden="true">
+          <rect x="0.5" y="0.5" width="17" height="25" rx="3.5"
+                fill="none" stroke="currentColor" stroke-width="1.6" />
+          <line x1="6" y1="22" x2="12" y2="22" stroke="currentColor"
+                stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+      </span>
+      <span id="bannerText">Marlon is taking a while…</span>
+    </div>
+
+    <div class="hand-block">
+      <span class="hand-label">Marlon's hand</span>
+      <div class="hand" id="hand"></div>
+      <p class="pick-note" id="pickNote"></p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn is-primary" id="playBtn" type="button">Pause</button>
+    <button class="btn" id="restartBtn" type="button">Restart</button>
+    <button class="btn" id="nudgeBtn" type="button">Jump to nudge</button>
+    <button class="btn" id="brinkBtn" type="button">Jump to the brink</button>
+    <span class="spacer"></span>
+    <label class="toggle">
+      <input type="checkbox" id="mineToggle" />
+      It's my turn
+    </label>
+    <label class="toggle">
+      <input type="checkbox" id="fastToggle" />
+      4× speed
+    </label>
+  </div>
+
+  <section>
+    <h2>The escalation ladder</h2>
+    <p class="section-intro">
+      Four rungs, each distinct at phone scale — the same test ADR 0014 sets for
+      the board breaking. A player glancing up mid-conversation should know which
+      rung they're on without reading the number.
+    </p>
+    <div class="ladder" id="ladder"></div>
+  </section>
+
+  <section>
+    <h2>What each rung is doing</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Rung</th><th>Fires at</th><th>Visual</th><th>What the code does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Calm</td>
+            <td>0–15s</td>
+            <td>Lamplight arc drains clockwise. Board intact.</td>
+            <td>Ring only. No events raised.</td>
+          </tr>
+          <tr>
+            <td>Nudge</td>
+            <td>15s</td>
+            <td>Arc turns amber, first hairline cracks open, banner drops in.</td>
+            <td><code>TurnTimerEvent.Nudged</code> — raised once. The stalling
+                player's phone buzzes via <code>Haptics.Nudge()</code>, which
+                ignores the vibration setting by design.</td>
+          </tr>
+          <tr>
+            <td>Brink</td>
+            <td>last 10s</td>
+            <td>Arc goes danger red, cracks branch and widen to pale raw wood,
+                the whole dial breathes.</td>
+            <td>Presentation only — no new event. Keeps the number readable by
+                pulsing the ring, never the digits.</td>
+          </tr>
+          <tr>
+            <td>Break</td>
+            <td>30s</td>
+            <td>Dial fractures, screen kicks, the chosen tile lifts and slams.</td>
+            <td><code>TurnTimerEvent.Expired</code> — the authority submits
+                <code>AutoPlaySelector.Pick(...)</code>. Never a resign.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">
+      <strong>Why the digits never pulse.</strong> The clock's job in the last
+      ten seconds is to be read, not admired. Motion sits on the ring and the
+      cracks so the numeral stays still and legible — and it keeps UI motion
+      quieter than gameplay motion, which is what <code>DESIGN_SYSTEM.md</code> §4
+      rations spectacle for.
+    </p>
+  </section>
+
+  <section>
+    <h2>Palette</h2>
+    <p class="section-intro">
+      Every value here is already in <code>DESIGN_SYSTEM.md</code> §2 — the clock
+      introduces no new colour. The escalation runs along the existing semantic
+      ramp, and the crack interiors reuse the raw-timber tokens the board
+      destruction work is built on.
+    </p>
+    <div class="swatches" id="swatches"></div>
+  </section>
+
+  <footer>
+    <p style="margin:0 0 14px">
+      <strong style="color:var(--lamplight)">Where it sits.</strong> In the build
+      the clock docks bottom-left, directly above the Last Play tile in the
+      action bar — so the tile just played and the time left on the next one
+      read as one corner, and the middle of the board stays clear. The nudge
+      banner runs to the right of the ring rather than beneath it, where the
+      action bar already lives. Shown here in isolation, at full size.
+    </p>
+    Design study for the turn timer shipped in <code>feat/turn-timer</code>.
+    Timings mirror <code>TurnTimer.NudgeAfterSeconds</code> (15s) and
+    <code>TurnTimer.ExpireAfterSeconds</code> (30s); the highlighted tile is the
+    move <code>AutoPlaySelector</code> actually returns. Type stands in with
+    rounded system faces — the shipping pair is Baloo 2 and Nunito.
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const EXPIRE = 30;
+  const NUDGE  = 15;
+  const BRINK  = 10;
+
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const C = {
+    lamplight: "#E8D5A8",
+    warning:   "#E9A23B",
+    danger:    "#F2705A",
+    bone:      "#F2EADA",
+    boardRaw:  "#C2A178",
+    grain:     "#8A6A45",
+    dust:      "#DCC9A8",
+    brass:     "#CA8A04"
+  };
+
+  /* ---------------- Hand + the auto-play rule ---------------------- */
+
+  // Doubles first (heaviest), else highest pip total, tie on higher single
+  // pip. [6|6] wins here even though [6|5] is close behind on weight.
+  const HAND = [[6, 6], [6, 5], [4, 2], [3, 1]];
+
+  function rank(t) {
+    const isDouble = t[0] === t[1] ? 1 : 0;
+    return [isDouble, t[0] + t[1], Math.max(t[0], t[1])];
+  }
+  function pickIndex(hand) {
+    let best = 0;
+    for (let i = 1; i < hand.length; i++) {
+      const a = rank(hand[i]), b = rank(hand[best]);
+      for (let k = 0; k < 3; k++) {
+        if (a[k] !== b[k]) { if (a[k] > b[k]) best = i; break; }
+      }
+    }
+    return best;
+  }
+  const PICK = pickIndex(HAND);
+
+  // Pip layout on a 3×3 grid, by pip count.
+  const PIPS = {
+    0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+  };
+
+  function buildFace(n) {
+    const face = document.createElement("div");
+    face.className = "face";
+    const on = new Set(PIPS[n]);
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement("span");
+      if (on.has(i)) cell.className = "pip";
+      cell.style.gridArea = `${Math.floor(i / 3) + 1} / ${(i % 3) + 1}`;
+      face.appendChild(cell);
+    }
+    return face;
+  }
+
+  const handEl = document.getElementById("hand");
+  const tileEls = HAND.map(([a, b], i) => {
+    const tile = document.createElement("div");
+    tile.className = "tile" + (i === PICK ? " is-pick" : "");
+    tile.setAttribute("aria-label", `Domino ${a} ${b}`);
+    tile.appendChild(buildFace(a));
+    const div = document.createElement("div");
+    div.className = "divider";
+    tile.appendChild(div);
+    tile.appendChild(buildFace(b));
+    handEl.appendChild(tile);
+    return tile;
+  });
+
+  /* ---------------- String lights ---------------------------------- */
+
+  const wire = document.getElementById("wire");
+  const bulbGroup = document.getElementById("bulbs");
+  const wireLen = wire.getTotalLength();
+  for (let i = 1; i <= 13; i++) {
+    const p = wire.getPointAtLength((wireLen * i) / 14);
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    stem.setAttribute("x1", p.x); stem.setAttribute("y1", p.y);
+    stem.setAttribute("x2", p.x); stem.setAttribute("y2", p.y + 9);
+    stem.setAttribute("stroke", "rgba(232,213,168,0.3)");
+    stem.setAttribute("stroke-width", "1.2");
+    const bulb = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    bulb.setAttribute("cx", p.x); bulb.setAttribute("cy", p.y + 12);
+    bulb.setAttribute("r", 3.4);
+    bulb.setAttribute("fill", C.lamplight);
+    bulb.setAttribute("opacity", 0.55 + (i % 3) * 0.14);
+    if (!reduced) {
+      const anim = document.createElementNS("http://www.w3.org/2000/svg", "animate");
+      anim.setAttribute("attributeName", "opacity");
+      anim.setAttribute("values", "0.5;0.95;0.62;0.88;0.5");
+      anim.setAttribute("dur", `${5 + (i % 4) * 1.7}s`);
+      anim.setAttribute("repeatCount", "indefinite");
+      bulb.appendChild(anim);
+    }
+    g.appendChild(stem); g.appendChild(bulb);
+    bulbGroup.appendChild(g);
+  }
+
+  /* ---------------- Wood grain on the dial face -------------------- */
+
+  (function grain() {
+    const cv = document.getElementById("grain");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const size = 246;
+    cv.width = size * dpr; cv.height = size * dpr;
+    const ctx = cv.getContext("2d");
+    ctx.scale(dpr, dpr);
+    // Plank-aligned grain: long horizontal lines with a slow wave, so the
+    // dial reads as cut into the table rather than printed on it.
+    for (let y = -4; y < size + 4; y += 3) {
+      ctx.beginPath();
+      const amp = 2 + Math.sin(y * 0.31) * 2.4;
+      const drift = Math.sin(y * 0.13) * 6;
+      for (let x = 0; x <= size; x += 6) {
+        const yy = y + drift + Math.sin((x + y) * 0.035) * amp;
+        x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+      }
+      ctx.strokeStyle = `rgba(138,106,69,${0.05 + (Math.sin(y * 0.7) + 1) * 0.05})`;
+      ctx.lineWidth = 0.8 + (y % 11 === 0 ? 0.9 : 0);
+      ctx.stroke();
+    }
+  })();
+
+  /* ---------------- Dust motes ------------------------------------- */
+
+  (function motes() {
+    if (reduced) return;
+    const cv = document.getElementById("motes");
+    const ctx = cv.getContext("2d");
+    let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let parts = [];
+
+    function resize() {
+      const r = cv.getBoundingClientRect();
+      w = r.width; h = r.height;
+      cv.width = w * dpr; cv.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      parts = Array.from({ length: 46 }, () => ({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.6 + Math.random() * 1.5,
+        vy: -(0.06 + Math.random() * 0.16),
+        vx: (Math.random() - 0.5) * 0.1,
+        a: 0.12 + Math.random() * 0.3
+      }));
+    }
+    new ResizeObserver(resize).observe(cv);
+    resize();
+
+    (function frame() {
+      ctx.clearRect(0, 0, w, h);
+      for (const p of parts) {
+        p.y += p.vy; p.x += p.vx;
+        if (p.y < -6) { p.y = h + 6; p.x = Math.random() * w; }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220,201,168,${p.a})`;
+        ctx.fill();
+      }
+      requestAnimationFrame(frame);
+    })();
+  })();
+
+  /* ---------------- Dial geometry ---------------------------------- */
+
+  const NS = "http://www.w3.org/2000/svg";
+  const arc = document.getElementById("arc");
+  const R = 146;
+  const CIRC = 2 * Math.PI * R;
+  arc.style.strokeDasharray = CIRC;
+
+  // Tick per 5 seconds, so the dial reads as a clock face, not a loader.
+  const ticks = document.getElementById("ticks");
+  for (let i = 0; i < 6; i++) {
+    const ang = (i / 6) * Math.PI * 2 - Math.PI / 2;
+    const t = document.createElementNS(NS, "line");
+    t.setAttribute("x1", 170 + Math.cos(ang) * 118);
+    t.setAttribute("y1", 170 + Math.sin(ang) * 118);
+    t.setAttribute("x2", 170 + Math.cos(ang) * 128);
+    t.setAttribute("y2", 170 + Math.sin(ang) * 128);
+    t.setAttribute("stroke", "rgba(232,213,168,0.34)");
+    t.setAttribute("stroke-width", i === 0 ? 3 : 1.6);
+    t.setAttribute("stroke-linecap", "round");
+    ticks.appendChild(t);
+  }
+
+  /**
+   * Builds a crack: a jagged run from near the rim toward the centre with a
+   * branch, drawn as a dark fissure with a pale raw-timber core — the value
+   * break ADR 0014 chose hardwood for.
+   */
+  function crackPath(seedAngle, len, jag) {
+    let x = 170 + Math.cos(seedAngle) * 122;
+    let y = 170 + Math.sin(seedAngle) * 122;
+    let d = `M ${x.toFixed(1)} ${y.toFixed(1)}`;
+    const steps = 7;
+    let ang = seedAngle + Math.PI;
+    for (let i = 0; i < steps; i++) {
+      ang += (Math.sin(seedAngle * 9 + i * 2.3) * jag);
+      const seg = len / steps;
+      x += Math.cos(ang) * seg;
+      y += Math.sin(ang) * seg;
+      d += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  const crackGroup = document.getElementById("cracks");
+  // `from`/`to` are elapsed seconds: the window over which each fissure
+  // draws itself in. Two open at the nudge, two more as the brink starts,
+  // and the long one runs right up to the break.
+  const CRACK_SEEDS = [
+    { a: -0.5, len: 96,  jag: 0.42, from: NUDGE,     to: NUDGE + 4 },
+    { a: 2.35, len: 78,  jag: 0.5,  from: NUDGE + 1, to: NUDGE + 5 },
+    { a: 1.15, len: 108, jag: 0.36, from: 20,        to: 25 },
+    { a: 4.0,  len: 88,  jag: 0.46, from: 21,        to: 26 },
+    { a: 5.35, len: 116, jag: 0.4,  from: 25,        to: EXPIRE }
+  ];
+
+  const cracks = CRACK_SEEDS.map(seed => {
+    const d = crackPath(seed.a, seed.len, seed.jag);
+    const dark = document.createElementNS(NS, "path");
+    dark.setAttribute("d", d);
+    dark.setAttribute("fill", "none");
+    dark.setAttribute("stroke", "#081815");
+    dark.setAttribute("stroke-width", 5);
+    dark.setAttribute("stroke-linecap", "round");
+    const core = document.createElementNS(NS, "path");
+    core.setAttribute("d", d);
+    core.setAttribute("fill", "none");
+    core.setAttribute("stroke", C.boardRaw);
+    core.setAttribute("stroke-width", 1.6);
+    core.setAttribute("stroke-linecap", "round");
+    core.setAttribute("opacity", 0.85);
+    crackGroup.appendChild(dark);
+    crackGroup.appendChild(core);
+
+    const paths = [dark, core];
+    const L = dark.getTotalLength();
+    paths.forEach(p => {
+      p.style.strokeDasharray = L;
+      p.style.strokeDashoffset = L;
+    });
+    return { paths, L, from: seed.from, to: seed.to };
+  });
+
+  /* ---------------- State ------------------------------------------ */
+
+  const el = {
+    count:    document.getElementById("count"),
+    banner:   document.getElementById("banner"),
+    bannerTx: document.getElementById("bannerText"),
+    buzz:     document.getElementById("buzz"),
+    shake:    document.getElementById("dialShake"),
+    seatName: document.getElementById("seatName"),
+    seatInit: document.getElementById("seatInitial"),
+    seatRole: document.getElementById("seatRole"),
+    handLbl:  document.querySelector(".hand-label"),
+    pickNote: document.getElementById("pickNote"),
+    play:     document.getElementById("playBtn"),
+    mine:     document.getElementById("mineToggle"),
+    fast:     document.getElementById("fastToggle")
+  };
+
+  let elapsed = 0;
+  let running = true;
+  let expired = false;
+  let nudged = false;
+  let last = performance.now();
+
+  function isMine() { return el.mine.checked; }
+  function who() { return isMine() ? "You" : "Marlon"; }
+
+  function setBanner(text, expiredState) {
+    el.bannerTx.textContent = text;
+    el.banner.classList.toggle("is-expired", !!expiredState);
+    el.banner.classList.add("is-shown");
+  }
+
+  function reset() {
+    elapsed = 0; expired = false; nudged = false;
+    el.banner.classList.remove("is-shown", "is-expired");
+    el.pickNote.innerHTML = "";
+    tileEls.forEach(t => t.classList.remove("is-played"));
+    tileEls[PICK].classList.add("is-pick");
+    cracks.forEach(c => c.paths.forEach(p => { p.style.strokeDashoffset = c.L; }));
+    el.shake.style.transform = "";
+    running = true;
+    el.play.textContent = "Pause";
+  }
+
+  function onNudge() {
+    nudged = true;
+    setBanner(isMine()
+      ? "Your turn — the table is waiting!"
+      : "Marlon is taking a while…", false);
+  }
+
+  function onExpire() {
+    expired = true;
+    running = false;
+    el.play.textContent = "Replay";
+    setBanner(isMine()
+      ? "Time up — played for you"
+      : "Marlon ran out of time", true);
+    tileEls[PICK].classList.add("is-played");
+    const [a, b] = HAND[PICK];
+    el.pickNote.innerHTML =
+      `Auto-play took <b>[${a}|${b}]</b> — a double outranks every non-double, ` +
+      `heaviest first.`;
+    if (!reduced) {
+      el.shake.animate(
+        [
+          { transform: "translate(0,0)" },
+          { transform: "translate(-9px, 5px) rotate(-1.2deg)" },
+          { transform: "translate(7px, -4px) rotate(0.9deg)" },
+          { transform: "translate(-4px, 2px)" },
+          { transform: "translate(0,0)" }
+        ],
+        { duration: 420, easing: "cubic-bezier(0.33,1,0.68,1)" }
+      );
+    }
+  }
+
+  function paint() {
+    const remaining = Math.max(0, EXPIRE - elapsed);
+    const progress = Math.min(1, elapsed / EXPIRE);
+
+    el.count.textContent = String(Math.ceil(remaining));
+    arc.style.strokeDashoffset = CIRC * progress;
+
+    // Colour ramp along the existing semantic tokens.
+    let stroke = C.lamplight, digits = C.bone;
+    if (remaining <= BRINK) { stroke = C.danger; digits = C.danger; }
+    else if (elapsed >= NUDGE) { stroke = C.warning; }
+    arc.setAttribute("stroke", stroke);
+    el.count.style.color = digits;
+
+    // Each fissure draws itself in across its own window.
+    for (const c of cracks) {
+      const k = Math.max(0, Math.min(1, (elapsed - c.from) / (c.to - c.from)));
+      c.paths.forEach(p => { p.style.strokeDashoffset = c.L * (1 - k); });
+    }
+
+    // Ring breathes on the brink — the numeral never does.
+    if (!reduced && remaining <= BRINK && !expired) {
+      const beat = 1 + Math.sin(elapsed * Math.PI * 2.2) * 0.014;
+      el.shake.style.transform = `scale(${beat.toFixed(4)})`;
+    }
+  }
+
+  function tick(now) {
+    const dt = Math.min((now - last) / 1000, 0.1);
+    last = now;
+    if (running && !expired) {
+      elapsed += dt * (el.fast.checked ? 4 : 1);
+      if (elapsed >= EXPIRE) { elapsed = EXPIRE; paint(); onExpire(); }
+      else {
+        if (!nudged && elapsed >= NUDGE) onNudge();
+        paint();
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------------- Controls --------------------------------------- */
+
+  el.play.addEventListener("click", () => {
+    if (expired) { reset(); paint(); return; }
+    running = !running;
+    el.play.textContent = running ? "Pause" : "Resume";
+  });
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    reset(); paint();
+  });
+  document.getElementById("nudgeBtn").addEventListener("click", () => {
+    reset(); elapsed = NUDGE; onNudge(); paint();
+  });
+  document.getElementById("brinkBtn").addEventListener("click", () => {
+    reset(); elapsed = EXPIRE - 6; nudged = true;
+    setBanner(isMine() ? "Your turn — the table is waiting!"
+                       : "Marlon is taking a while…", false);
+    paint();
+  });
+  el.mine.addEventListener("change", () => {
+    const mine = isMine();
+    el.seatName.textContent = mine ? "You" : "Marlon";
+    el.seatInit.textContent = mine ? "Y" : "M";
+    el.seatRole.textContent = mine ? "are on the clock" : "is on the clock";
+    el.handLbl.textContent = mine ? "Your hand" : "Marlon's hand";
+    if (el.banner.classList.contains("is-shown")) {
+      if (expired) {
+        el.bannerTx.textContent = mine ? "Time up — played for you"
+                                       : "Marlon ran out of time";
+      } else {
+        el.bannerTx.textContent = mine ? "Your turn — the table is waiting!"
+                                       : "Marlon is taking a while…";
+      }
+    }
+  });
+
+  /* ---------------- Escalation ladder ------------------------------ */
+
+  const RUNGS = [
+    { title: "Calm",  window: "30 – 15s", remaining: 24, color: C.lamplight,
+      copy: "Lamplight arc, board intact. Nobody is being told off yet." },
+    { title: "Nudge", window: "at 15s",  remaining: 15, color: C.warning,
+      copy: "Amber, first cracks, banner drops. The phone buzzes once." },
+    { title: "Brink", window: "last 10s", remaining: 7, color: C.danger,
+      copy: "Red, cracks branch to pale raw wood, the dial breathes." },
+    { title: "Break", window: "at 0",     remaining: 0, color: C.danger,
+      copy: "It fractures. The heaviest double goes down for you." }
+  ];
+
+  const ladder = document.getElementById("ladder");
+  for (const r of RUNGS) {
+    const card = document.createElement("div");
+    card.className = "rung";
+
+    const mini = document.createElement("div");
+    mini.className = "mini";
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 132 132");
+    svg.setAttribute("width", "132"); svg.setAttribute("height", "132");
+    svg.setAttribute("aria-hidden", "true");
+
+    const seat = document.createElementNS(NS, "circle");
+    seat.setAttribute("cx", 66); seat.setAttribute("cy", 66);
+    seat.setAttribute("r", 46); seat.setAttribute("fill", "#173C36");
+    svg.appendChild(seat);
+
+    // Same crack language at small size. The paths are authored in the big
+    // dial's 340-unit space, so a group transform maps them down rather than
+    // re-deriving the geometry.
+    const openness = r.remaining === 0 ? 1
+      : r.remaining <= 7 ? 0.7
+      : r.remaining <= 15 ? 0.32 : 0;
+    if (openness > 0) {
+      const scale = 0.388;
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("transform", `translate(66 66) scale(${scale}) translate(-170 -170)`);
+      const shown = r.remaining === 0 ? 5 : r.remaining <= 7 ? 4 : 2;
+      CRACK_SEEDS.slice(0, shown).forEach(s => {
+        const d = crackPath(s.a, s.len, s.jag);
+        const dark = document.createElementNS(NS, "path");
+        dark.setAttribute("d", d);
+        dark.setAttribute("fill", "none");
+        dark.setAttribute("stroke", "#081815");
+        // Divide by the scale so the stroke lands at the intended weight.
+        dark.setAttribute("stroke-width", (3.2 * openness) / scale);
+        dark.setAttribute("stroke-linecap", "round");
+        const core = document.createElementNS(NS, "path");
+        core.setAttribute("d", d);
+        core.setAttribute("fill", "none");
+        core.setAttribute("stroke", C.boardRaw);
+        core.setAttribute("stroke-width", (1.1 * openness) / scale);
+        core.setAttribute("stroke-linecap", "round");
+        core.setAttribute("opacity", 0.85);
+        g.append(dark, core);
+      });
+      svg.appendChild(g);
+    }
+
+    const track = document.createElementNS(NS, "circle");
+    track.setAttribute("cx", 66); track.setAttribute("cy", 66);
+    track.setAttribute("r", 54); track.setAttribute("fill", "none");
+    track.setAttribute("stroke", "rgba(10,26,22,0.72)");
+    track.setAttribute("stroke-width", 7);
+    svg.appendChild(track);
+
+    const ring = document.createElementNS(NS, "circle");
+    const circ = 2 * Math.PI * 54;
+    ring.setAttribute("cx", 66); ring.setAttribute("cy", 66);
+    ring.setAttribute("r", 54); ring.setAttribute("fill", "none");
+    ring.setAttribute("stroke", r.color);
+    ring.setAttribute("stroke-width", 6);
+    ring.setAttribute("stroke-linecap", "round");
+    ring.setAttribute("transform", "rotate(-90 66 66)");
+    ring.style.strokeDasharray = circ;
+    ring.style.strokeDashoffset = circ * (1 - r.remaining / EXPIRE);
+    svg.appendChild(ring);
+    mini.appendChild(svg);
+
+    const num = document.createElement("span");
+    num.className = "mini-count";
+    num.textContent = r.remaining;
+    num.style.color = r.remaining <= 10 ? C.danger : C.bone;
+    mini.appendChild(num);
+
+    const h3 = document.createElement("h3");
+    h3.textContent = r.title;
+    const win = document.createElement("span");
+    win.className = "window";
+    win.textContent = r.window;
+    win.style.color = r.color;
+    const p = document.createElement("p");
+    p.textContent = r.copy;
+
+    card.append(mini, h3, win, p);
+    ladder.appendChild(card);
+  }
+
+  /* ---------------- Swatches --------------------------------------- */
+
+  const SWATCHES = [
+    ["night",      "#14322E", "Stage ground"],
+    ["lamplight",  "#E8D5A8", "Calm arc, key light"],
+    ["warning",    "#E9A23B", "Nudge at 15s"],
+    ["danger",     "#F2705A", "Final 10s"],
+    ["board-raw",  "#C2A178", "Crack interiors"],
+    ["brass",      "#CA8A04", "Bezel, chosen tile"],
+    ["bone",       "#F2EADA", "Numerals, tiles"],
+    ["muted",      "#A89F8E", "Secondary text"]
+  ];
+  const sw = document.getElementById("swatches");
+  for (const [name, hex, use] of SWATCHES) {
+    const row = document.createElement("div");
+    row.className = "swatch";
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.style.background = hex;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.innerHTML =
+      `<span class="name">${name}</span><code>${hex}</code>` +
+      `<span style="font-size:13px">${use}</span>`;
+    row.append(chip, meta);
+    sw.appendChild(row);
+  }
+
+  /* ---------------- Go --------------------------------------------- */
+
+  paint();
+  requestAnimationFrame(t => { last = t; tick(t); });
+})();
+</script>
