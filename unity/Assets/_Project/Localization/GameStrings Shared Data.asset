@@ -239,6 +239,22 @@ MonoBehaviour:
     m_Key: status_your_turn
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000046
+    m_Key: nudge_your_turn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000047
+    m_Key: nudge_waiting_on
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000048
+    m_Key: nudge_auto_played
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000049
+    m_Key: nudge_auto_played_other
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

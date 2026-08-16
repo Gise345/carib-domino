@@ -43,6 +43,8 @@ namespace Pose.Game
         // Opponent's seat sits ~60 px below the top edge so it reads as in-game
         // rather than glued to the safe-area boundary.
         private const float TopRegionTopMargin = 60f;
+        // Turn clock hangs below the scoreboard band, clear of the top seat.
+        private const float TurnTimerTopMargin = 300f;
 
         private static readonly PlayerId HumanPlayer = new("alice");
 
@@ -118,6 +120,19 @@ namespace Pose.Game
         // different hand. Derived from SpikeSeed rather than a system RNG so
         // any given round remains reproducible from (SpikeSeed, index).
         private int _offlineRoundIndex;
+
+        // Turn clock. This instance drives the on-screen countdown in BOTH modes
+        // — practice and online — so every client sees the same pressure. It
+        // also *enforces* the timeout offline, where this client owns the state.
+        // Online, enforcement belongs to the table authority
+        // (OnlineMatchController.TickTurnTimer): a client that is backgrounded
+        // or force-quit stops ticking, and a stalled table must resolve anyway.
+        private readonly TurnTimer _turnTimer = new();
+        private TurnTimerView? _turnTimerView;
+
+        // The seat the clock is currently counting, so a turn change restarts
+        // it. Null when nothing is being timed.
+        private PlayerId? _timedPlayer;
 
         private void Start()
         {
@@ -747,6 +762,166 @@ namespace Pose.Game
             _botRoutine = null;
         }
 
+        // ---- Turn clock ---------------------------------------------------
+
+        private void Update()
+        {
+            TickTurnTimer();
+        }
+
+        /// <summary>
+        /// Advances the on-screen turn clock and reacts to its thresholds.
+        ///
+        /// Runs in both modes. The countdown ring and the nudge are presentation
+        /// and belong on every client; the auto-play is only submitted here when
+        /// we are offline and therefore own the state. Online, the table
+        /// authority submits it — see
+        /// <c>OnlineMatchController.TickTurnTimer</c>. This client's clock can
+        /// drift a little from the authority's, so the ring may hit zero a beat
+        /// before or after the move actually lands; that's cosmetic.
+        /// </summary>
+        private void TickTurnTimer()
+        {
+            if (_turnTimerView == null)
+            {
+                return;
+            }
+
+            if (!ShouldTimeCurrentTurn())
+            {
+                if (_turnTimer.IsRunning)
+                {
+                    _turnTimer.Stop();
+                    _turnTimerView.Hide();
+                }
+                _timedPlayer = null;
+                return;
+            }
+
+            PlayerId current = _state!.CurrentPlayer;
+            if (_timedPlayer == null || _timedPlayer.Value != current)
+            {
+                _timedPlayer = current;
+                _turnTimer.Restart();
+                _turnTimerView.ClearNudge();
+            }
+
+            TurnTimerEvent crossed = _turnTimer.Advance(Time.deltaTime);
+            _turnTimerView.SetProgress(_turnTimer.Progress, _turnTimer.Remaining);
+
+            switch (crossed)
+            {
+                case TurnTimerEvent.Nudged:
+                    OnTurnNudge(current);
+                    break;
+
+                case TurnTimerEvent.Expired:
+                    OnTurnExpired(current);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// True when there is a live turn worth putting a clock on: a dealt,
+        /// unfinished round with the board actually on screen. Between-rounds
+        /// interstitials and the lobby are excluded so the ring doesn't count
+        /// down over a screen the player can't act on.
+        /// </summary>
+        private bool ShouldTimeCurrentTurn()
+        {
+            if (_state == null || _state.IsOver || _matchEnded || _opponentLeft || _abandonedWin)
+            {
+                return false;
+            }
+
+            // The HUD is the match view; if it's hidden we're in the lobby.
+            if (_hud == null || !_hud.gameObject.activeSelf)
+            {
+                return false;
+            }
+
+            // A bot seat plays on its own short cadence and can't be nudged.
+            if (IsBotTurn())
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool IsBotTurn()
+        {
+            if (!_isOnline)
+            {
+                // Offline, every seat but the local hot-seat player is a bot.
+                return _state!.CurrentPlayer != _localPlayer;
+            }
+
+            if (_onlineMatchController == null)
+            {
+                return false;
+            }
+            return _onlineMatchController.IsBotSeat(_state!.CurrentPlayerIndex);
+        }
+
+        /// <summary>
+        /// The player has stalled. Everyone at the table sees who we're waiting
+        /// on; the stalling player's own phone also buzzes.
+        /// </summary>
+        private void OnTurnNudge(PlayerId current)
+        {
+            bool isLocal = current == _localPlayer;
+
+            _turnTimerView!.ShowNudge(
+                isLocal
+                    ? L10n.Get("nudge_your_turn")
+                    : L10n.Get("nudge_waiting_on", SeatDisplayName(current)));
+
+            if (isLocal)
+            {
+                // Deliberately unconditional — see Haptics.Nudge. A player who
+                // could mute this would hold up the whole table silently.
+                Haptics.Nudge();
+            }
+        }
+
+        /// <summary>
+        /// The turn ran out. Offline we own the state, so play the tile now.
+        /// Online the authority does it, and this client just stops counting and
+        /// waits for the move to arrive through the networked log.
+        /// </summary>
+        private void OnTurnExpired(PlayerId current)
+        {
+            _turnTimerView!.ShowNudge(
+                current == _localPlayer
+                    ? L10n.Get("nudge_auto_played")
+                    : L10n.Get("nudge_auto_played_other", SeatDisplayName(current)));
+
+            if (_isOnline)
+            {
+                return;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state!);
+            if (legal.Count == 0)
+            {
+                return;
+            }
+
+            SubmitLocalMove(AutoPlaySelector.Pick(legal));
+        }
+
+        private string SeatDisplayName(PlayerId player)
+        {
+            if (_isOnline
+                && _onlineMatchController != null
+                && _onlineMatchController.IsBotSeat(_state!.CurrentPlayerIndex))
+            {
+                return L10n.Get("player_bot");
+            }
+            return player.Value;
+        }
+
         // ---- Auto-pose for the opening tile ------------------------------
 
         /// <summary>
@@ -1167,6 +1342,27 @@ namespace Pose.Game
                 Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
 
             CreateBoardRoomHud();
+            CreateTurnTimerView();
+        }
+
+        /// <summary>
+        /// The turn clock overlay. Built last so it draws above the board-room
+        /// HUD — the countdown has to stay readable over the scoreboard and seat
+        /// plates. It hides itself on Awake and only appears once a live turn is
+        /// being timed.
+        /// </summary>
+        private void CreateTurnTimerView()
+        {
+            GameObject go = new("TurnTimerView", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)go.transform;
+            // Top-centre, below the scoreboard band.
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -TurnTimerTopMargin);
+
+            _turnTimerView = go.AddComponent<TurnTimerView>();
         }
 
         // Builds the cinematic board-room chrome as a full-screen overlay and

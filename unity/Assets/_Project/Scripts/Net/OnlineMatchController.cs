@@ -302,6 +302,15 @@ namespace Pose.Net
         // instant. Mirrors the offline bot cadence.
         private const float BotMoveDelaySeconds = 1.2f;
 
+        // Turn clock, run on the table authority only. Every client renders its
+        // own countdown (BoardBootstrap.TickTurnTimer), but enforcement has to
+        // sit on one machine that is definitely still running: a player who
+        // backgrounds or force-quits the app stops ticking entirely, and that is
+        // exactly the case the timeout exists to resolve. Same reasoning as
+        // DriveForcedPassIfNeeded and the departure handling above.
+        private readonly TurnTimer _turnTimer = new();
+        private int _timedSeat = -1;
+
         /// <summary>
         /// The server-issued match id for the current round, or empty if the seed
         /// was a local fallback. M4.3's settlement submits the round log under this.
@@ -414,6 +423,9 @@ namespace Pose.Net
                 HandleDepartures();
             }
             _lastSeenPlayerCount = count;
+
+            // Authority-only: play out a seat that has run out of time.
+            TickTurnTimer();
 
             // Safety net: if I'm the only one left in a round that can't settle
             // (the authority was the leaver and nothing migrated), end locally.
@@ -715,6 +727,74 @@ namespace Pose.Net
             {
                 _match.RPC_SubmitMove(NetworkedMove.FromPass((byte)seat));
             }
+        }
+
+        /// <summary>
+        /// Authority-side turn clock: when a human seat sits on its turn past
+        /// <see cref="TurnTimer.ExpireAfterSeconds"/>, submit the auto-play on
+        /// its behalf so the table doesn't stall on an AFK or backgrounded
+        /// player. The chosen move is an ordinary move in the round log, so
+        /// settlement replays and re-validates it like any other (ADR 0007).
+        ///
+        /// Bot seats are skipped — <see cref="BotTurnRoutine"/> already plays
+        /// them on a short cadence. The nudge threshold is ignored here: the
+        /// prod is presentation and each client raises its own.
+        /// </summary>
+        private void TickTurnTimer()
+        {
+            if (!HasMatchAuthority || CurrentState == null || CurrentState.IsOver)
+            {
+                StopTurnTimer();
+                return;
+            }
+
+            int seat = CurrentState.CurrentPlayerIndex;
+            if (_match!.IsBotSeat(seat))
+            {
+                StopTurnTimer();
+                return;
+            }
+
+            if (_timedSeat != seat)
+            {
+                _timedSeat = seat;
+                _turnTimer.Restart();
+            }
+
+            if (_turnTimer.Advance(Time.deltaTime) != TurnTimerEvent.Expired)
+            {
+                return;
+            }
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(CurrentState);
+            if (legal.Count == 0)
+            {
+                return;
+            }
+
+            Move move = AutoPlaySelector.Pick(legal);
+            Debug.Log(
+                $"[OnlineMatchController] Seat {seat} timed out after " +
+                $"{TurnTimer.ExpireAfterSeconds}s — auto-playing {move}.");
+
+            NetworkedMove nm = move switch
+            {
+                PlaceMove pm => NetworkedMove.FromPlace((byte)seat, pm.Tile, pm.End),
+                PassMove _ => NetworkedMove.FromPass((byte)seat),
+                _ => throw new InvalidOperationException(
+                    $"AutoPlaySelector returned an unsubmittable move: {move.GetType().Name}"),
+            };
+            _match.RPC_SubmitMove(nm);
+        }
+
+        private void StopTurnTimer()
+        {
+            if (_timedSeat == -1)
+            {
+                return;
+            }
+            _timedSeat = -1;
+            _turnTimer.Stop();
         }
 
         private IEnumerator BotTurnRoutine(int seat)

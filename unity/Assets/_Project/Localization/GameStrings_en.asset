@@ -246,6 +246,22 @@ MonoBehaviour:
 '
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000046
+    m_Localized: "Your turn — the table is waiting!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000047
+    m_Localized: "Waiting on {0}…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000048
+    m_Localized: "Time up — played for you"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000049
+    m_Localized: "{0} ran out of time"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
