@@ -1,0 +1,797 @@
+<title>Board Layout Pass</title>
+
+<style>
+  /* ------------------------------------------------------------------
+     Pose — board layout & tile pass.
+     Everything is authored in Unity canvas units (reference width 800,
+     match-width, ~2.16 aspect → 800 × 1730) and scaled down for display,
+     so every number on this page ports straight into the C# constants.
+     Tokens from docs/DESIGN_SYSTEM.md §2. Single-theme by intent.
+     ------------------------------------------------------------------ */
+  :root {
+    --night:       #14322E;
+    --night-deep:  #0C201D;
+    --ink:         #101F1C;
+    --felt:        #17403A;
+    --board-raw:   #C2A178;
+    --bone:        #F2EADA;
+    --bone-worn:   #DCD2BC;
+    --pip:         #1A1614;
+    --lamplight:   #E8D5A8;
+    --cta:         #EE7F5F;
+    --brass:       #CA8A04;
+    --success:     #7BB661;
+    --warning:     #E9A23B;
+    --danger:      #F2705A;
+    --muted:       #A89F8E;
+
+    --display: ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display",
+               "Nunito", "Trebuchet MS", system-ui, sans-serif;
+    --body:    ui-rounded, "SF Pro Rounded", "Segoe UI Variable Text",
+               "Nunito", system-ui, sans-serif;
+
+    --scale: 0.40;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--night-deep);
+    color: var(--bone);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1120px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---- Masthead ---------------------------------------------------- */
+
+  .masthead { display: flex; flex-direction: column; gap: 10px; padding: 56px 0 34px; }
+  .eyebrow {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--brass);
+  }
+  .masthead h1 {
+    font-family: var(--display);
+    font-size: clamp(38px, 6vw, 58px);
+    font-weight: 800; line-height: 1.05; letter-spacing: -0.015em;
+    margin: 0; text-wrap: balance; color: var(--bone);
+  }
+  .standfirst { max-width: 64ch; margin: 0; color: var(--muted); }
+  .standfirst strong { color: var(--lamplight); font-weight: 600; }
+
+  section { padding-top: 66px; }
+  h2 {
+    font-family: var(--display); font-size: 30px; font-weight: 800;
+    letter-spacing: -0.01em; margin: 0 0 8px; color: var(--bone);
+    text-wrap: balance;
+  }
+  .section-intro { max-width: 64ch; margin: 0 0 28px; color: var(--muted); }
+  .section-intro code, p code, li code, td code {
+    font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 0.88em; color: var(--lamplight);
+  }
+
+  /* ---- Board comparison -------------------------------------------- */
+
+  .boards {
+    display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start;
+  }
+  .board-col { display: grid; gap: 14px; justify-items: start; }
+  .board-head { display: flex; align-items: baseline; gap: 12px; }
+  .board-head h3 {
+    font-family: var(--display); font-size: 21px; font-weight: 800;
+    margin: 0; color: var(--bone);
+  }
+  .verdict {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
+  }
+  .verdict.bad  { color: var(--danger);  background: rgba(242,112,90,0.15); }
+  .verdict.good { color: var(--success); background: rgba(123,182,97,0.15); }
+
+  .viewport {
+    width: calc(800px * var(--scale));
+    height: calc(1730px * var(--scale));
+    overflow: hidden;
+    border-radius: 18px;
+    border: 1px solid rgba(232,213,168,0.18);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+  }
+  .canvas {
+    position: relative;
+    width: 800px; height: 1730px;
+    transform: scale(var(--scale));
+    transform-origin: top left;
+    background:
+      radial-gradient(120% 70% at 50% 30%, #1B4A42 0%, var(--felt) 45%, #0F2C27 100%);
+  }
+  .canvas > * { position: absolute; }
+
+  /* Board furniture */
+  .topbar {
+    left: 0; right: 0; top: 0; height: 104px;
+    background: rgba(12,26,22,0.92);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px;
+  }
+  .coinpill {
+    width: 260px; height: 64px; border-radius: 32px;
+    background: #150F0A; border: 1px solid rgba(202,138,4,0.5);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    font-family: var(--display); font-weight: 800; font-size: 34px;
+    color: var(--bone);
+  }
+  .coinpill i {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--brass); display: block;
+  }
+  .iconbtn {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: rgba(232,213,168,0.12); border: 1px solid rgba(232,213,168,0.22);
+  }
+
+  .scorepanel {
+    background: rgba(12,26,22,0.94);
+    border: 1px solid rgba(232,213,168,0.16);
+    border-radius: 14px;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .scorepanel .crown {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+    font-family: var(--display); font-size: 30px; font-weight: 800;
+    color: var(--brass);
+  }
+  .scorepanel .crown span:last-child { color: var(--muted); font-size: 30px; }
+
+  .actionbar {
+    left: 0; right: 0; bottom: 0; height: 110px;
+    background: rgba(12,26,22,0.92);
+    display: flex; align-items: center;
+  }
+  .lastplay { position: absolute; left: 24px; display: grid; gap: 6px; }
+  .lastplay em {
+    font-style: normal; font-size: 15px; color: rgba(232,213,168,0.5);
+  }
+  .passbtn {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    width: 240px; height: 64px; border-radius: 16px;
+    background: var(--cta); color: var(--ink);
+    font-family: var(--display); font-weight: 800; font-size: 26px;
+    display: grid; place-items: center;
+  }
+
+  .clock {
+    width: 108px; height: 108px; border-radius: 50%;
+    background: rgba(10,26,22,0.85);
+    border: 6px solid var(--lamplight);
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800; font-size: 40px;
+    color: var(--bone);
+  }
+
+  /* Seat avatar */
+  .seat { display: grid; justify-items: center; gap: 5px; }
+  .seat .disc {
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800;
+    color: var(--ink);
+    box-shadow: 0 0 0 4px rgba(232,213,168,0.35);
+  }
+  .seat .nm {
+    font-size: 20px; font-weight: 700; color: var(--bone);
+    white-space: nowrap;
+  }
+
+  /* Chain area marker */
+  .chain {
+    border: 2px dashed rgba(232,213,168,0.22);
+    border-radius: 12px;
+    display: grid; place-items: center;
+    font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(232,213,168,0.35);
+  }
+
+  /* Overlap marker */
+  .clash {
+    background: repeating-linear-gradient(45deg,
+      rgba(242,112,90,0.42) 0 10px, rgba(242,112,90,0.14) 10px 20px);
+    border: 2px solid var(--danger);
+    border-radius: 6px;
+    z-index: 30;
+    display: grid; place-items: center;
+  }
+  .clash b {
+    font-size: 19px; font-weight: 800; color: #fff;
+    background: var(--danger); padding: 3px 9px; border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  /* ---- Domino tile ------------------------------------------------- */
+
+  .dom {
+    background: #FFFFFF;
+    display: flex; flex-direction: column;
+    align-items: stretch;
+    position: relative;
+    flex: 0 0 auto;
+  }
+  /* "Thick" reads as a solid white body with a hard edge, no gradient and
+     no drop shadow — the tile is a flat object, not a lit 3D one. */
+  .dom.flat {
+    border-radius: 9%/4.5%;
+    border: none;
+    box-shadow:
+      inset 0 0 0 3px rgba(26,22,20,0.10),
+      0 0 0 2px rgba(26,22,20,0.55);
+  }
+  .dom.old {
+    background: #F7F2E0;
+    border-radius: 4px;
+    box-shadow: 3px -3px 0 rgba(0,0,0,0.45);
+  }
+  .dom .half {
+    flex: 1 1 50%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 9%;
+  }
+  .dom .rule { flex: 0 0 auto; background: var(--pip); }
+  .dom.flat .rule { opacity: 0.88; }
+  .dom.old .rule { background: #66503A; }
+  .dom .pip { border-radius: 50%; background: var(--pip); align-self: center; justify-self: center; }
+  .dom.back {
+    background: linear-gradient(150deg, #2C6F63 0%, #1B4D45 100%);
+    box-shadow: inset 0 0 0 3px rgba(232,213,168,0.18), 0 0 0 2px rgba(10,26,22,0.7);
+  }
+  .dom.back .half, .dom.back .rule { display: none; }
+  .dom.is-lift { transform: translateY(-14px); }
+
+  .hand { display: flex; align-items: flex-end; }
+  .hand.vert { flex-direction: column; align-items: center; }
+
+  /* ---- Tile study -------------------------------------------------- */
+
+  .tile-study {
+    display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-end;
+    padding: 30px 28px;
+    background: radial-gradient(90% 120% at 30% 0%, #1B4A42 0%, var(--felt) 60%, #0F2C27 100%);
+    border: 1px solid rgba(232,213,168,0.16);
+    border-radius: 18px;
+  }
+  .tile-spec { display: grid; justify-items: center; gap: 12px; }
+  .tile-spec .cap {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); text-align: center;
+  }
+  .tile-spec .cap b { display: block; color: var(--bone); font-size: 16px; letter-spacing: 0; }
+
+  /* ---- Scoreboard study -------------------------------------------- */
+
+  .score-study { display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start; }
+  .score-demo { display: grid; gap: 12px; justify-items: start; }
+  .score-demo .cap { font-size: 14px; font-weight: 700; color: var(--muted); }
+  .score-frame {
+    width: 360px;
+    background: rgba(12,26,22,0.94);
+    border: 1px solid rgba(232,213,168,0.16);
+    border-radius: 14px;
+    position: relative;
+  }
+  .score-frame .crown {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--display); font-size: 30px; font-weight: 800;
+    color: var(--brass); padding: 0 16px;
+  }
+  .score-frame .crown span:last-child { color: var(--muted); }
+  .pad-marker {
+    position: absolute; left: 0; right: 0;
+    background: repeating-linear-gradient(45deg,
+      rgba(242,112,90,0.4) 0 8px, rgba(242,112,90,0.12) 8px 16px);
+  }
+  .pad-tag {
+    position: absolute; right: 8px;
+    font-size: 12px; font-weight: 800; color: #fff;
+    background: var(--danger); padding: 1px 7px; border-radius: 5px;
+  }
+
+  /* ---- Tables & notes ---------------------------------------------- */
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 620px; }
+  th, td {
+    text-align: left; padding: 13px 16px;
+    border-bottom: 1px solid rgba(232,213,168,0.12); vertical-align: top;
+  }
+  th {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--brass);
+  }
+  td { color: var(--muted); }
+  td:first-child { color: var(--bone); font-weight: 600; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .was { color: var(--danger); text-decoration: line-through; opacity: 0.75; }
+  .now { color: var(--success); font-weight: 700; }
+
+  .note {
+    border-left: 3px solid var(--brass);
+    padding: 4px 0 4px 18px; margin: 28px 0 0;
+    color: var(--muted); max-width: 68ch;
+  }
+  .note strong { color: var(--lamplight); font-weight: 700; }
+  .note.warn { border-left-color: var(--danger); }
+  .note.warn strong { color: var(--danger); }
+
+  footer { padding-top: 60px; color: var(--muted); font-size: 14px; max-width: 68ch; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition-duration: 1ms !important; }
+  }
+  @media (max-width: 900px) { :root { --scale: 0.34; } }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Pose · Caribbean Dominoes</span>
+    <h1>Board Layout Pass</h1>
+    <p class="standfirst">
+      Four fixes in one sweep: <strong>flat, thick, white tiles</strong> at a much
+      larger size, the top and bottom hands dropped away from their edges, the
+      floating profiles moved off the tiles they were covering, and the collapsed
+      scoreboard tightened. Everything is drawn in real canvas units, so the
+      numbers below port straight across.
+    </p>
+  </header>
+
+  <section style="padding-top:40px">
+    <h2>The board, before and after</h2>
+    <p class="section-intro">
+      Both boards are the live <code>800 × 1730</code> canvas at 40%. The hatched
+      red blocks are measured overlaps, not sketches — the top profile covers its
+      hand by its full <code>140 × 180</code>, and each side profile sits entirely
+      inside its hand column.
+    </p>
+    <div class="boards" id="boards"></div>
+  </section>
+
+  <section>
+    <h2>The tile</h2>
+    <p class="section-intro">
+      The current tile is a small cream rectangle with a hard <code>3, -3</code>
+      drop shadow faking depth. The new one is flat: a true white body, a hard
+      dark edge instead of a shadow, a heavier centre rule and pips grown from
+      18% to 22% of the tile's short side. Shown at true relative scale.
+    </p>
+    <div class="tile-study" id="tileStudy"></div>
+    <p class="note">
+      <strong>Why the shadow goes.</strong> A drop shadow offset down-right implies
+      a light source, and the board already has one — the string lights overhead.
+      Two conflicting light directions is what was making the tiles read as
+      stickers on the felt. A flat body with a hard edge reads as a solid object
+      at any angle, and it holds up far better at the new size.
+    </p>
+  </section>
+
+  <section>
+    <h2>Collapsed scoreboard</h2>
+    <p class="section-intro">
+      Collapsed, the panel should be a title bar and nothing else. Right now the
+      body's padding is still being counted, so roughly 46 units of dead space sit
+      above and below the word.
+    </p>
+    <div class="score-study" id="scoreStudy"></div>
+  </section>
+
+  <section>
+    <h2>Every number that changes</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>What</th><th>Where</th><th>Was</th><th>Becomes</th><th>Why</th></tr>
+        </thead>
+        <tbody id="specRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The one real conflict</h2>
+    <p class="note warn">
+      <strong>Your hand and the turn clock want the same corner.</strong>
+      Seven tiles at the new 84-unit width need 624 units. The clock occupies
+      x&nbsp;24–132 in that bottom strip, which leaves exactly 626 to its right —
+      so the hand fits, but only by docking at x&nbsp;150 instead of centring.
+      That is what the board above shows. The alternative is centring the hand and
+      shrinking the clock into the action bar beside Last Play, which frees the
+      full width but undoes the placement you just signed off. I went with keeping
+      your clock. Say the word if you'd rather have the hand centred.
+    </p>
+  </section>
+
+  <footer>
+    Canvas is <code>800 × 1730</code> — reference width 800, match-width, at a
+    2.16 aspect. Tile pips, seat discs and the chain region are indicative; the
+    fixes here are position and size only. Type stands in with rounded system
+    faces — the shipping pair is Baloo 2 and Nunito.
+  </footer>
+
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const W = 800, H = 1730;
+
+  /* ---------------- tile drawing ------------------------------------ */
+
+  // Pip positions on a 3×3 grid, by count.
+  const PIPS = {
+    0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8],
+    4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]
+  };
+
+  /**
+   * A domino. `w`/`h` are canvas units; `variant` is "flat" (new), "old"
+   * (current cream + drop shadow) or "back" (opponent's hidden tile).
+   */
+  function domino(a, b, w, h, variant) {
+    const portrait = h >= w;
+    const el = document.createElement("div");
+    el.className = `dom ${variant}`;
+    el.style.width = w + "px";
+    el.style.height = h + "px";
+    if (!portrait) el.style.flexDirection = "row";
+
+    const short = Math.min(w, h);
+    const pipSize = short * (variant === "old" ? 0.18 : 0.22);
+    const rule = Math.max(2, short * (variant === "old" ? 0.04 : 0.07));
+
+    if (variant !== "back") {
+      el.appendChild(half(a, pipSize));
+      const r = document.createElement("div");
+      r.className = "rule";
+      if (portrait) { r.style.height = rule + "px"; r.style.margin = `0 ${short * 0.1}px`; }
+      else { r.style.width = rule + "px"; r.style.margin = `${short * 0.1}px 0`; }
+      el.appendChild(r);
+      el.appendChild(half(b, pipSize));
+    }
+    return el;
+  }
+
+  function half(n, pipSize) {
+    const d = document.createElement("div");
+    d.className = "half";
+    const on = new Set(PIPS[n]);
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement("span");
+      c.style.gridArea = `${Math.floor(i / 3) + 1} / ${(i % 3) + 1}`;
+      if (on.has(i)) {
+        c.className = "pip";
+        c.style.width = pipSize + "px";
+        c.style.height = pipSize + "px";
+      }
+      d.appendChild(c);
+    }
+    return d;
+  }
+
+  /* ---------------- board configs ----------------------------------- */
+
+  const SEATS = [
+    { key: "top",   name: "Marlon", initial: "M", tint: "#F6A87C" },
+    { key: "left",  name: "Junior", initial: "J", tint: "#7BB661" },
+    { key: "right", name: "Dionne", initial: "D", tint: "#89B4FF" }
+  ];
+
+  const NOW = {
+    id: "now",
+    topBar: 104,
+    score: { x: 24, y: 120, w: 360, h: 96, padded: true },
+    // Hand bands, in canvas units, y measured from the TOP of the canvas.
+    topHand:   { y: 60,  h: 180, tile: [60, 120] },
+    // Side column spans y 286–1534 from the bottom and centres its stack,
+    // which lands the tiles at y 592–1048 from the top.
+    sideHand:  { yTop: 592, tile: [120, 60] },
+    bottomHand:{ bottom: 200, tile: [60, 120], x: null },   // centred
+    sideBand: 150,
+    seats: {
+      top:   { cx: 400, cy: 150, size: 110 },
+      left:  { cx: 78,  cy: H * 0.48, size: 110 },
+      right: { cx: 722, cy: H * 0.48, size: 110 }
+    },
+    clock: { x: 24, bottom: 126, size: 108 },
+    actionBar: 110,
+    variant: "old"
+  };
+
+  const NEXT = {
+    id: "next",
+    topBar: 104,
+    score: { x: 24, y: 116, w: 300, h: 52, padded: false },
+    topHand:   { y: 268, h: 136, tile: [60, 120] },
+    sideHand:  { yTop: 620, tile: [120, 60] },
+    bottomHand:{ bottom: 124, tile: [84, 168], x: 150 },
+    sideBand: 150,
+    seats: {
+      top:   { cx: 400, cy: 168, size: 96 },
+      left:  { cx: 72,  cy: 486, size: 84 },
+      right: { cx: 728, cy: 486, size: 84 }
+    },
+    clock: { x: 24, bottom: 126, size: 108 },
+    actionBar: 110,
+    variant: "flat"
+  };
+
+  /* ---------------- board renderer ---------------------------------- */
+
+  function px(el, o) { for (const k in o) el.style[k] = o[k] + "px"; return el; }
+  function div(cls, parent) {
+    const d = document.createElement("div");
+    if (cls) d.className = cls;
+    if (parent) parent.appendChild(d);
+    return d;
+  }
+
+  function buildBoard(cfg) {
+    const c = div("canvas");
+
+    // Top bar
+    const bar = div("topbar", c);
+    div("iconbtn", bar);
+    const pill = div("coinpill", bar);
+    pill.appendChild(document.createElement("i"));
+    pill.appendChild(document.createTextNode("10,000"));
+    div("iconbtn", bar);
+
+    // Scoreboard (collapsed)
+    const sp = div("scorepanel", c);
+    px(sp, { left: cfg.score.x, top: cfg.score.y, width: cfg.score.w, height: cfg.score.h });
+    const crown = div("crown", sp);
+    px(crown, { height: 44 });
+    const t = document.createElement("span"); t.textContent = "Scoreboard"; crown.appendChild(t);
+    const ch = document.createElement("span"); ch.textContent = "+"; crown.appendChild(ch);
+
+    // Chain region
+    const chainTop = cfg.topHand.y + cfg.topHand.h + 24;
+    const chainBot = cfg.bottomHand.bottom + cfg.bottomHand.tile[1] + 24;
+    const chain = div("chain", c);
+    px(chain, {
+      left: cfg.sideBand + 16,
+      width: W - 2 * (cfg.sideBand + 16),
+      top: chainTop,
+      height: H - chainTop - chainBot
+    });
+    chain.textContent = "chain";
+
+    // ---- hands ----
+    const rects = {};
+
+    // Top hand (opponent backs)
+    const th = div("hand", c);
+    px(th, { top: cfg.topHand.y + (cfg.topHand.h - cfg.topHand.tile[1]) / 2, height: cfg.topHand.tile[1] });
+    th.style.left = "0"; th.style.width = W + "px";
+    th.style.justifyContent = "center";
+    th.style.gap = "6px";
+    for (let i = 0; i < 7; i++) {
+      th.appendChild(domino(0, 0, cfg.topHand.tile[0], cfg.topHand.tile[1], "back"));
+    }
+    const thW = 7 * cfg.topHand.tile[0] + 6 * 6;
+    rects.topHand = {
+      x: (W - thW) / 2, y: parseFloat(th.style.top),
+      w: thW, h: cfg.topHand.tile[1], label: "top hand"
+    };
+
+    // Side hands (vertical, landscape tiles)
+    for (const side of ["left", "right"]) {
+      const sh = div("hand vert", c);
+      const tileH = cfg.sideHand.tile[1];
+      const count = 7;
+      const stack = count * tileH + (count - 1) * 6;
+      const top = cfg.sideHand.yTop;
+      px(sh, { top: top, height: stack, width: cfg.sideHand.tile[0] });
+      sh.style[side] = ((cfg.sideBand - cfg.sideHand.tile[0]) / 2) + "px";
+      sh.style.gap = "6px";
+      for (let i = 0; i < count; i++) {
+        sh.appendChild(domino(0, 0, cfg.sideHand.tile[0], tileH, "back"));
+      }
+      rects[side + "Hand"] = {
+        x: side === "left" ? (cfg.sideBand - cfg.sideHand.tile[0]) / 2
+                           : W - cfg.sideBand + (cfg.sideBand - cfg.sideHand.tile[0]) / 2,
+        y: top, w: cfg.sideHand.tile[0], h: stack, label: side + " hand"
+      };
+    }
+
+    // Bottom hand — the local player's, face up.
+    const [bw, bh] = cfg.bottomHand.tile;
+    const bhand = div("hand", c);
+    const span = 7 * bw + 6 * 6;
+    const bx = cfg.bottomHand.x !== null ? cfg.bottomHand.x : (W - span) / 2;
+    px(bhand, { left: bx, width: span, height: bh, top: H - cfg.bottomHand.bottom - bh });
+    bhand.style.gap = "6px";
+    const FACES = [[6, 6], [6, 5], [5, 2], [4, 4], [3, 1], [2, 0], [6, 3]];
+    FACES.forEach(([a, b], i) => {
+      const d = domino(a, b, bw, bh, cfg.variant);
+      if (i === 0) d.classList.add("is-lift");
+      bhand.appendChild(d);
+    });
+
+    // ---- seat avatars ----
+    for (const s of SEATS) {
+      const cf = cfg.seats[s.key];
+      const seat = div("seat", c);
+      const totalH = cf.size + 26;
+      px(seat, { left: cf.cx - (cf.size + 30) / 2, top: cf.cy - totalH / 2, width: cf.size + 30 });
+      const disc = div("disc", seat);
+      px(disc, { width: cf.size, height: cf.size });
+      disc.style.background = s.tint;
+      disc.style.fontSize = (cf.size * 0.42) + "px";
+      disc.textContent = s.initial;
+      const nm = div("nm", seat);
+      nm.textContent = s.name;
+      rects[s.key + "Seat"] = {
+        x: cf.cx - (cf.size + 30) / 2, y: cf.cy - totalH / 2,
+        w: cf.size + 30, h: totalH, label: s.key + " profile"
+      };
+    }
+
+    // ---- action bar + clock ----
+    const ab = div("actionbar", c);
+    px(ab, { height: cfg.actionBar });
+    const lp = div("lastplay", ab);
+    const em = document.createElement("em"); em.textContent = "Last play"; lp.appendChild(em);
+    lp.appendChild(domino(6, 4, 92, 46, cfg.variant));
+    const pb = div("passbtn", ab);
+    pb.textContent = "Pass";
+
+    const clock = div("clock", c);
+    px(clock, {
+      left: cfg.clock.x,
+      top: H - cfg.clock.bottom - cfg.clock.size,
+      width: cfg.clock.size,
+      height: cfg.clock.size
+    });
+    clock.textContent = "18";
+
+    // ---- overlap detection ----
+    const pairs = [
+      ["topSeat", "topHand"], ["leftSeat", "leftHand"], ["rightSeat", "rightHand"]
+    ];
+    let clashes = 0;
+    for (const [a, b] of pairs) {
+      const A = rects[a], B = rects[b];
+      if (!A || !B) continue;
+      const x = Math.max(A.x, B.x), y = Math.max(A.y, B.y);
+      const x2 = Math.min(A.x + A.w, B.x + B.w), y2 = Math.min(A.y + A.h, B.y + B.h);
+      if (x2 > x && y2 > y) {
+        clashes++;
+        const m = div("clash", c);
+        px(m, { left: x, top: y, width: x2 - x, height: y2 - y });
+        const tag = document.createElement("b");
+        tag.textContent = `${Math.round(x2 - x)} × ${Math.round(y2 - y)}`;
+        m.appendChild(tag);
+      }
+    }
+    return { canvas: c, clashes };
+  }
+
+  /* ---------------- mount boards ------------------------------------ */
+
+  const boardsEl = document.getElementById("boards");
+  for (const cfg of [NOW, NEXT]) {
+    const col = div("board-col", boardsEl);
+    const head = div("board-head", col);
+    const h3 = document.createElement("h3");
+    h3.textContent = cfg.id === "now" ? "Now" : "Proposed";
+    head.appendChild(h3);
+
+    const built = buildBoard(cfg);
+    const v = document.createElement("span");
+    v.className = "verdict " + (built.clashes ? "bad" : "good");
+    v.textContent = built.clashes
+      ? `${built.clashes} profiles on the tiles`
+      : "nothing overlaps";
+    head.appendChild(v);
+
+    const vp = div("viewport", col);
+    vp.appendChild(built.canvas);
+  }
+
+  /* ---------------- tile study -------------------------------------- */
+
+  const study = document.getElementById("tileStudy");
+  const SPECS = [
+    { a: 6, b: 5, w: 60, h: 120, v: "old",  cap: "Current", sub: "60 × 120 · cream · drop shadow" },
+    { a: 6, b: 5, w: 84, h: 168, v: "flat", cap: "Proposed", sub: "84 × 168 · true white · flat edge" },
+    { a: 6, b: 6, w: 84, h: 168, v: "flat", cap: "Double six", sub: "the auto-play pick" },
+    { a: 0, b: 0, w: 60, h: 120, v: "back", cap: "Opponent", sub: "60 × 120 · unchanged" }
+  ];
+  for (const s of SPECS) {
+    const wrap = div("tile-spec", study);
+    wrap.appendChild(domino(s.a, s.b, s.w, s.h, s.v));
+    const cap = div("cap", wrap);
+    cap.innerHTML = `<b>${s.cap}</b>${s.sub}`;
+  }
+
+  /* ---------------- scoreboard study -------------------------------- */
+
+  const scoreStudy = document.getElementById("scoreStudy");
+  const SCORES = [
+    { cap: "Now — 96 units tall", pad: 26, total: 96 },
+    { cap: "Proposed — 52 units tall", pad: 0, total: 52 }
+  ];
+  for (const s of SCORES) {
+    const demo = div("score-demo", scoreStudy);
+    const cap = div("cap", demo);
+    cap.textContent = s.cap;
+    const frame = div("score-frame", demo);
+    frame.style.height = s.total + "px";
+    if (s.pad) {
+      const top = div("pad-marker", frame);
+      px(top, { top: 0, height: s.pad });
+      const tag = div("pad-tag", frame);
+      px(tag, { top: 4 });
+      tag.textContent = s.pad + " dead";
+      const bot = div("pad-marker", frame);
+      bot.style.bottom = "0"; bot.style.height = s.pad + "px";
+    }
+    const crown = div("crown", frame);
+    px(crown, { height: 44 });
+    crown.style.marginTop = s.pad + "px";
+    const t = document.createElement("span"); t.textContent = "Scoreboard"; crown.appendChild(t);
+    const c2 = document.createElement("span"); c2.textContent = "+"; crown.appendChild(c2);
+  }
+
+  /* ---------------- spec table -------------------------------------- */
+
+  const ROWS = [
+    ["Local tile size", "TileView.ShortDim / LongDim", "60 × 120", "84 × 168",
+     "Your own hand is the thing you aim at. Opponent hands stay 60 × 120 — they're backs, so there is nothing to read."],
+    ["Tile fill", "TileView.BodyColor", "0.97, 0.95, 0.88", "1, 1, 1",
+     "True white, not cream, so the tile stays the lightest thing on screen at the larger size."],
+    ["Tile shadow", "TileView.BuildVisuals", "Shadow (3, −3)", "removed",
+     "Replaced with a hard 2-unit dark edge. Kills the second light direction."],
+    ["Pip size", "TileView.DotSizeRatio", "0.18", "0.22", "Grows with the tile so pips stay countable at a glance."],
+    ["Divider", "TileView.DividerThickness", "3", "6", "Reads as a moulded centre rule rather than a hairline."],
+    ["Top hand", "BoardBootstrap.TopRegionTopMargin", "60", "268",
+     "Drops the top hand clear of the top profile it was sitting under."],
+    ["Bottom band", "BoardBootstrap.TopBottomBandHeight", "180", "196", "Fits the taller local tile."],
+    ["Bottom hand", "bottom offset", "≈200", "124", "Sits just above the action bar, in thumb reach."],
+    ["Bottom hand x", "hand alignment", "centred", "left-docked 150", "Clears the turn clock. See the conflict note above."],
+    ["Top profile", "BoardRoomHud BuildSeat(Top)", "(0, −150) @110", "(0, −168) @96",
+     "Sits between the top bar and the hand instead of on top of it."],
+    ["Side profiles", "BoardRoomHud BuildSeat(Left/Right)", "0.48 height @110", "y 486 @84",
+     "Docked at the top of each side column, above the tile stack."],
+    ["Collapsed panel", "BoardRoomHud scoreboard", "≈96 tall", "52 tall",
+     "Body padding must not count while the body is hidden."]
+  ];
+  const tbody = document.getElementById("specRows");
+  for (const [what, where, was, now, why] of ROWS) {
+    const tr = document.createElement("tr");
+    const cells = [
+      what,
+      `<code>${where}</code>`,
+      `<span class="was">${was}</span>`,
+      `<span class="now">${now}</span>`,
+      why
+    ];
+    cells.forEach((html, i) => {
+      const td = document.createElement("td");
+      if (i === 2 || i === 3) td.className = "num";
+      td.innerHTML = html;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+})();
+</script>
