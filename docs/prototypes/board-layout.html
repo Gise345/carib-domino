@@ -224,15 +224,23 @@
     position: relative;
     flex: 0 0 auto;
   }
-  /* "Thick" reads as a solid white body with a hard edge, no gradient and
-     no drop shadow — the tile is a flat object, not a lit 3D one. */
+  /* A thick white slab seen face-on. Three layers, all pointing straight
+     down so they agree with the string lights overhead:
+       1. a hard dark keyline, so the tile has an edge on pale felt
+       2. a solid band under the body — the tile's own side, its thickness
+       3. a soft cast shadow on the table beneath it
+     No offset to the left or right, so no second light source. */
   .dom.flat {
     border-radius: 9%/4.5%;
     border: none;
     box-shadow:
-      inset 0 0 0 3px rgba(26,22,20,0.10),
-      0 0 0 2px rgba(26,22,20,0.55);
+      inset 0 0 0 3px rgba(26,22,20,0.08),
+      0 0 0 2px rgba(26,22,20,0.5),
+      0 7px 0 #C9C1B1,
+      0 14px 18px rgba(0,0,0,0.5);
   }
+  /* Current: cream, and a hard shadow thrown up and to the right — against
+     the overhead lights, which is what makes it read as a sticker. */
   .dom.old {
     background: #F7F2E0;
     border-radius: 4px;
@@ -258,6 +266,33 @@
 
   .hand { display: flex; align-items: flex-end; }
   .hand.vert { flex-direction: column; align-items: center; }
+  /* Fanned hand: each tile laps the one before it, so seven big tiles fit
+     the width left between the turn clock and the bottom-right corner. */
+  .hand.fan .dom { position: relative; }
+
+  /* Bottom-right corner: local profile + chat. Fixed furniture — nothing in
+     this pass may move it, so both boards draw it identically. */
+  .corner {
+    display: grid; justify-items: center; align-content: end; gap: 12px;
+  }
+  .corner .chatbtn {
+    width: 84px; height: 84px; border-radius: 26px;
+    background: rgba(232,213,168,0.12);
+    border: 1px solid rgba(202,138,4,0.55);
+    display: grid; place-items: center;
+    font-size: 38px; color: var(--brass);
+  }
+  .pinned {
+    outline: 2px dashed rgba(123,182,97,0.75);
+    outline-offset: 6px;
+    border-radius: 10px;
+  }
+  .pin-tag {
+    position: absolute;
+    font-size: 17px; font-weight: 800; color: var(--ink);
+    background: var(--success); padding: 2px 8px; border-radius: 6px;
+    white-space: nowrap; z-index: 31;
+  }
 
   /* ---- Tile study -------------------------------------------------- */
 
@@ -345,10 +380,12 @@
     <span class="eyebrow">Pose · Caribbean Dominoes</span>
     <h1>Board Layout Pass</h1>
     <p class="standfirst">
-      Four fixes in one sweep: <strong>flat, thick, white tiles</strong> at a much
-      larger size, the top and bottom hands dropped away from their edges, the
-      floating profiles moved off the tiles they were covering, and the collapsed
-      scoreboard tightened. Everything is drawn in real canvas units, so the
+      <strong>Thick white tiles</strong> at a much larger size with the shadow
+      pointing where the light actually is, the <strong>top profile moved beside
+      its hand instead of above it</strong> so the board gains back the whole
+      band it was occupying, the side profiles moved off the tiles they were
+      covering, and the collapsed scoreboard tightened. The bottom-right profile
+      and chat do not move. Everything is drawn in real canvas units, so the
       numbers below port straight across.
     </p>
   </header>
@@ -359,7 +396,14 @@
       Both boards are the live <code>800 × 1730</code> canvas at 40%. The hatched
       red blocks are measured overlaps, not sketches — the top profile covers its
       hand by its full <code>140 × 180</code>, and each side profile sits entirely
-      inside its hand column.
+      inside its hand column. The green-dashed corner is the local profile and
+      chat: identical in both boards, and included in the overlap check so a
+      wider hand can't quietly grow into it.
+    </p>
+    <p class="section-intro">
+      Moving the top profile to the right of its hand is what buys the space.
+      Stacked, the profile and hand needed two bands; side by side they need one,
+      and the chain area gains <strong>66 units</strong> of height.
     </p>
     <div class="boards" id="boards"></div>
   </section>
@@ -367,18 +411,21 @@
   <section>
     <h2>The tile</h2>
     <p class="section-intro">
-      The current tile is a small cream rectangle with a hard <code>3, -3</code>
-      drop shadow faking depth. The new one is flat: a true white body, a hard
-      dark edge instead of a shadow, a heavier centre rule and pips grown from
-      18% to 22% of the tile's short side. Shown at true relative scale.
+      True white instead of cream, bigger, with a heavier centre rule and pips
+      grown from 18% to 22% of the short side. The depth comes back as three
+      stacked layers, all pointing straight down: a hard dark keyline so the tile
+      has an edge against the felt, a solid pale band beneath the body — that is
+      the tile's own side, its thickness — and a soft cast shadow on the table
+      under it. Shown at true relative scale.
     </p>
     <div class="tile-study" id="tileStudy"></div>
     <p class="note">
-      <strong>Why the shadow goes.</strong> A drop shadow offset down-right implies
-      a light source, and the board already has one — the string lights overhead.
-      Two conflicting light directions is what was making the tiles read as
-      stickers on the felt. A flat body with a hard edge reads as a solid object
-      at any angle, and it holds up far better at the new size.
+      <strong>The shadow direction is the whole trick.</strong> The current tile
+      throws its shadow up and to the right, which puts the light source below
+      and to the left — while the board is lit by string lights overhead. Two
+      disagreeing light directions is what made the tiles read as stickers on the
+      felt. Keep the depth, point it down, and the same tile reads as a thick
+      slab sitting on the table.
     </p>
   </section>
 
@@ -405,16 +452,39 @@
   </section>
 
   <section>
-    <h2>The one real conflict</h2>
+    <h2>Why your hand is fanned</h2>
+    <p class="section-intro">
+      This one isn't a style choice — the arithmetic forces it. The bottom strip
+      is bounded by the turn clock on the left (ends at x&nbsp;132) and the
+      profile-and-chat corner on the right (starts at x&nbsp;658). That leaves
+      <strong>508 units</strong> for seven tiles.
+    </p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Tile width</th><th>Seven side by side</th><th>Fits 508?</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>60 — today</td><td class="num">456</td><td class="now">yes</td></tr>
+          <tr><td>66</td><td class="num">498</td><td class="now">yes, just</td></tr>
+          <tr><td>72</td><td class="num">540</td><td class="was">no</td></tr>
+          <tr><td>84 — proposed</td><td class="num">624</td><td class="was">no</td></tr>
+          <tr>
+            <td>84, fanned</td>
+            <td class="num">504 <span style="color:var(--muted)">(step 70)</span></td>
+            <td class="now">yes</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <p class="note warn">
-      <strong>Your hand and the turn clock want the same corner.</strong>
-      Seven tiles at the new 84-unit width need 624 units. The clock occupies
-      x&nbsp;24–132 in that bottom strip, which leaves exactly 626 to its right —
-      so the hand fits, but only by docking at x&nbsp;150 instead of centring.
-      That is what the board above shows. The alternative is centring the hand and
-      shrinking the clock into the action bar beside Last Play, which frees the
-      full width but undoes the placement you just signed off. I went with keeping
-      your clock. Say the word if you'd rather have the hand centred.
+      <strong>Side by side, "much bigger" tops out at 66 units</strong> — six more
+      than today, which is not the change you asked for. Fanning them at 84 with a
+      14-unit lap gets the full size back and costs 16% of each tile's right edge,
+      clipping the outer pip column by about 3 units. The selected tile lifts
+      clear anyway, and holding dominoes overlapped is how a hand actually looks.
+      The alternative is moving the clock or the corner, and you've asked for both
+      to stay.
     </p>
   </section>
 
@@ -499,11 +569,11 @@
     topBar: 104,
     score: { x: 24, y: 120, w: 360, h: 96, padded: true },
     // Hand bands, in canvas units, y measured from the TOP of the canvas.
-    topHand:   { y: 60,  h: 180, tile: [60, 120] },
+    topHand:   { y: 60,  h: 180, tile: [60, 120], cx: 400 },
     // Side column spans y 286–1534 from the bottom and centres its stack,
     // which lands the tiles at y 592–1048 from the top.
     sideHand:  { yTop: 592, tile: [120, 60] },
-    bottomHand:{ bottom: 200, tile: [60, 120], x: null },   // centred
+    bottomHand:{ bottom: 200, tile: [60, 120], x: null, step: null },  // centred
     sideBand: 150,
     seats: {
       top:   { cx: 400, cy: 150, size: 110 },
@@ -519,12 +589,17 @@
     id: "next",
     topBar: 104,
     score: { x: 24, y: 116, w: 300, h: 52, padded: false },
-    topHand:   { y: 268, h: 136, tile: [60, 120] },
+    // Top profile moves out of the way sideways, so the hand and the profile
+    // share one band instead of stacking — that is where the board space
+    // comes from. The hand shifts left to make room for it.
+    topHand:   { y: 202, h: 136, tile: [60, 120], cx: 320 },
     sideHand:  { yTop: 620, tile: [120, 60] },
-    bottomHand:{ bottom: 124, tile: [84, 168], x: 150 },
+    // Fanned: 84-wide tiles stepping 70, so seven span 504 and clear both
+    // the turn clock (ends x 132) and the corner (starts x 658).
+    bottomHand:{ bottom: 124, tile: [84, 168], x: 150, step: 70 },
     sideBand: 150,
     seats: {
-      top:   { cx: 400, cy: 168, size: 96 },
+      top:   { cx: 690, cy: 270, size: 96 },
       left:  { cx: 72,  cy: 486, size: 84 },
       right: { cx: 728, cy: 486, size: 84 }
     },
@@ -578,19 +653,16 @@
     const rects = {};
 
     // Top hand (opponent backs)
+    const thW = 7 * cfg.topHand.tile[0] + 6 * 6;
+    const thX = cfg.topHand.cx - thW / 2;
+    const thY = cfg.topHand.y + (cfg.topHand.h - cfg.topHand.tile[1]) / 2;
     const th = div("hand", c);
-    px(th, { top: cfg.topHand.y + (cfg.topHand.h - cfg.topHand.tile[1]) / 2, height: cfg.topHand.tile[1] });
-    th.style.left = "0"; th.style.width = W + "px";
-    th.style.justifyContent = "center";
+    px(th, { top: thY, left: thX, width: thW, height: cfg.topHand.tile[1] });
     th.style.gap = "6px";
     for (let i = 0; i < 7; i++) {
       th.appendChild(domino(0, 0, cfg.topHand.tile[0], cfg.topHand.tile[1], "back"));
     }
-    const thW = 7 * cfg.topHand.tile[0] + 6 * 6;
-    rects.topHand = {
-      x: (W - thW) / 2, y: parseFloat(th.style.top),
-      w: thW, h: cfg.topHand.tile[1], label: "top hand"
-    };
+    rects.topHand = { x: thX, y: thY, w: thW, h: cfg.topHand.tile[1], label: "top hand" };
 
     // Side hands (vertical, landscape tiles)
     for (const side of ["left", "right"]) {
@@ -612,19 +684,23 @@
       };
     }
 
-    // Bottom hand — the local player's, face up.
+    // Bottom hand — the local player's, face up. A `step` smaller than the
+    // tile width fans them; otherwise they sit side by side with a 6 gap.
     const [bw, bh] = cfg.bottomHand.tile;
-    const bhand = div("hand", c);
-    const span = 7 * bw + 6 * 6;
+    const step = cfg.bottomHand.step !== null ? cfg.bottomHand.step : bw + 6;
+    const span = bw + 6 * step;
     const bx = cfg.bottomHand.x !== null ? cfg.bottomHand.x : (W - span) / 2;
+    const bhand = div("hand" + (cfg.bottomHand.step !== null ? " fan" : ""), c);
     px(bhand, { left: bx, width: span, height: bh, top: H - cfg.bottomHand.bottom - bh });
-    bhand.style.gap = "6px";
     const FACES = [[6, 6], [6, 5], [5, 2], [4, 4], [3, 1], [2, 0], [6, 3]];
     FACES.forEach(([a, b], i) => {
       const d = domino(a, b, bw, bh, cfg.variant);
+      if (i > 0) d.style.marginLeft = (step - bw) + "px";
+      d.style.zIndex = String(10 + i);
       if (i === 0) d.classList.add("is-lift");
       bhand.appendChild(d);
     });
+    rects.bottomHand = { x: bx, y: H - cfg.bottomHand.bottom - bh, w: span, h: bh, label: "your hand" };
 
     // ---- seat avatars ----
     for (const s of SEATS) {
@@ -663,9 +739,37 @@
     });
     clock.textContent = "18";
 
+    // ---- bottom-right corner: local profile + chat ----
+    // Identical in both boards. Anchor (1,0), pivot (1,0), pos (-22, 26),
+    // size 120 × 260 — fixed furniture, nothing in this pass moves it.
+    const CORNER = { w: 120, h: 260, right: 22, bottom: 26 };
+    const cx0 = W - CORNER.right - CORNER.w;
+    const cy0 = H - CORNER.bottom - CORNER.h;
+    const corner = div("corner pinned", c);
+    px(corner, { left: cx0, top: cy0, width: CORNER.w, height: CORNER.h });
+    const me = div("seat", corner);
+    const meDisc = div("disc", me);
+    px(meDisc, { width: 84, height: 84 });
+    meDisc.style.background = "var(--lamplight)";
+    meDisc.style.fontSize = "35px";
+    meDisc.textContent = "Y";
+    const meNm = div("nm", me);
+    meNm.textContent = "You";
+    const chatBtn = div("chatbtn", corner);
+    chatBtn.textContent = "●●";
+
+    const pin = div("pin-tag", c);
+    px(pin, { left: cx0 - 96, top: cy0 - 4 });
+    pin.textContent = "unchanged";
+
+    rects.corner = { x: cx0, y: cy0, w: CORNER.w, h: CORNER.h, label: "profile + chat" };
+
     // ---- overlap detection ----
     const pairs = [
-      ["topSeat", "topHand"], ["leftSeat", "leftHand"], ["rightSeat", "rightHand"]
+      ["topSeat", "topHand"], ["leftSeat", "leftHand"], ["rightSeat", "rightHand"],
+      // Guards the promise that the corner stays put: if a wider hand ever
+      // reaches it, the clash block appears instead of quietly covering it.
+      ["corner", "bottomHand"]
     ];
     let clashes = 0;
     for (const [a, b] of pairs) {
@@ -711,8 +815,8 @@
 
   const study = document.getElementById("tileStudy");
   const SPECS = [
-    { a: 6, b: 5, w: 60, h: 120, v: "old",  cap: "Current", sub: "60 × 120 · cream · drop shadow" },
-    { a: 6, b: 5, w: 84, h: 168, v: "flat", cap: "Proposed", sub: "84 × 168 · true white · flat edge" },
+    { a: 6, b: 5, w: 60, h: 120, v: "old",  cap: "Current", sub: "60 × 120 · cream · shadow up-right" },
+    { a: 6, b: 5, w: 84, h: 168, v: "flat", cap: "Proposed", sub: "84 × 168 · white · edge, side, cast shadow" },
     { a: 6, b: 6, w: 84, h: 168, v: "flat", cap: "Double six", sub: "the auto-play pick" },
     { a: 0, b: 0, w: 60, h: 120, v: "back", cap: "Opponent", sub: "60 × 120 · unchanged" }
   ];
@@ -759,21 +863,25 @@
      "Your own hand is the thing you aim at. Opponent hands stay 60 × 120 — they're backs, so there is nothing to read."],
     ["Tile fill", "TileView.BodyColor", "0.97, 0.95, 0.88", "1, 1, 1",
      "True white, not cream, so the tile stays the lightest thing on screen at the larger size."],
-    ["Tile shadow", "TileView.BuildVisuals", "Shadow (3, −3)", "removed",
-     "Replaced with a hard 2-unit dark edge. Kills the second light direction."],
+    ["Tile shadow", "TileView.BuildVisuals", "Shadow (3, −3)", "Shadow (0, −7) + cast",
+     "Points down, with the string lights, instead of up-right against them. Plus a pale side band for thickness and a soft cast shadow."],
     ["Pip size", "TileView.DotSizeRatio", "0.18", "0.22", "Grows with the tile so pips stay countable at a glance."],
     ["Divider", "TileView.DividerThickness", "3", "6", "Reads as a moulded centre rule rather than a hairline."],
-    ["Top hand", "BoardBootstrap.TopRegionTopMargin", "60", "268",
-     "Drops the top hand clear of the top profile it was sitting under."],
+    ["Top hand", "BoardBootstrap.TopRegionTopMargin", "60", "202",
+     "Clear of the top bar, and no longer under a profile — because the profile moved sideways."],
+    ["Top hand centre", "top region alignment", "centred (400)", "320",
+     "Shifts left to share its band with the profile now beside it."],
     ["Bottom band", "BoardBootstrap.TopBottomBandHeight", "180", "196", "Fits the taller local tile."],
     ["Bottom hand", "bottom offset", "≈200", "124", "Sits just above the action bar, in thumb reach."],
-    ["Bottom hand x", "hand alignment", "centred", "left-docked 150", "Clears the turn clock. See the conflict note above."],
-    ["Top profile", "BoardRoomHud BuildSeat(Top)", "(0, −150) @110", "(0, −168) @96",
-     "Sits between the top bar and the hand instead of on top of it."],
+    ["Bottom hand x", "hand alignment", "centred", "x 150, step 70", "Fans between the clock and the corner. See the table above."],
+    ["Top profile", "BoardRoomHud BuildSeat(Top)", "(0, −150) @110", "(690, 270) @96",
+     "Moves to the right of its hand instead of above it. This is what returns 66 units to the board."],
     ["Side profiles", "BoardRoomHud BuildSeat(Left/Right)", "0.48 height @110", "y 486 @84",
      "Docked at the top of each side column, above the tile stack."],
     ["Collapsed panel", "BoardRoomHud scoreboard", "≈96 tall", "52 tall",
-     "Body padding must not count while the body is hidden."]
+     "Body padding must not count while the body is hidden."],
+    ["Profile + chat", "BoardRoomHud BuildCorner", "(−22, 26) 120 × 260", "unchanged",
+     "Stays exactly where it is. It bounds the hand's width, so it's in the overlap check."]
   ];
   const tbody = document.getElementById("specRows");
   for (const [what, where, was, now, why] of ROWS) {
