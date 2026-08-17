@@ -128,6 +128,37 @@ reach the function; unauthenticated calls are rejected in code.)
 
 ---
 
+## Part C — Meta app-install ads (launch growth)
+
+Decided: use **Create & manage app ads with Meta Ads Manager** for user acquisition
+at launch. It runs alongside Facebook Login on the **same** FB app (add both use
+cases) — it is *not* an alternative to login.
+
+Why it fits (unlike Instant Games): app-install ads are a marketing layer over a
+**native** app; no rebuild. The **same Facebook SDK** we import for login also logs
+**App Events** (`AppEventsLogger`), which is what Meta Ads optimises against.
+
+Setup / build tasks (mostly at launch; the SDK wiring rides along with Part A):
+1. In the FB app, add the **app-ads** use case and link/create a **Meta Business
+   portfolio** + ad account.
+2. **App Events (I'll wire these when the SDK lands):** log the acquisition funnel —
+   install (automatic), tutorial/first-match complete, and **purchase** (IAP `fb_mobile_purchase`) — so campaigns can optimise for engaged players / purchasers,
+   not just raw installs.
+3. **iOS:** add the **App Tracking Transparency** prompt + **SKAdNetwork** config
+   (Meta SDK supports it). Android needs neither.
+4. **Privacy (required to run ads):** a **privacy policy URL** and a **data-deletion
+   callback** — host both on the marketing site.
+5. Create the install campaign in **Ads Manager** when you're ready to acquire users.
+
+> **Instant Games — deliberately skipped.** Instant Games are HTML5 games that run
+> *inside* Facebook/Messenger in a mobile webview. Pose is native Unity + Photon +
+> Firebase; it would need a full HTML5/WebGL rebuild (Photon + Firebase don't run in
+> that sandbox), and Meta has deprioritised its gaming platform. The social virality
+> we want comes from **Facebook Login** (friends, challenges, invites) on the existing
+> native stack. Revisit only as a separate "Pose lite" product, never as an add-on.
+
+---
+
 ## Quick status of what's already built (so you know what's waiting)
 - **Server:** wallet, series roster, entry/pot economy, leaderboard, profile
   aggregate, capped invite reward — all deployable now (ADR 0016, 0017).
