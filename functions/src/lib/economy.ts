@@ -18,6 +18,12 @@ export const ENTRY_STAKE = 1_000;
 /** Minted bonus added to the winner's payout per key scored in the series. */
 export const KEY_BONUS = 2_000;
 
+/** Coins minted for each Facebook friend invite the player sends (M7). */
+export const INVITE_REWARD = 250;
+
+/** Max rewarded invites per player per day — caps farming (M7). */
+export const INVITE_DAILY_CAP = 3;
+
 /**
  * The pot for a table: every seated player stakes {@link ENTRY_STAKE}.
  * @param playerCount - seats staking into this match (2..4)

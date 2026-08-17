@@ -22,6 +22,14 @@ export { getWallet } from './wallet/getWallet';
 export { openSeries } from './economy/openSeries';
 export { joinSeries } from './economy/joinSeries';
 
+// Social (M7): Facebook-friend leaderboard, a single-call profile-card aggregate,
+// and the daily-capped +250-coin invite reward. See ADR 0017. (The Facebook login
+// / friend-graph / invite-send flow lives client-side and feeds friend uids +
+// invite ids into these; it needs the FB SDK + app, which are set up separately.)
+export { getLeaderboard } from './social/leaderboard';
+export { getProfile } from './social/getProfile';
+export { claimInviteReward } from './social/claimInviteReward';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

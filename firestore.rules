@@ -73,6 +73,16 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // /inviteRewards/{userId} — daily Facebook-invite reward ledger (M7): the
+    // per-day count + rewarded invite ids that cap the +250-coin reward. Written
+    // and read only by the claimInviteReward Cloud Function (Admin SDK); the
+    // client never touches it, so the cap can't be bypassed. ADR 0017.
+    // -----------------------------------------------------------------------
+    match /inviteRewards/{userId} {
+      allow read, write: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // /series/{seriesId} — server-side match series (M6): roster (seat -> the
     // player's own authenticated uid), pot, and running team-points. Written
     // and read only by Cloud Functions (openSeries / joinSeries / settlement);
