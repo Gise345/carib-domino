@@ -244,8 +244,8 @@ namespace Pose.Game
             Tile = tile;
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
-            RenderPips(_firstPipPanel!, tile.A);
-            RenderPips(_secondPipPanel!, tile.B);
+            RenderPips(_firstPipPanel!, tile.A, PipDiameter);
+            RenderPips(_secondPipPanel!, tile.B, PipDiameter);
         }
 
         /// <summary>
@@ -265,8 +265,8 @@ namespace Pose.Game
             Tile = tile;
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
-            RenderPips(_firstPipPanel!, firstPip);
-            RenderPips(_secondPipPanel!, secondPip);
+            RenderPips(_firstPipPanel!, firstPip, PipDiameter);
+            RenderPips(_secondPipPanel!, secondPip, PipDiameter);
         }
 
         /// <summary>
@@ -611,7 +611,16 @@ namespace Pose.Game
             }
         }
 
-        private static void RenderPips(RectTransform panel, byte count)
+        /// <summary>
+        /// Pip diameter for this tile. Scales with the tile, so the local
+        /// hand's larger tiles get proportionally larger pips.
+        /// </summary>
+        private float PipDiameter => _shortDim * DotSizeRatio;
+
+        // Static because they touch no instance state beyond the size, which
+        // the caller passes in — tiles differ in size now, so it can no longer
+        // be read from a shared constant.
+        private static void RenderPips(RectTransform panel, byte count, float diameter)
         {
             if (count > 6)
             {
@@ -620,11 +629,11 @@ namespace Pose.Game
             Vector2[] positions = DotPositions[count];
             for (int i = 0; i < positions.Length; i++)
             {
-                CreateDot(panel, positions[i]);
+                CreateDot(panel, positions[i], diameter);
             }
         }
 
-        private static void CreateDot(RectTransform parent, Vector2 normalizedPos)
+        private static void CreateDot(RectTransform parent, Vector2 normalizedPos, float diameter)
         {
             GameObject dot = new("Pip", typeof(RectTransform));
             dot.transform.SetParent(parent, worldPositionStays: false);
@@ -633,7 +642,6 @@ namespace Pose.Game
             rt.anchorMin = normalizedPos;
             rt.anchorMax = normalizedPos;
             rt.pivot = new Vector2(0.5f, 0.5f);
-            float diameter = _shortDim * DotSizeRatio;
             rt.sizeDelta = new Vector2(diameter, diameter);
             rt.anchoredPosition = Vector2.zero;
 
