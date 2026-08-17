@@ -1263,9 +1263,11 @@ namespace Pose.Game
                                 ? m
                                 : TileInteractionMode.None)
                         : null;
-                // Online: opponent's tiles render as backs (we know HOW MANY,
-                // not WHICH). Offline (hot-seat): all hands visible.
-                bool showBacks = _isOnline && !isLocal;
+                // Nobody sees anyone else's tiles — only how many they hold.
+                // This used to be gated on being online, from when practice was
+                // a hot-seat game passed between people on one device. Practice
+                // is against bots now, so that only leaked their hands.
+                bool showBacks = !isLocal;
                 // Team games tint each name-plate by team (local team vs the
                 // opposing team); Cut-Throat clears back to white.
                 hv.SetAccentColor(TeamAccentColor(state, p));
