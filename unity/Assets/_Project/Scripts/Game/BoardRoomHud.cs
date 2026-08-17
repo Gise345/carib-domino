@@ -57,6 +57,12 @@ namespace Pose.Game
         // Collapsed scoreboard: the title bar and nothing else.
         private const float CrownHeight = 46f;
 
+        // The Last Play badge. Small, and its shadow scales down to suit —
+        // full depth on a tile this size reads as a smudge.
+        private const float LastPlayTileShort = 48f;
+        private const float LastPlayTileLong = 96f;
+        private const float LastPlayDepthScale = 0.5f;
+
         // ---- palette ------------------------------------------------------
         private static readonly Color Panel = new(0.075f, 0.059f, 0.047f, 0.92f);
         private static readonly Color Gold = new(0.961f, 0.769f, 0.318f);
@@ -66,7 +72,6 @@ namespace Pose.Game
         private static readonly Color ActionPurple = new(0.486f, 0.227f, 0.929f);
         private static readonly Color ActionDim = new(0.227f, 0.200f, 0.251f);
         private static readonly Color Online = new(0.247f, 0.733f, 0.349f);
-        private static readonly Color Ivory = new(0.937f, 0.906f, 0.827f);
 
         // ---- live widget refs ---------------------------------------------
         private sealed class SeatWidgets
@@ -99,9 +104,7 @@ namespace Pose.Game
 
         private Image _passBg = null!;
         private TextMeshProUGUI _turnTag = null!;
-        private readonly List<Image> _lastPlayPips = new();
-        private GameObject _lastPlayA = null!;
-        private GameObject _lastPlayB = null!;
+        private TileView _lastPlayTile = null!;
 
         /// <summary>Builds the whole HUD. Call once after AddComponent.</summary>
         public void Init()
@@ -206,13 +209,14 @@ namespace Pose.Game
 
         public void SetLastPlay(bool has, int a, int b)
         {
-            _lastPlayA.SetActive(has);
-            _lastPlayB.SetActive(has);
-            if (has)
+            _lastPlayTile.gameObject.SetActive(has);
+            if (!has)
             {
-                SetPips(_lastPlayA, a);
-                SetPips(_lastPlayB, b);
+                return;
             }
+            // Explicit pips rather than the canonical Tile order, so the badge
+            // shows the halves the way they were laid.
+            _lastPlayTile.Setup(new Tile((byte)a, (byte)b), (byte)a, (byte)b);
         }
 
         // ---- top bar ------------------------------------------------------
@@ -610,17 +614,17 @@ namespace Pose.Game
             VerticalLayoutGroup lpv = lp.AddComponent<VerticalLayoutGroup>();
             lpv.childAlignment = TextAnchor.MiddleLeft; lpv.spacing = 6f;
             AddLabel(lp.transform, L10n.Get("board_last_play"), 15f, Faint, TextAlignmentOptions.Left).GetComponent<LayoutElement>().preferredHeight = 20f;
+            // A real tile rather than a hand-drawn imitation of one, so the
+            // badge picks up the body, pips and divider the board uses and
+            // cannot drift from them.
             GameObject mini = Child(lp.transform, "Mini");
             LayoutElement mle = mini.AddComponent<LayoutElement>();
-            mle.preferredWidth = 92f; mle.preferredHeight = 52f;
-            Image mbg = mini.AddComponent<Image>();
-            mbg.sprite = GradientSprite.RoundedDiagonal(0.2f, new Color(0.965f, 0.937f, 0.867f), Ivory);
-            mbg.color = Color.white;
-            mbg.raycastTarget = false;
-            HorizontalLayoutGroup mh = mini.AddComponent<HorizontalLayoutGroup>();
-            mh.childControlWidth = true; mh.childControlHeight = true; mh.childForceExpandWidth = true; mh.childForceExpandHeight = true; mh.padding = new RectOffset(4, 4, 4, 4);
-            _lastPlayA = MakePipHalf(mini.transform);
-            _lastPlayB = MakePipHalf(mini.transform);
+            mle.preferredWidth = LastPlayTileLong;
+            mle.preferredHeight = LastPlayTileShort;
+            _lastPlayTile = mini.AddComponent<TileView>();
+            _lastPlayTile.Init(
+                TileOrientation.Landscape, LastPlayTileShort, LastPlayTileLong, LastPlayDepthScale);
+            _lastPlayTile.Mode = TileInteractionMode.Display;
             SetLastPlay(false, 0, 0);
 
             // Pass + turn tag (centre).
@@ -645,52 +649,6 @@ namespace Pose.Game
             pbtn.targetGraphic = _passBg;
             pbtn.onClick.AddListener(() => PassClicked?.Invoke());
             AddChildLabel(pass.transform, L10n.Get("pass_button"), 26f, Color.white, TextAlignmentOptions.Center, FontStyles.Bold);
-        }
-
-        private GameObject MakePipHalf(Transform parent)
-        {
-            GameObject half = Child(parent, "Half");
-            GridLayoutGroup g = half.AddComponent<GridLayoutGroup>();
-            g.cellSize = new Vector2(12f, 12f);
-            g.spacing = new Vector2(2f, 2f);
-            g.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            g.constraintCount = 3;
-            g.childAlignment = TextAnchor.MiddleCenter;
-            for (int i = 0; i < 9; i++)
-            {
-                GameObject cell = Child(half.transform, "p");
-                Image dot = cell.AddComponent<Image>();
-                dot.sprite = GradientSprite.RoundedDiagonal(0.5f, Color.white, Color.white);
-                dot.color = new Color(0.16f, 0.14f, 0.12f, 0f);
-                dot.raycastTarget = false;
-                _lastPlayPips.Add(dot);
-            }
-            return half;
-        }
-
-        private static readonly int[][] PipMap =
-        {
-            new int[0], new[] { 4 }, new[] { 0, 8 }, new[] { 0, 4, 8 },
-            new[] { 0, 2, 6, 8 }, new[] { 0, 2, 4, 6, 8 }, new[] { 0, 2, 3, 5, 6, 8 },
-        };
-
-        private void SetPips(GameObject half, int n)
-        {
-            // Each half owns 9 sequential images in _lastPlayPips; find its base.
-            int baseIdx = half == _lastPlayA ? 0 : 9;
-            bool[] on = new bool[9];
-            if (n >= 0 && n < PipMap.Length)
-            {
-                foreach (int cell in PipMap[n])
-                {
-                    on[cell] = true;
-                }
-            }
-            for (int i = 0; i < 9; i++)
-            {
-                Color c = _lastPlayPips[baseIdx + i].color;
-                _lastPlayPips[baseIdx + i].color = new Color(0.16f, 0.14f, 0.12f, on[i] ? 1f : 0f);
-            }
         }
 
         // ---- small builders ----------------------------------------------

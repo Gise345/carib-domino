@@ -217,6 +217,7 @@ namespace Pose.Game
         private RectTransform? _firstPipPanel;
         private RectTransform? _secondPipPanel;
         private Image? _body;
+        private GameObject? _divider;
         private Shadow? _sideShadow;
         private Shadow? _castShadow;
         private CanvasGroup? _canvasGroup;
@@ -343,6 +344,7 @@ namespace Pose.Game
             Tile = tile;
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
+            _divider?.SetActive(true);
             RenderPips(_firstPipPanel!, tile.A, PipDiameter);
             RenderPips(_secondPipPanel!, tile.B, PipDiameter);
         }
@@ -364,6 +366,7 @@ namespace Pose.Game
             Tile = tile;
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
+            _divider?.SetActive(true);
             RenderPips(_firstPipPanel!, firstPip, PipDiameter);
             RenderPips(_secondPipPanel!, secondPip, PipDiameter);
         }
@@ -380,6 +383,10 @@ namespace Pose.Game
             EnsureLayoutBuilt();
             ClearChildren(_firstPipPanel!);
             ClearChildren(_secondPipPanel!);
+            // A face-down tile is a blank slab. The centre groove belongs to
+            // the face, so showing it on a back gives away nothing but still
+            // reads as a tile lying the wrong way up.
+            _divider?.SetActive(false);
         }
 
         // ---- Input handlers ------------------------------------------------
@@ -819,13 +826,15 @@ namespace Pose.Game
                 divRt.offsetMax = new Vector2(DividerThickness * 0.5f, 0f);
             }
 
+            _divider = divider;
+
             Image divImg = divider.AddComponent<Image>();
             divImg.color = DividerColor;
             divImg.raycastTarget = false;
 
             // The node, centred on the tile and so on the line.
             GameObject node = new("DividerNode", typeof(RectTransform));
-            node.transform.SetParent(transform, worldPositionStays: false);
+            node.transform.SetParent(divider.transform, worldPositionStays: false);
             RectTransform nodeRt = (RectTransform)node.transform;
             nodeRt.anchorMin = new Vector2(0.5f, 0.5f);
             nodeRt.anchorMax = new Vector2(0.5f, 0.5f);
@@ -914,6 +923,8 @@ namespace Pose.Game
             // Authored vertical: a landscape tile wants it as-is, a portrait
             // tile wants it lying across.
             rt.localRotation = horizontal ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.identity;
+
+            _divider = divider;
 
             Image img = divider.AddComponent<Image>();
             img.sprite = sprite;
