@@ -212,6 +212,9 @@ namespace Pose.Game
         private const float DragShadowMultiplier = 3.5f;
         private const int DragSortingOrder = 30000;
 
+        // Below this much travel a release counts as a tap, not a drag.
+        private const float TapSlopPixels = 24f;
+
         // Drag state.
         private Transform? _originalParent;
         private int _originalSiblingIndex;
@@ -224,6 +227,7 @@ namespace Pose.Game
         private Vector2 _originalAnchorMax;
         private Vector2 _originalPivot;
         private Vector2 _originalSizeDelta;
+        private Vector2 _dragStartScreenPos;
         private Canvas? _rootCanvas;
         private bool _dropAccepted;
         private bool _dragging;
@@ -484,13 +488,18 @@ namespace Pose.Game
 
         public void OnBeginDrag(PointerEventData eventData)
         {
-            if (_mode != TileInteractionMode.Drag)
+            // ANY playable tile can be dragged, not just the two-end ones.
+            // Restricting this to Drag mode meant dragging a single-placement
+            // tile did nothing at all — the tile stayed in the hand and only
+            // played on release, which reads as "the drag is invisible".
+            if (_mode != TileInteractionMode.Drag && _mode != TileInteractionMode.Click)
             {
                 return;
             }
 
             _dropAccepted = false;
             _dragging = true;
+            _dragStartScreenPos = eventData.position;
             _originalParent = transform.parent;
             _originalSiblingIndex = transform.GetSiblingIndex();
             _originalLocalPosition = transform.localPosition;
@@ -598,15 +607,6 @@ namespace Pose.Game
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            // Forgiveness: if a Click-mode tile got dragged past the threshold
-            // (Unity treats it as a drag and won't fire OnPointerClick), still
-            // treat the release as a click so the player isn't stuck.
-            if (_mode == TileInteractionMode.Click)
-            {
-                Clicked?.Invoke(this);
-                return;
-            }
-
             if (!_dragging)
             {
                 return;
@@ -620,6 +620,17 @@ namespace Pose.Game
                 Destroy(gameObject);
                 return;
             }
+
+            // Forgiveness: Unity calls a press that wandered a few pixels a
+            // drag, not a click, so a Click-mode tile tapped with an unsteady
+            // thumb would go back to the hand and feel unresponsive. A release
+            // that never really travelled counts as a tap.
+            //
+            // Only for Click mode. A two-end tile must never resolve its end
+            // this way — that is the whole point of arming it.
+            bool barelyMoved =
+                Vector2.Distance(_dragStartScreenPos, eventData.position) < TapSlopPixels;
+            bool treatAsTap = _mode == TileInteractionMode.Click && barelyMoved;
 
             ApplyDragLift(false);
 
@@ -652,6 +663,11 @@ namespace Pose.Game
             if (overlayRaycaster != null)
             {
                 Destroy(overlayRaycaster);
+            }
+
+            if (treatAsTap)
+            {
+                Clicked?.Invoke(this);
             }
         }
 

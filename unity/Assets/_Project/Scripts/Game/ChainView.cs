@@ -47,20 +47,45 @@ namespace Pose.Game
         //
         // It must match the height the chain actually has, or the walker keeps
         // running a column that no longer fits and the chain spills into the
-        // hands. The centre region is 1102 units on the reference canvas, less
-        // the padding, open-ends label and HeadRoom above the first tile, which
-        // leaves 1044. At 1040 a column takes four tiles before bending, where
-        // 960 took three.
-        private const float VirtualInnerHeight = 1040f;
+        // hands.
+        //
+        // The board reserves a fixed band above the chain and gives it whatever
+        // is left below, so the two halves are NOT symmetric — a taller screen
+        // grows only the downward half. The upward half is therefore pinned to
+        // a constant, which keeps the top of the chain identical on every
+        // device, and the downward half is measured from the actual rect. On
+        // the reference canvas that measures ~520 too; on a taller phone it is
+        // larger, which is exactly the room the bottom column was leaving
+        // unused.
+        private const float UpwardHalfHeight = 520f;
+
+        // Floor for the measured downward half, used before the first layout
+        // pass has run and the rect still reads zero.
+        private const float MinDownwardHalfHeight = 520f;
 
         // Chain tiles sit 2 units apart, so a full-depth edge and cast shadow
         // would spill over the neighbour below and smear the column. A third
         // of the depth still grounds each tile without touching the next.
         private const float ChainDepthScale = 0.33f;
-        private static readonly ChainLayout.Config LayoutConfig = new(
-            tileSpacing: 2f,
-            virtualHeight: VirtualInnerHeight,
-            dropZoneHalfHeight: DropZoneHeight / 2f);
+        /// <summary>
+        /// Builds this frame's layout config, measuring how much room the chain
+        /// actually has below its opening tile.
+        /// </summary>
+        private ChainLayout.Config BuildLayoutConfig()
+        {
+            // Everything above the first tile: the view's own top padding, the
+            // open-ends label, the layout spacing, and the head room.
+            const float ReservedAbove = 8f + LabelHeight + 4f + HeadRoom;
+
+            float usable = ((RectTransform)transform).rect.height - ReservedAbove;
+            float downward = Mathf.Max(MinDownwardHalfHeight, usable - UpwardHalfHeight);
+
+            return new ChainLayout.Config(
+                tileSpacing: 2f,
+                virtualHeight: UpwardHalfHeight + downward,
+                dropZoneHalfHeight: DropZoneHeight / 2f,
+                openingY: UpwardHalfHeight);
+        }
 
         private const float LabelFontSize = 22f;
         private const float LabelHeight = 30f;
@@ -98,7 +123,7 @@ namespace Pose.Game
                 chain.Count);
 
             int openingIdx = FindOpeningIdx(chain, openingTile);
-            ChainLayoutResult layout = ChainLayout.Compute(chain, openingIdx, LayoutConfig);
+            ChainLayoutResult layout = ChainLayout.Compute(chain, openingIdx, BuildLayoutConfig());
 
             for (int i = 0; i < chain.Count; i++)
             {

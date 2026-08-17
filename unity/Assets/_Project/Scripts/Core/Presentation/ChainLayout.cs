@@ -42,11 +42,30 @@ namespace Pose.Core
             public readonly float VirtualHeight;
             public readonly float DropZoneHalfHeight;
 
+            /// <summary>
+            /// Where the opening tile sits, measured down from the top of the
+            /// layout area. Defaults to the middle, but the two directions do
+            /// not have to be given equal room: the board reserves a fixed
+            /// band above the chain and whatever is left below it, so a taller
+            /// screen grows the downward half only.
+            /// </summary>
+            public readonly float OpeningY;
+
             public Config(float tileSpacing, float virtualHeight, float dropZoneHalfHeight)
+                : this(tileSpacing, virtualHeight, dropZoneHalfHeight, virtualHeight / 2f)
+            {
+            }
+
+            public Config(
+                float tileSpacing,
+                float virtualHeight,
+                float dropZoneHalfHeight,
+                float openingY)
             {
                 TileSpacing = tileSpacing;
                 VirtualHeight = virtualHeight;
                 DropZoneHalfHeight = dropZoneHalfHeight;
+                OpeningY = openingY;
             }
 
             public static Config Default => new(tileSpacing: 2f, virtualHeight: 1700f, dropZoneHalfHeight: 70f);
@@ -80,8 +99,7 @@ namespace Pose.Core
         {
             ChainSlot[] slots = new ChainSlot[chain.Count];
 
-            float innerH = config.VirtualHeight;
-            float centerY = innerH / 2f;
+            float centerY = config.OpeningY;
 
             // The opening is always a double and — being the first tile of the
             // FIRST column, not a post-bend column — lies landscape (crosswise).
