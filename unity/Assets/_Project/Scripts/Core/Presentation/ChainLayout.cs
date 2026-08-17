@@ -17,6 +17,10 @@ namespace Pose.Core
     ///         portrait so the new column reads as starting vertically.</item>
     ///   <item>The bend bridge lies landscape, with its TOP edge aligned to the
     ///         outgoing column tile's top edge (not centered on it).</item>
+    ///   <item>The new column tucks under (bottom bend) or over (top bend) the
+    ///         bridge's far half, rather than continuing past the bridge's
+    ///         outer edge — the snake folds back over itself instead of
+    ///         stepping a full tile sideways at every bend.</item>
     /// </list>
     ///
     /// Extracted from the renderer so the bend geometry is testable (see
@@ -199,9 +203,20 @@ namespace Pose.Core
             float bridgeCenterY = bottomBend ? alignEdge - bridgeHalfH : alignEdge + bridgeHalfH;
 
             float bridgeCenterX = state.ColX + dir * (lastHalfW + config.TileSpacing + bridgeHalfW);
+
+            // The new column tucks UNDER the bridge's far half rather than
+            // continuing past its outer edge: it lines up on the centre of that
+            // half, so the column is directly below the bridge at a bottom bend
+            // and directly above it at a top bend.
+            //
             // The new column's first tile is always portrait (a first-of-column
-            // double stands portrait), so its half-width is ShortDim / 2.
-            float newColX = bridgeCenterX + dir * (bridgeHalfW + config.TileSpacing + ShortDim / 2f);
+            // double stands portrait), so its half-width is ShortDim / 2 and
+            // landing its centre a half-tile in from the bridge's outer edge
+            // puts it exactly over that half. Costs the column a tile of height
+            // — it now starts past the bridge instead of beside it — and buys
+            // back LongDim/2 + TileSpacing of width at every bend, which is what
+            // keeps a long chain on screen.
+            float newColX = bridgeCenterX + dir * (bridgeHalfW - (ShortDim / 2f));
 
             PlacedTile bridge = chain.Tiles[i];
             slots[i] = new ChainSlot(
@@ -214,10 +229,13 @@ namespace Pose.Core
             state.FirstTileOfColumn = true;
 
             state.GoingDown = !state.GoingDown;
-            // Seat the new column's first tile flush at the same bend edge: its
-            // leading edge (top when now going down, bottom when going up) is the
-            // alignEdge. Then the column continues in the new direction.
-            state.NextEdgeY = alignEdge;
+            // Seat the new column's first tile against the bridge's far side,
+            // since it now sits over/under the bridge rather than beside it.
+            // The bridge spans one ShortDim inward from the bend edge, so the
+            // column starts one ShortDim plus a gap past it.
+            state.NextEdgeY = bottomBend
+                ? alignEdge - ShortDim - config.TileSpacing
+                : alignEdge + ShortDim + config.TileSpacing;
         }
 
         private static void PlaceRegular(

@@ -121,12 +121,32 @@ namespace Pose.Core.Tests
         }
 
         /// <summary>
-        /// At each bend the outgoing tile, the bridge, and the new column's first
-        /// tile must be flush at a common horizontal edge — all their TOP edges
-        /// equal (a top bend) or all their BOTTOM edges equal (a bottom bend) —
-        /// so the U-turn reads cleanly on both ends of the snake.
+        /// At each bend the outgoing tile and the bridge are flush at a common
+        /// horizontal edge — both TOP edges equal (a top bend) or both BOTTOM
+        /// edges equal (a bottom bend) — so the U-turn reads cleanly.
         /// </summary>
         private static void AssertBendsFlush(Chain chain, ChainSlot[] slots)
+        {
+            foreach (int i in BridgeIndices(chain, slots))
+            {
+                Aabb outgoing = new(slots[i - 1]);
+                Aabb bridge = new(slots[i]);
+
+                bool topFlush = Near(outgoing.MinY, bridge.MinY);
+                bool bottomFlush = Near(outgoing.MaxY, bridge.MaxY);
+
+                Assert.That(
+                    topFlush || bottomFlush, Is.True,
+                    $"bend {i}: outgoing tile and bridge are not flush at a common edge");
+            }
+        }
+
+        /// <summary>
+        /// The new column folds back over the bridge rather than stepping past
+        /// it: its first tile is centred on the bridge's far half, and sits
+        /// clear of the bridge on the side the column is now heading.
+        /// </summary>
+        private static void AssertColumnTucksUnderBridge(Chain chain, ChainSlot[] slots)
         {
             foreach (int i in BridgeIndices(chain, slots))
             {
@@ -134,16 +154,30 @@ namespace Pose.Core.Tests
                 {
                     continue;
                 }
-                Aabb outgoing = new(slots[i - 1]);
                 Aabb bridge = new(slots[i]);
-                Aabb first = new(slots[i + 1]);
+                ChainSlot firstSlot = slots[i + 1];
+                Aabb first = new(firstSlot);
 
-                bool topFlush = Near(outgoing.MinY, bridge.MinY) && Near(outgoing.MinY, first.MinY);
-                bool bottomFlush = Near(outgoing.MaxY, bridge.MaxY) && Near(outgoing.MaxY, first.MaxY);
-
+                // Horizontally centred on one half of the bridge.
+                float halfOffset = System.Math.Abs(firstSlot.CenterX - slots[i].CenterX);
                 Assert.That(
-                    topFlush || bottomFlush, Is.True,
-                    $"bend {i}: outgoing/bridge/first-tile are not flush at a common edge");
+                    halfOffset, Is.EqualTo(ChainLayout.ShortDim / 2f).Within(Eps),
+                    $"bend {i}: new column is not centred on the bridge's far half");
+
+                // Horizontally INSIDE the bridge's footprint, not past its edge.
+                Assert.That(
+                    first.MinX, Is.GreaterThanOrEqualTo(bridge.MinX - Eps),
+                    $"bend {i}: new column runs past the bridge's left edge");
+                Assert.That(
+                    first.MaxX, Is.LessThanOrEqualTo(bridge.MaxX + Eps),
+                    $"bend {i}: new column runs past the bridge's right edge");
+
+                // Vertically clear of it, above or below.
+                bool above = first.MaxY <= bridge.MinY + Eps;
+                bool below = first.MinY >= bridge.MaxY - Eps;
+                Assert.That(
+                    above || below, Is.True,
+                    $"bend {i}: new column's first tile is not stacked clear of the bridge");
             }
         }
 
@@ -160,6 +194,7 @@ namespace Pose.Core.Tests
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
             AssertBendsFlush(chain, slots);
+            AssertColumnTucksUnderBridge(chain, slots);
         }
 
         [Test]
@@ -171,6 +206,7 @@ namespace Pose.Core.Tests
             AssertNoOverlap(slots);
             AssertConsecutiveTouch(slots, Cramped);
             AssertBendsFlush(chain, slots);
+            AssertColumnTucksUnderBridge(chain, slots);
         }
 
         [Test]
@@ -182,6 +218,8 @@ namespace Pose.Core.Tests
                 AssertNoOverlap(slots);
                 AssertConsecutiveTouch(slots, Default);
                 AssertBendsFlush(chain, slots);
+                AssertColumnTucksUnderBridge(chain, slots);
+            AssertColumnTucksUnderBridge(chain, slots);
             }
         }
 

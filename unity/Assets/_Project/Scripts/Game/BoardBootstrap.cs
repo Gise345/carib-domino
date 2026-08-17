@@ -48,7 +48,10 @@ namespace Pose.Game
         // sits BESIDE it rather than above it (BoardRoomHud.BuildSeat). Sharing
         // one band instead of stacking two is what returns ~66 units of height
         // to the chain area.
-        private const float TopRegionTopMargin = 202f;
+        // As high as the collapsed scoreboard allows: that panel ends at 162,
+        // and this clears it by RegionPadding. Every unit reclaimed here goes
+        // to the chain, which is what buys the extra tile per column.
+        private const float TopRegionTopMargin = 178f;
 
         // The top hand centres on the board. Its profile lives at x 637–763, and
         // a full seven-tile hand spans 172–628, so centring still clears it.

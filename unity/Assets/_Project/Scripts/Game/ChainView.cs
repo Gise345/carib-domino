@@ -35,7 +35,9 @@ namespace Pose.Game
         // Vertical inset from the top of the tiles container to the top of the
         // logical layout area. ChainLayout works in a top-down coordinate space
         // starting at 0; this pushes the whole snake down so it clears the label.
-        private const float HeadRoom = 80f;
+        // Gap above the first chain tile. Was 80, which was 80 units the chain
+        // could not use — enough on its own to cost a tile per column.
+        private const float HeadRoom = 16f;
         private const float DropZoneWidth = 200f;
         private const float DropZoneHeight = 140f;
 
@@ -45,11 +47,11 @@ namespace Pose.Game
         //
         // It must match the height the chain actually has, or the walker keeps
         // running a column that no longer fits and the chain spills into the
-        // hands. The board reserves roughly 1040 units between the top cluster
-        // and the bottom one on the reference canvas; 960 leaves room for the
-        // HeadRoom offset and the open-ends label, and bends the column one
-        // tile earlier rather than one tile too late.
-        private const float VirtualInnerHeight = 960f;
+        // hands. The centre region is 1102 units on the reference canvas, less
+        // the padding, open-ends label and HeadRoom above the first tile, which
+        // leaves 1044. At 1040 a column takes four tiles before bending, where
+        // 960 took three.
+        private const float VirtualInnerHeight = 1040f;
 
         // Chain tiles sit 2 units apart, so a full-depth edge and cast shadow
         // would spill over the neighbour below and smear the column. A third
