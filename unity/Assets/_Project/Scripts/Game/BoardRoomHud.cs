@@ -89,6 +89,7 @@ namespace Pose.Game
         private TextMeshProUGUI _roundValue = null!;
         private TextMeshProUGUI _onBoardValue = null!;
         private GameObject _scorePanel = null!;
+        private ContentSizeFitter _scoreFitter = null!;
         private GameObject _scoreBody = null!;
         private TextMeshProUGUI _scoreChev = null!;
         private bool _scoreCollapsed;
@@ -117,7 +118,7 @@ namespace Pose.Game
             // Sides: docked at the top of each column, above the tile stack.
             // Anchored to the top edge rather than to mid-height so the
             // clearance holds on short screens.
-            BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-110f, -270f), TopSeatAvatarSize);
+            BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-100f, -270f), TopSeatAvatarSize);
             BuildSeat(SeatPosition.Left, new Vector2(0f, 1f), new Vector2(72f, -486f), SideSeatAvatarSize);
             BuildSeat(SeatPosition.Right, new Vector2(1f, 1f), new Vector2(-72f, -486f), SideSeatAvatarSize);
             BuildChatPanel();
@@ -156,8 +157,16 @@ namespace Pose.Game
         }
 
         /// <summary>Updates a seat's avatar. Bottom updates the local corner profile.</summary>
+        /// <summary>
+        /// Updates one seat's profile.
+        /// </summary>
+        /// <param name="tileCount">
+        /// How many tiles the seat still holds — the number on the pill. It was
+        /// the series score; the count is the thing you actually track during a
+        /// round, and the scoreboard panel already carries the scores.
+        /// </param>
         public void SetSeat(
-            SeatPosition pos, bool active, string name, Color color, int score,
+            SeatPosition pos, bool active, string name, Color color, int tileCount,
             bool online, bool currentTurn)
         {
             SeatWidgets? w = pos == SeatPosition.Bottom ? _local : (_seats.TryGetValue(pos, out var s) ? s : null);
@@ -177,7 +186,7 @@ namespace Pose.Game
             {
                 w.Name.text = Trim(name, 12);
             }
-            w.Score.text = score.ToString();
+            w.Score.text = tileCount.ToString(System.Globalization.CultureInfo.InvariantCulture);
             w.ScorePill.color = color;
             w.TurnGlow.SetActive(currentTurn);
         }
@@ -256,7 +265,8 @@ namespace Pose.Game
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
             vlg.childForceExpandHeight = false;
-            panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            _scoreFitter = panel.AddComponent<ContentSizeFitter>();
+            _scoreFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             // Crown header (tap to collapse). Collapsed, this is the whole
             // panel, so it is pinned to exactly CrownHeight — min as well as
@@ -360,18 +370,32 @@ namespace Pose.Game
             _scoreBody.SetActive(!_scoreCollapsed);
             _scoreChev.text = _scoreCollapsed ? "+" : "–";
 
-            // The panel's ContentSizeFitter has no layout group above it to
-            // drive a rebuild, so deactivating the body does not on its own
-            // shrink the panel — it keeps the height it was last fitted to.
-            // Force the pass so a collapse actually collapses.
-            LayoutRebuilder.MarkLayoutForRebuild((RectTransform)_scorePanel.transform);
+            // Collapsed, the height is driven directly rather than left to the
+            // ContentSizeFitter. The fitter has no layout group above it to
+            // trigger a rebuild, so hiding the body left the panel at whatever
+            // height it was last fitted to — a title bar with the dead space of
+            // a full table still under it. Expanded, the fitter goes back to
+            // owning the height, because that depends on the row count.
+            RectTransform rt = (RectTransform)_scorePanel.transform;
+            _scoreFitter.enabled = !_scoreCollapsed;
+            if (_scoreCollapsed)
+            {
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x, CrownHeight);
+            }
+            else
+            {
+                LayoutRebuilder.MarkLayoutForRebuild(rt);
+            }
         }
 
         // ---- seat avatars -------------------------------------------------
 
         private void BuildSeat(SeatPosition pos, Vector2 anchor, Vector2 offset, float avatarSize)
         {
-            SeatWidgets w = MakeAvatarWidget(transform, $"Seat_{pos}", anchor, offset, withName: true, avatarSize: avatarSize);
+            // No name plate: the initials on the disc identify the seat, and the
+            // pill under it is the live tile count. A name label under every
+            // avatar was three more strings competing with the tiles.
+            SeatWidgets w = MakeAvatarWidget(transform, $"Seat_{pos}", anchor, offset, withName: false, avatarSize: avatarSize);
             _seats[pos] = w;
             w.Root.SetActive(false);
         }
@@ -384,7 +408,10 @@ namespace Pose.Game
             rt.anchorMin = rt.anchorMax = anchor;
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = offset;
-            rt.sizeDelta = new Vector2(avatarSize + 30f, avatarSize + 80f);
+            // Height follows what is actually stacked: avatar, optionally a
+            // name, then the count pill. Without the name the widget is 36
+            // shorter, which is what lets the side seats clear their columns.
+            rt.sizeDelta = new Vector2(avatarSize + 30f, avatarSize + (withName ? 80f : 44f));
             VerticalLayoutGroup vl = root.AddComponent<VerticalLayoutGroup>();
             vl.childAlignment = TextAnchor.MiddleCenter; vl.spacing = 4f;
             vl.childControlWidth = true; vl.childControlHeight = true; vl.childForceExpandWidth = false; vl.childForceExpandHeight = false;
@@ -541,11 +568,11 @@ namespace Pose.Game
             vl.childAlignment = TextAnchor.LowerCenter; vl.spacing = 12f;
             vl.childControlWidth = true; vl.childControlHeight = true; vl.childForceExpandWidth = false; vl.childForceExpandHeight = false;
 
-            _local = MakeAvatarWidget(corner.transform, "MeProfile", new Vector2(0.5f, 0.5f), Vector2.zero, withName: true, avatarSize: 84f);
+            _local = MakeAvatarWidget(corner.transform, "MeProfile", new Vector2(0.5f, 0.5f), Vector2.zero, withName: false, avatarSize: 84f);
             // Reparent the built profile into the vertical stack instead of anchoring.
             RectTransform prt = (RectTransform)_local.Root.transform;
             prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0.5f);
-            _local.Root.AddComponent<LayoutElement>().preferredHeight = 150f;
+            _local.Root.AddComponent<LayoutElement>().preferredHeight = 128f;
             _local.Root.SetActive(true);
 
             GameObject chat = Child(corner.transform, "ChatBtn");

@@ -42,7 +42,19 @@ namespace Pose.Game
         // Geometry config handed to the pure walker. VirtualInnerHeight is a
         // fixed logical height (not the actual container size) so both phones
         // bend at the same chain indices regardless of screen resolution.
-        private const float VirtualInnerHeight = 1700f;
+        //
+        // It must match the height the chain actually has, or the walker keeps
+        // running a column that no longer fits and the chain spills into the
+        // hands. The board reserves roughly 1040 units between the top cluster
+        // and the bottom one on the reference canvas; 960 leaves room for the
+        // HeadRoom offset and the open-ends label, and bends the column one
+        // tile earlier rather than one tile too late.
+        private const float VirtualInnerHeight = 960f;
+
+        // Chain tiles sit 2 units apart, so a full-depth edge and cast shadow
+        // would spill over the neighbour below and smear the column. A third
+        // of the depth still grounds each tile without touching the next.
+        private const float ChainDepthScale = 0.33f;
         private static readonly ChainLayout.Config LayoutConfig = new(
             tileSpacing: 2f,
             virtualHeight: VirtualInnerHeight,
@@ -100,7 +112,11 @@ namespace Pose.Game
                 rt.anchoredPosition = ToAnchored(slot.CenterX, slot.CenterY);
 
                 TileView tv = tileGo.AddComponent<TileView>();
-                tv.Init(slot.Landscape ? TileOrientation.Landscape : TileOrientation.Portrait);
+                tv.Init(
+                    slot.Landscape ? TileOrientation.Landscape : TileOrientation.Portrait,
+                    TileView.ShortDim,
+                    TileView.LongDim,
+                    ChainDepthScale);
                 tv.Mode = TileInteractionMode.Display;
                 tv.Setup(pt.Tile, slot.FirstPip, slot.SecondPip);
 

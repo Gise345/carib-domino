@@ -50,10 +50,10 @@ namespace Pose.Game
         // to the chain area.
         private const float TopRegionTopMargin = 202f;
 
-        // The top hand shifts left of centre to leave the right of its band for
-        // that profile. Canvas is 800 wide, so the hand centres on 320.
+        // The top hand centres on the board. Its profile lives at x 637–763, and
+        // a full seven-tile hand spans 172–628, so centring still clears it.
         private const float TopRegionLeftInset = 76f;
-        private const float TopRegionRightInset = 236f;
+        private const float TopRegionRightInset = 76f;
 
         // The local hand is bounded on the left by the turn clock and on the
         // right by the profile-and-chat corner, so it cannot simply centre.
@@ -62,17 +62,19 @@ namespace Pose.Game
         private const float BottomHandRightInset = 146f;
         private const float BottomHandBottomOffset = 124f;
 
-        // Centre-to-centre step for the fanned local hand. Seven 84-wide tiles
-        // side by side need 624 units and only 504 are available, so they lap
-        // by 14. See docs/prototypes/board-layout.html.
-        private const float LocalHandFanStep = 70f;
+        // Centre-to-centre step for the fanned local hand. The clear span
+        // between the turn clock and the corner is 508 units, which is what
+        // caps this: seven tiles need width + 6 × step to fit inside it.
+        // Trading 6 units of tile width buys 7 units of gap, halving the lap
+        // from 14 to 7 so the tiles read as separate pieces.
+        private const float LocalHandFanStep = 71f;
 
         // Side hands start below their profiles, which dock at the top of each
         // column. Top-aligned rather than centred so this clearance holds on
         // short screens too, where a centred column would ride up into them.
-        // A side profile widget is 164 tall centred on y 486, so it ends at
-        // 568; this clears it by RegionPadding.
-        private const float SideRegionTopOffset = 584f;
+        // A side profile widget is 128 tall centred on y 486 (it lost its name
+        // plate), so it ends at 550; this clears it by RegionPadding.
+        private const float SideRegionTopOffset = 566f;
 
         private static readonly PlayerId HumanPlayer = new("alice");
 
@@ -161,6 +163,10 @@ namespace Pose.Game
         // The seat the clock is currently counting, so a turn change restarts
         // it. Null when nothing is being timed.
         private PlayerId? _timedPlayer;
+
+        // Whether the timed turn is a forced pass, which runs a shorter window.
+        // Tracked so the clock restarts if the situation changes mid-turn.
+        private bool _timedForcedPass;
 
         private void Start()
         {
@@ -829,8 +835,15 @@ namespace Pose.Game
             PlayerId current = _state!.CurrentPlayer;
             if (_timedPlayer == null || _timedPlayer.Value != current)
             {
+                // A turn with nothing to decide gets a short window: staring at
+                // a 30-second clock while the only legal move is "pass" is dead
+                // time for everyone at the table. Evaluated once per turn, not
+                // per frame — GetLegalMoves allocates, and the board cannot
+                // change while a single player is on the clock.
                 _timedPlayer = current;
-                _turnTimer.Restart();
+                _timedForcedPass = IsForcedPass();
+                _turnTimer.Restart(
+                    _timedForcedPass ? AutoPassDelaySeconds : TurnTimer.ExpireAfterSeconds);
                 _turnTimerView.ClearNudge();
             }
 
@@ -893,24 +906,33 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// The player has stalled. Everyone at the table sees who we're waiting
-        /// on; the stalling player's own phone also buzzes.
+        /// True when the current player's only legal move is to pass.
+        /// </summary>
+        private bool IsForcedPass()
+        {
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state!);
+            return legal.Count == 1 && legal[0] is PassMove;
+        }
+
+        /// <summary>
+        /// The player has stalled. Only the player actually on the clock is
+        /// told — the banner sits in the middle of the board, and showing every
+        /// client "waiting on Marlon" put a red bar across three people's
+        /// boards for something none of them could act on. Their own countdown
+        /// ring already shows who is holding things up.
         /// </summary>
         private void OnTurnNudge(PlayerId current)
         {
-            bool isLocal = current == _localPlayer;
-
-            _turnTimerView!.ShowNudge(
-                isLocal
-                    ? L10n.Get("nudge_your_turn")
-                    : L10n.Get("nudge_waiting_on", SeatDisplayName(current)));
-
-            if (isLocal)
+            if (current != _localPlayer)
             {
-                // Deliberately unconditional — see Haptics.Nudge. A player who
-                // could mute this would hold up the whole table silently.
-                Haptics.Nudge();
+                return;
             }
+
+            _turnTimerView!.ShowNudge(L10n.Get("nudge_your_turn"));
+
+            // Deliberately unconditional — see Haptics.Nudge. A player who
+            // could mute this would hold up the whole table silently.
+            Haptics.Nudge();
         }
 
         /// <summary>
@@ -920,12 +942,15 @@ namespace Pose.Game
         /// </summary>
         private void OnTurnExpired(PlayerId current)
         {
-            _turnTimerView!.ShowNudge(
-                current == _localPlayer
-                    ? L10n.Get("nudge_auto_played")
-                    : L10n.Get("nudge_auto_played_other", SeatDisplayName(current)));
+            if (current == _localPlayer)
+            {
+                _turnTimerView!.ShowNudge(L10n.Get("nudge_auto_played"));
+            }
 
-            if (_isOnline)
+            // A forced pass is already being submitted by the auto-pass
+            // routine; the short clock only visualises its wait. Submitting
+            // here too would race it.
+            if (_isOnline || _timedForcedPass)
             {
                 return;
             }
@@ -1650,7 +1675,6 @@ namespace Pose.Game
             // A round is being rendered → the board-room HUD is now the active view.
             _hud.gameObject.SetActive(true);
             OnlineMatchController? c = _onlineMatchController;
-            bool series = _isOnline && c != null && c.IsSeries;
 
             HashSet<SeatPosition> used = new();
             for (int i = 0; i < state.Players.Count; i++)
@@ -1664,7 +1688,9 @@ namespace Pose.Game
                 bool bot = _isOnline && c != null && c.IsBotSeat(i);
                 bool isCurrent = !state.IsOver && p == state.CurrentPlayer;
                 string name = bot ? L10n.Get("player_bot") : p.Value;
-                int score = series ? c!.SeriesGamesForSeat(i) : 0;
+                // The pill counts tiles still in hand — the number that matters
+                // while a round is live. Series scores live on the scoreboard.
+                int tilesLeft = state.Hands.TryGetValue(p, out Hand h) ? h.Count : 0;
                 // Team games colour the seat by TEAM, not by seat index. The
                 // hand's name plate used to carry this tint, but the plates are
                 // gone now that every seat has a profile — so the signal has to
@@ -1675,7 +1701,7 @@ namespace Pose.Game
                 Color seatColor = teamTint == Color.white
                     ? BoardRoomHud.SeatColors[i % 4]
                     : teamTint;
-                _hud.SetSeat(pos, true, name, seatColor, score, online: !bot, currentTurn: isCurrent);
+                _hud.SetSeat(pos, true, name, seatColor, tilesLeft, online: !bot, currentTurn: isCurrent);
             }
 
             // Hide any avatar slot not used by this table's player count.

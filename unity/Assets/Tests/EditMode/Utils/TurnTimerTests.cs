@@ -180,5 +180,71 @@ namespace Pose.Core.Tests
             Assert.That(TurnTimer.NudgeAfterSeconds, Is.EqualTo(15f));
             Assert.That(TurnTimer.ExpireAfterSeconds, Is.EqualTo(30f));
         }
+
+        // ---- Per-turn window (forced pass) -----------------------------------
+
+        [Test]
+        public void A_Short_Window_Expires_At_Its_Own_Limit()
+        {
+            // A forced pass runs a 3-second clock, not the full turn.
+            TurnTimer timer = new(Nudge, Expire);
+            timer.Restart(expireAfterSeconds: 3f);
+
+            Assert.That(timer.Advance(2.9f), Is.EqualTo(TurnTimerEvent.None));
+            Assert.That(timer.Advance(0.2f), Is.EqualTo(TurnTimerEvent.Expired));
+        }
+
+        [Test]
+        public void A_Window_Shorter_Than_The_Nudge_Never_Nudges()
+        {
+            // Three seconds is not stalling, so prodding the player would be
+            // noise — and the nudge threshold sits past this window anyway.
+            TurnTimer timer = new(Nudge, Expire);
+            timer.Restart(expireAfterSeconds: 3f);
+
+            TurnTimerEvent first = timer.Advance(2.0f);
+            TurnTimerEvent second = timer.Advance(0.5f);
+
+            Assert.That(first, Is.EqualTo(TurnTimerEvent.None));
+            Assert.That(second, Is.EqualTo(TurnTimerEvent.None));
+            Assert.That(timer.HasNudged, Is.False);
+        }
+
+        [Test]
+        public void A_Short_Window_Drives_Remaining_And_Progress()
+        {
+            TurnTimer timer = new(Nudge, Expire);
+            timer.Restart(expireAfterSeconds: 4f);
+
+            Assert.That(timer.Remaining, Is.EqualTo(4f).Within(0.001f));
+
+            timer.Advance(2f);
+
+            Assert.That(timer.Remaining, Is.EqualTo(2f).Within(0.001f));
+            Assert.That(timer.Progress, Is.EqualTo(0.5f).Within(0.001f));
+        }
+
+        [Test]
+        public void Restarting_Without_A_Window_Returns_To_The_Defaults()
+        {
+            TurnTimer timer = new(Nudge, Expire);
+            timer.Restart(expireAfterSeconds: 3f);
+            timer.Advance(3f);
+
+            timer.Restart();
+
+            Assert.That(timer.Remaining, Is.EqualTo(Expire).Within(0.001f));
+            Assert.That(timer.Advance(Nudge), Is.EqualTo(TurnTimerEvent.Nudged));
+        }
+
+        [Test]
+        public void Rejects_A_Non_Positive_Window()
+        {
+            TurnTimer timer = new(Nudge, Expire);
+
+            Assert.That(
+                () => timer.Restart(expireAfterSeconds: 0f),
+                Throws.TypeOf<ArgumentOutOfRangeException>());
+        }
     }
 }

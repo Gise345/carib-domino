@@ -30,8 +30,14 @@ namespace Pose.Core
         /// <summary>Seconds of inactivity before the turn is auto-played.</summary>
         public const float ExpireAfterSeconds = 30f;
 
-        private readonly float _nudgeAfter;
-        private readonly float _expireAfter;
+        private readonly float _defaultNudgeAfter;
+        private readonly float _defaultExpireAfter;
+
+        // Live thresholds for the turn being timed. Normally the defaults, but
+        // a turn with only one legal move gets a shorter window — see the
+        // Restart overload.
+        private float _nudgeAfter;
+        private float _expireAfter;
 
         private bool _running;
         private float _elapsed;
@@ -68,6 +74,8 @@ namespace Pose.Core
                     "Expiry must come strictly after the nudge.");
             }
 
+            _defaultNudgeAfter = nudgeAfterSeconds;
+            _defaultExpireAfter = expireAfterSeconds;
             _nudgeAfter = nudgeAfterSeconds;
             _expireAfter = expireAfterSeconds;
         }
@@ -98,6 +106,35 @@ namespace Pose.Core
         /// </summary>
         public void Restart()
         {
+            Restart(_defaultExpireAfter);
+        }
+
+        /// <summary>
+        /// Begins timing a turn with a one-off window instead of the default.
+        /// Used when the turn has no real decision in it — a forced pass gets
+        /// three seconds, not thirty, because there is nothing to think about
+        /// and the table should not sit through a full clock watching it.
+        /// </summary>
+        /// <param name="expireAfterSeconds">Length of this turn's window.</param>
+        /// <param name="nudgeAfterSeconds">
+        /// When to prod. Defaults to the constructor's value, which for a short
+        /// window will land at or past expiry — in that case no nudge fires at
+        /// all, which is the intent: three seconds is not stalling.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when the window is not positive.
+        /// </exception>
+        public void Restart(float expireAfterSeconds, float? nudgeAfterSeconds = null)
+        {
+            if (expireAfterSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(expireAfterSeconds),
+                    "Turn window must be positive.");
+            }
+
+            _expireAfter = expireAfterSeconds;
+            _nudgeAfter = nudgeAfterSeconds ?? _defaultNudgeAfter;
             _running = true;
             _elapsed = 0f;
             _nudged = false;
@@ -159,7 +196,8 @@ namespace Pose.Core
                 return TurnTimerEvent.Expired;
             }
 
-            if (!_nudged && _elapsed >= _nudgeAfter)
+            // A nudge threshold at or past expiry means this turn never nudges.
+            if (!_nudged && _nudgeAfter < _expireAfter && _elapsed >= _nudgeAfter)
             {
                 _nudged = true;
                 return TurnTimerEvent.Nudged;

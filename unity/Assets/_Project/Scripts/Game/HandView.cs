@@ -145,7 +145,11 @@ namespace Pose.Game
                     tileGo.transform.SetParent(_tilesContainer, worldPositionStays: false);
                     TileView tv = tileGo.AddComponent<TileView>();
                     tv.Init(_tileOrientation, _shortDim, _longDim);
-                    tv.Mode = TileInteractionMode.None;
+                    // Backs light up on their owner's turn and dim otherwise —
+                    // a second read on whose turn it is, alongside the seat
+                    // glow. Display rather than None because these are never
+                    // interactive, only bright.
+                    tv.Mode = isCurrent ? TileInteractionMode.Display : TileInteractionMode.None;
                     tv.SetupAsBack();
                 }
                 return;

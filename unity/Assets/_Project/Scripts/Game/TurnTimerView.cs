@@ -147,18 +147,14 @@ namespace Pose.Game
 
         private void BuildLayout()
         {
-            // Docks in the bottom-left column, directly above the Last Play
-            // block in the action bar — the clock and the last tile played read
-            // as one "what just happened / what happens next" corner, and the
-            // centre of the board stays clear of chrome.
+            // The root stretches full-screen so its two pieces can sit in
+            // completely different places: the ring docks bottom-left above
+            // Last Play, while the banner needs the centre of the board.
             RectTransform root = (RectTransform)transform;
-            root.anchorMin = new Vector2(0f, 0f);
-            root.anchorMax = new Vector2(0f, 0f);
-            root.pivot = new Vector2(0f, 0f);
-            root.anchoredPosition = new Vector2(
-                BoardRoomHud.ActionBarLeftInset,
-                BoardRoomHud.ActionBarHeight + BottomGap);
-            root.sizeDelta = new Vector2(RingSize + BannerGap + BannerWidth, RingSize);
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = Vector2.zero;
+            root.offsetMax = Vector2.zero;
 
             _ringRoot = CreateRing(root);
             (_banner, _bannerLabel) = CreateBanner(root);
@@ -175,7 +171,9 @@ namespace Pose.Game
             // scales this transform, and an off-centre pivot would make it
             // lurch out of the corner instead of breathing in place.
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(RingSize * 0.5f, RingSize * 0.5f);
+            rt.anchoredPosition = new Vector2(
+                BoardRoomHud.ActionBarLeftInset + (RingSize * 0.5f),
+                BoardRoomHud.ActionBarHeight + BottomGap + (RingSize * 0.5f));
             rt.sizeDelta = new Vector2(RingSize, RingSize);
 
             // Track sits behind the fill so the drained portion still reads as
@@ -223,17 +221,17 @@ namespace Pose.Game
 
         private (GameObject banner, TextMeshProUGUI label) CreateBanner(RectTransform parent)
         {
-            // Beside the ring, not beneath it: below is the action bar, and a
-            // banner there would sit on top of Last Play and the Pass button.
+            // Dead centre of the board. It sat beside the ring, which put it
+            // straight across the local player's own hand — the one thing it
+            // must never cover, since it is telling them to play from it. The
+            // middle of the board is empty during a stalled turn by definition.
             GameObject go = new("NudgeBanner", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             RectTransform rt = (RectTransform)go.transform;
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(0f, 0f);
-            rt.pivot = new Vector2(0f, 0f);
-            rt.anchoredPosition = new Vector2(
-                RingSize + BannerGap,
-                (RingSize - BannerHeight) * 0.5f);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = new Vector2(BannerWidth, BannerHeight);
 
             Image bg = go.AddComponent<Image>();
@@ -249,7 +247,7 @@ namespace Pose.Game
             labelRt.offsetMax = new Vector2(-16f, 0f);
 
             TextMeshProUGUI tmp = labelGo.AddComponent<TextMeshProUGUI>();
-            tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            tmp.alignment = TextAlignmentOptions.Center;
             tmp.fontSize = BannerFontSize;
             tmp.fontStyle = FontStyles.Bold;
             tmp.color = BannerTextColor;

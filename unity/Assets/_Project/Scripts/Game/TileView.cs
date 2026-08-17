@@ -64,10 +64,10 @@ namespace Pose.Game
         /// the only hand you aim at — opponents' tiles render as backs, so
         /// there is nothing on them to read and no reason to spend width.
         /// </summary>
-        public const float LocalShortDim = 84f;
+        public const float LocalShortDim = 78f;
 
         /// <inheritdoc cref="LocalShortDim"/>
-        public const float LocalLongDim = 168f;
+        public const float LocalLongDim = 156f;
 
         // True white, not cream. At the larger size the tile has to stay the
         // lightest thing on screen or it stops reading as the subject
@@ -93,6 +93,16 @@ namespace Pose.Game
         private const float SideDepth = 7f;
         private const float CastDepth = 14f;
 
+        // A dimmed tile stays SOLID — it is a physical domino, so it never goes
+        // see-through and shows the table through itself. Dimming darkens the
+        // face instead, which is what "out of turn" looks like under a lamp.
+        private static readonly Color DimmedBodyColor = new(0.66f, 0.64f, 0.60f);
+        private static readonly Color DimmedSideColor = new(0.50f, 0.48f, 0.45f);
+
+        // Corner rounding as a fraction of the sprite, baked into its alpha.
+        private const float CornerRadius01 = 0.16f;
+        private static Sprite? _bodySprite;
+
         // Pips grow with the tile so they stay countable at a glance.
         private const float DotSizeRatio = 0.22f;
         // Divider splitting the tile's two pip halves. Proportional rather
@@ -104,7 +114,6 @@ namespace Pose.Game
         private const float DividerRatio = 0.07f;
 
         private float DividerThickness => _shortDim * DividerRatio;
-        private const float DimmedAlpha = 0.45f;
 
         private static readonly Vector2[][] DotPositions =
         {
@@ -163,10 +172,16 @@ namespace Pose.Game
         private float _shortDim = ShortDim;
         private float _longDim = LongDim;
 
+        // Multiplier on the edge and cast-shadow depth. The chain runs its
+        // tiles almost touching, so it renders at a fraction of full depth.
+        private float _depthScale = 1f;
+
         private bool _layoutBuilt;
 
         private RectTransform? _firstPipPanel;
         private RectTransform? _secondPipPanel;
+        private Image? _body;
+        private Shadow? _sideShadow;
         private CanvasGroup? _canvasGroup;
         private Outline? _selectionOutline;
         private bool _isSelected;
@@ -194,8 +209,20 @@ namespace Pose.Game
                 {
                     return;
                 }
-                // Bright for Display/Click/Drag; dim for None.
-                _canvasGroup.alpha = value == TileInteractionMode.None ? DimmedAlpha : 1f;
+                // Bright for Display/Click/Drag; dim for None. Dimming is a
+                // COLOUR change, never an alpha one — the old alpha fade let the
+                // table show through the tile, which read as ghostly plastic
+                // rather than a domino sitting out of turn.
+                bool dim = value == TileInteractionMode.None;
+                _canvasGroup.alpha = 1f;
+                if (_body != null)
+                {
+                    _body.color = dim ? DimmedBodyColor : BodyColor;
+                }
+                if (_sideShadow != null)
+                {
+                    _sideShadow.effectColor = dim ? DimmedSideColor : SideColor;
+                }
                 // Only Click and Drag receive events. Display tiles render
                 // bright but ignore input (chain tiles).
                 bool receivesInput = value == TileInteractionMode.Click
@@ -219,10 +246,15 @@ namespace Pose.Game
         /// <param name="longDim">
         /// The tile's long side. Defaults to <see cref="LongDim"/>.
         /// </param>
+        /// <param name="depthScale">
+        /// Multiplier on the tile's edge and cast-shadow depth. The chain
+        /// passes a fraction because its tiles nearly touch.
+        /// </param>
         public void Init(
             TileOrientation orientation,
             float shortDim = ShortDim,
-            float longDim = LongDim)
+            float longDim = LongDim,
+            float depthScale = 1f)
         {
             if (_layoutBuilt)
             {
@@ -231,6 +263,20 @@ namespace Pose.Game
             _orientation = orientation;
             _shortDim = shortDim;
             _longDim = longDim;
+            _depthScale = depthScale;
+        }
+
+        /// <summary>
+        /// The shared rounded-rectangle sprite every tile body uses. Flat white
+        /// with the corner rounding baked into its alpha — the sprite stretches
+        /// to the tile rect, so on a 1:2 tile the corners read as slightly
+        /// elliptical, which at this radius is not distinguishable from round.
+        /// </summary>
+        private static Sprite BodySprite()
+        {
+            _bodySprite ??= GradientSprite.RoundedDiagonal(
+                CornerRadius01, Color.white, Color.white);
+            return _bodySprite;
         }
 
         public void NotifyDropAccepted()
@@ -509,20 +555,26 @@ namespace Pose.Game
         {
             _canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
-            Image body = gameObject.AddComponent<Image>();
-            body.color = BodyColor;
-            body.raycastTarget = true;
+            _body = gameObject.AddComponent<Image>();
+            _body.sprite = BodySprite();
+            _body.color = BodyColor;
+            _body.raycastTarget = true;
 
             // Order matters: the side band is added first so the cast shadow,
             // added second, is thrown by the body AND its edge together —
             // which is what a solid slab actually does.
-            Shadow side = gameObject.AddComponent<Shadow>();
-            side.effectColor = SideColor;
-            side.effectDistance = new Vector2(0f, -SideDepth);
+            //
+            // Depth scales with the tile. Chain tiles butt up against each
+            // other with only 2 units between them, so a full-depth shadow
+            // would spill across the neighbour below and the chain would read
+            // as smeared rather than laid out.
+            _sideShadow = gameObject.AddComponent<Shadow>();
+            _sideShadow.effectColor = SideColor;
+            _sideShadow.effectDistance = new Vector2(0f, -SideDepth * _depthScale);
 
             Shadow cast = gameObject.AddComponent<Shadow>();
             cast.effectColor = ShadowColor;
-            cast.effectDistance = new Vector2(0f, -CastDepth);
+            cast.effectDistance = new Vector2(0f, -CastDepth * _depthScale);
 
             // Yellow outline used for the 2-tap selection highlight. Disabled
             // by default; SetSelected toggles it on/off.
