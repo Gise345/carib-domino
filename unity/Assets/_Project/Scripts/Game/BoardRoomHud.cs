@@ -51,8 +51,8 @@ namespace Pose.Game
         // Opponent profile sizes. The top seat shares a band with its hand and
         // the side seats sit in 150-wide columns, so neither can carry the old
         // 110 without pushing into the tiles.
-        private const float TopSeatAvatarSize = 96f;
-        private const float SideSeatAvatarSize = 84f;
+        private const float TopSeatAvatarSize = 108f;
+        private const float SideSeatAvatarSize = 100f;
 
         // Collapsed scoreboard: the title bar and nothing else.
         private const float CrownHeight = 46f;
@@ -121,9 +121,9 @@ namespace Pose.Game
             // Sides: docked at the top of each column, above the tile stack.
             // Anchored to the top edge rather than to mid-height so the
             // clearance holds on short screens.
-            BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-100f, -270f), TopSeatAvatarSize);
-            BuildSeat(SeatPosition.Left, new Vector2(0f, 1f), new Vector2(72f, -486f), SideSeatAvatarSize);
-            BuildSeat(SeatPosition.Right, new Vector2(1f, 1f), new Vector2(-72f, -486f), SideSeatAvatarSize);
+            BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-94f, -270f), TopSeatAvatarSize);
+            BuildSeat(SeatPosition.Left, new Vector2(0f, 1f), new Vector2(74f, -540f), SideSeatAvatarSize);
+            BuildSeat(SeatPosition.Right, new Vector2(1f, 1f), new Vector2(-74f, -540f), SideSeatAvatarSize);
             BuildChatPanel();
             BuildCorner();
             BuildActionBar();

@@ -81,7 +81,7 @@ namespace Pose.Game
         // short screens too, where a centred column would ride up into them.
         // A side profile widget is 128 tall centred on y 486 (it lost its name
         // plate), so it ends at 550; this clears it by RegionPadding.
-        private const float SideRegionTopOffset = 566f;
+        private const float SideRegionTopOffset = 628f;
 
         /// <summary>
         /// Sprites the dominoes are drawn from. Assign the TileArtSet asset in
@@ -400,7 +400,6 @@ namespace Pose.Game
                 _lobbyView = null;
             }
             // Offline mode — the existing bots-driven Cut-Throat scene.
-            StartShuffle();
             StartGame();
         }
 
@@ -487,6 +486,7 @@ namespace Pose.Game
             // A rematch was agreed and re-dealt. Seating and backgrounds are
             // already correct from the first deal; we just reset per-round
             // state and take the overlay down.
+            StartShuffle();
             _state = state;
             _localPlayer = _onlineMatchController!.LocalPlayer!.Value;
             TileView.ClearSelection();
@@ -502,6 +502,7 @@ namespace Pose.Game
             // player is the poser; FreeOpening marks the previous-winner free pose.
             AnnouncePoser(state);
             Render();
+            NotifyShuffleDealReady();
         }
 
         // Shows the "who poses" popup at the start of a series round. Skipped for
@@ -631,6 +632,7 @@ namespace Pose.Game
         /// </summary>
         private void DealOfflineRound()
         {
+            StartShuffle();
             _firstBotMove = true;
             TileView.ClearSelection();
             _endOverlay?.Hide();

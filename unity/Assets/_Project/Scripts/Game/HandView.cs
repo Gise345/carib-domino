@@ -240,7 +240,10 @@ namespace Pose.Game
         private void BuildVerticalLayout()
         {
             VerticalLayoutGroup outer = gameObject.AddComponent<VerticalLayoutGroup>();
-            outer.childAlignment = TextAnchor.MiddleCenter; // centre the side hand vertically
+            // Top of the column, directly under this seat's profile. Centring
+            // it left the tiles stranded in the middle of a full-height
+            // column, a long way from the face they belong to.
+            outer.childAlignment = TextAnchor.UpperCenter;
             outer.spacing = 8f;
             outer.padding = new RectOffset(4, 4, 8, 8);
             outer.childControlWidth = true;
