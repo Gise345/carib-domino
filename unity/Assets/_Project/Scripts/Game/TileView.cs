@@ -53,19 +53,57 @@ namespace Pose.Game
         IPointerClickHandler,
         IBeginDragHandler, IDragHandler, IEndDragHandler
     {
+        /// <summary>Default tile size — opponents' hands and the chain.</summary>
         public const float ShortDim = 60f;
+
+        /// <inheritdoc cref="ShortDim"/>
         public const float LongDim = 120f;
 
-        private static readonly Color BodyColor = new(0.97f, 0.95f, 0.88f);
+        /// <summary>
+        /// The local player's hand. Bigger than everyone else's because it is
+        /// the only hand you aim at — opponents' tiles render as backs, so
+        /// there is nothing on them to read and no reason to spend width.
+        /// </summary>
+        public const float LocalShortDim = 84f;
+
+        /// <inheritdoc cref="LocalShortDim"/>
+        public const float LocalLongDim = 168f;
+
+        // True white, not cream. At the larger size the tile has to stay the
+        // lightest thing on screen or it stops reading as the subject
+        // (DESIGN_SYSTEM.md §1).
+        private static readonly Color BodyColor = Color.white;
         private static readonly Color PipColor = new(0.10f, 0.07f, 0.06f);
         private static readonly Color DividerColor = new(0.40f, 0.30f, 0.22f);
-        private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.45f);
 
-        private const float DotSizeRatio = 0.18f;
-        // Bumped from 1.5 → 3 so the divider line splitting the tile's two
-        // pip halves stays clearly visible on high-DPI screens; previously
-        // landscape bridge tiles looked like one undivided rectangle.
-        private const float DividerThickness = 3f;
+        // Depth, in two layers that both point straight DOWN so they agree
+        // with the string lights overhead. The old single shadow threw up and
+        // to the right, implying a light source below-left, and that
+        // contradiction is what made tiles read as stickers on the felt.
+        //
+        //   SideColor  — the tile's own edge, its thickness.
+        //   ShadowColor — the shadow it casts on the table.
+        //
+        // Unity's Shadow component is a hard offset with no blur, so the cast
+        // shadow is a stepped silhouette rather than a soft one. A genuinely
+        // soft shadow needs a pre-blurred sprite behind the tile; not worth a
+        // texture until the art pass.
+        private static readonly Color SideColor = new(0.79f, 0.76f, 0.69f);
+        private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.5f);
+        private const float SideDepth = 7f;
+        private const float CastDepth = 14f;
+
+        // Pips grow with the tile so they stay countable at a glance.
+        private const float DotSizeRatio = 0.22f;
+        // Divider splitting the tile's two pip halves. Proportional rather
+        // than fixed: a flat 6 units reads as a moulded centre rule on the
+        // 84-wide local tile but as a heavy bar on the 60-wide chain tiles.
+        // 0.07 gives ~6 on the local hand and ~4 elsewhere, which is still
+        // well clear of the hairline that used to make landscape bridge tiles
+        // look like one undivided rectangle.
+        private const float DividerRatio = 0.07f;
+
+        private float DividerThickness => _shortDim * DividerRatio;
         private const float DimmedAlpha = 0.45f;
 
         private static readonly Vector2[][] DotPositions =
@@ -119,6 +157,12 @@ namespace Pose.Game
         public event Action<TileView>? DragEnded;
 
         private TileOrientation _orientation = TileOrientation.Portrait;
+
+        // Per-instance so one hand can be bigger than another. Defaults to the
+        // shared size; the local hand overrides via Init.
+        private float _shortDim = ShortDim;
+        private float _longDim = LongDim;
+
         private bool _layoutBuilt;
 
         private RectTransform? _firstPipPanel;
@@ -161,13 +205,32 @@ namespace Pose.Game
             }
         }
 
-        public void Init(TileOrientation orientation)
+        /// <summary>
+        /// Fixes the tile's orientation and size. Must be called before the
+        /// first <see cref="Setup"/>; once the visuals are built the call is
+        /// ignored, because size is baked into the layout element and the pip
+        /// diameters.
+        /// </summary>
+        /// <param name="orientation">Portrait (hand) or landscape (side hand).</param>
+        /// <param name="shortDim">
+        /// The tile's short side. Defaults to <see cref="ShortDim"/>; the local
+        /// player's hand passes <see cref="LocalShortDim"/>.
+        /// </param>
+        /// <param name="longDim">
+        /// The tile's long side. Defaults to <see cref="LongDim"/>.
+        /// </param>
+        public void Init(
+            TileOrientation orientation,
+            float shortDim = ShortDim,
+            float longDim = LongDim)
         {
             if (_layoutBuilt)
             {
                 return;
             }
             _orientation = orientation;
+            _shortDim = shortDim;
+            _longDim = longDim;
         }
 
         public void NotifyDropAccepted()
@@ -450,9 +513,16 @@ namespace Pose.Game
             body.color = BodyColor;
             body.raycastTarget = true;
 
-            Shadow shadow = gameObject.AddComponent<Shadow>();
-            shadow.effectColor = ShadowColor;
-            shadow.effectDistance = new Vector2(3f, -3f);
+            // Order matters: the side band is added first so the cast shadow,
+            // added second, is thrown by the body AND its edge together —
+            // which is what a solid slab actually does.
+            Shadow side = gameObject.AddComponent<Shadow>();
+            side.effectColor = SideColor;
+            side.effectDistance = new Vector2(0f, -SideDepth);
+
+            Shadow cast = gameObject.AddComponent<Shadow>();
+            cast.effectColor = ShadowColor;
+            cast.effectDistance = new Vector2(0f, -CastDepth);
 
             // Yellow outline used for the 2-tap selection highlight. Disabled
             // by default; SetSelected toggles it on/off.
@@ -461,8 +531,8 @@ namespace Pose.Game
             _selectionOutline.effectDistance = new Vector2(4f, -4f);
             _selectionOutline.enabled = false;
 
-            float w = _orientation == TileOrientation.Portrait ? ShortDim : LongDim;
-            float h = _orientation == TileOrientation.Portrait ? LongDim : ShortDim;
+            float w = _orientation == TileOrientation.Portrait ? _shortDim : _longDim;
+            float h = _orientation == TileOrientation.Portrait ? _longDim : _shortDim;
 
             LayoutElement layout = gameObject.AddComponent<LayoutElement>();
             layout.preferredWidth = w;
@@ -563,7 +633,7 @@ namespace Pose.Game
             rt.anchorMin = normalizedPos;
             rt.anchorMax = normalizedPos;
             rt.pivot = new Vector2(0.5f, 0.5f);
-            float diameter = ShortDim * DotSizeRatio;
+            float diameter = _shortDim * DotSizeRatio;
             rt.sizeDelta = new Vector2(diameter, diameter);
             rt.anchoredPosition = Vector2.zero;
 

@@ -48,6 +48,15 @@ namespace Pose.Game
         /// </summary>
         public const float ActionBarLeftInset = 24f;
 
+        // Opponent profile sizes. The top seat shares a band with its hand and
+        // the side seats sit in 150-wide columns, so neither can carry the old
+        // 110 without pushing into the tiles.
+        private const float TopSeatAvatarSize = 96f;
+        private const float SideSeatAvatarSize = 84f;
+
+        // Collapsed scoreboard: the title bar and nothing else.
+        private const float CrownHeight = 46f;
+
         // ---- palette ------------------------------------------------------
         private static readonly Color Panel = new(0.075f, 0.059f, 0.047f, 0.92f);
         private static readonly Color Gold = new(0.961f, 0.769f, 0.318f);
@@ -79,6 +88,7 @@ namespace Pose.Game
         private TextMeshProUGUI _scoreSubtitle = null!;
         private TextMeshProUGUI _roundValue = null!;
         private TextMeshProUGUI _onBoardValue = null!;
+        private GameObject _scorePanel = null!;
         private GameObject _scoreBody = null!;
         private TextMeshProUGUI _scoreChev = null!;
         private bool _scoreCollapsed;
@@ -98,9 +108,18 @@ namespace Pose.Game
             StretchFull((RectTransform)transform);
             BuildTopBar();
             BuildScoreboard();
-            BuildSeat(SeatPosition.Top, new Vector2(0.5f, 1f), new Vector2(0f, -150f));
-            BuildSeat(SeatPosition.Left, new Vector2(0f, 0.52f), new Vector2(78f, 0f));
-            BuildSeat(SeatPosition.Right, new Vector2(1f, 0.52f), new Vector2(-78f, 0f));
+            // Profiles sit BESIDE their hands, never over them.
+            //
+            // Top: to the right of its hand rather than above it. Stacked, the
+            // profile and hand needed two bands; side by side they need one,
+            // which is where the chain area's extra height comes from.
+            //
+            // Sides: docked at the top of each column, above the tile stack.
+            // Anchored to the top edge rather than to mid-height so the
+            // clearance holds on short screens.
+            BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-110f, -270f), TopSeatAvatarSize);
+            BuildSeat(SeatPosition.Left, new Vector2(0f, 1f), new Vector2(72f, -486f), SideSeatAvatarSize);
+            BuildSeat(SeatPosition.Right, new Vector2(1f, 1f), new Vector2(-72f, -486f), SideSeatAvatarSize);
             BuildChatPanel();
             BuildCorner();
             BuildActionBar();
@@ -220,11 +239,15 @@ namespace Pose.Game
         private void BuildScoreboard()
         {
             GameObject panel = Child(transform, "Scoreboard");
+            _scorePanel = panel;
             RectTransform rt = (RectTransform)panel.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.anchoredPosition = new Vector2(24f, -120f);
-            rt.sizeDelta = new Vector2(360f, 300f);
+            rt.anchoredPosition = new Vector2(24f, -116f);
+            // Height is driven by the ContentSizeFitter below; this is only the
+            // starting value. Narrower than before so the top profile, which
+            // now sits in the same band, has room on the right.
+            rt.sizeDelta = new Vector2(300f, 300f);
             PanelBg(panel);
             VerticalLayoutGroup vlg = panel.AddComponent<VerticalLayoutGroup>();
             vlg.padding = new RectOffset(0, 0, 0, 0); // bottom padding lives in the body
@@ -235,18 +258,29 @@ namespace Pose.Game
             vlg.childForceExpandHeight = false;
             panel.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            // Crown header (tap to collapse). Tight so a collapsed panel is compact.
+            // Crown header (tap to collapse). Collapsed, this is the whole
+            // panel, so it is pinned to exactly CrownHeight — min as well as
+            // preferred. AddLabel gives every label a preferred height of
+            // fontSize + 8, and with childControlHeight on, a 30pt title was
+            // free to ask for more room than the bar and stretch it.
             GameObject head = Child(panel.transform, "Crown");
-            head.AddComponent<LayoutElement>().preferredHeight = 44f;
+            LayoutElement headLe = head.AddComponent<LayoutElement>();
+            headLe.preferredHeight = CrownHeight;
+            headLe.minHeight = CrownHeight;
+            headLe.flexibleHeight = 0f;
             HorizontalLayoutGroup hh = head.AddComponent<HorizontalLayoutGroup>();
             hh.padding = new RectOffset(16, 12, 0, 0);
             hh.childAlignment = TextAnchor.MiddleCenter;
             hh.childControlWidth = true; hh.childControlHeight = true; hh.childForceExpandWidth = true;
             Button hb = HeaderButton(head);
             hb.onClick.AddListener(ToggleScoreboard);
-            AddFlexLabel(head.transform, L10n.Get("scoreboard_title"), 30f, Gold, FontStyles.Bold, 6f);
+            TextMeshProUGUI title =
+                AddFlexLabel(head.transform, L10n.Get("scoreboard_title"), 30f, Gold, FontStyles.Bold, 6f);
+            title.GetComponent<LayoutElement>().preferredHeight = CrownHeight;
             _scoreChev = AddLabel(head.transform, "–", 30f, Muted, TextAlignmentOptions.Right);
-            _scoreChev.GetComponent<LayoutElement>().preferredWidth = 30f;
+            LayoutElement chevLe = _scoreChev.GetComponent<LayoutElement>();
+            chevLe.preferredWidth = 30f;
+            chevLe.preferredHeight = CrownHeight;
 
             _scoreBody = Child(panel.transform, "Body");
             VerticalLayoutGroup bvl = _scoreBody.AddComponent<VerticalLayoutGroup>();
@@ -325,13 +359,19 @@ namespace Pose.Game
             _scoreCollapsed = !_scoreCollapsed;
             _scoreBody.SetActive(!_scoreCollapsed);
             _scoreChev.text = _scoreCollapsed ? "+" : "–";
+
+            // The panel's ContentSizeFitter has no layout group above it to
+            // drive a rebuild, so deactivating the body does not on its own
+            // shrink the panel — it keeps the height it was last fitted to.
+            // Force the pass so a collapse actually collapses.
+            LayoutRebuilder.MarkLayoutForRebuild((RectTransform)_scorePanel.transform);
         }
 
         // ---- seat avatars -------------------------------------------------
 
-        private void BuildSeat(SeatPosition pos, Vector2 anchor, Vector2 offset)
+        private void BuildSeat(SeatPosition pos, Vector2 anchor, Vector2 offset, float avatarSize)
         {
-            SeatWidgets w = MakeAvatarWidget(transform, $"Seat_{pos}", anchor, offset, withName: true, avatarSize: 110f);
+            SeatWidgets w = MakeAvatarWidget(transform, $"Seat_{pos}", anchor, offset, withName: true, avatarSize: avatarSize);
             _seats[pos] = w;
             w.Root.SetActive(false);
         }

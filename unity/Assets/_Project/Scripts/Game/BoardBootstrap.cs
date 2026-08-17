@@ -36,13 +36,43 @@ namespace Pose.Game
 
         private static readonly Color FeltColor = new(0.05f, 0.30f, 0.18f, 1f);
 
-        private const float TopBottomBandHeight = 180f;
+        // Top hand holds opponent backs at the default tile size; the bottom
+        // band has to fit the taller local tile.
+        private const float TopBandHeight = 136f;
+        private const float BottomBandHeight = 196f;
         private const float StatusFooterHeight = 90f;
         private const float SideBandWidth = 150f;
         private const float RegionPadding = 16f;
-        // Opponent's seat sits ~60 px below the top edge so it reads as in-game
-        // rather than glued to the safe-area boundary.
-        private const float TopRegionTopMargin = 60f;
+
+        // The top hand starts well down the screen because its profile now
+        // sits BESIDE it rather than above it (BoardRoomHud.BuildSeat). Sharing
+        // one band instead of stacking two is what returns ~66 units of height
+        // to the chain area.
+        private const float TopRegionTopMargin = 202f;
+
+        // The top hand shifts left of centre to leave the right of its band for
+        // that profile. Canvas is 800 wide, so the hand centres on 320.
+        private const float TopRegionLeftInset = 76f;
+        private const float TopRegionRightInset = 236f;
+
+        // The local hand is bounded on the left by the turn clock and on the
+        // right by the profile-and-chat corner, so it cannot simply centre.
+        // 150..654 is the clear span between them; the fan is sized to fit it.
+        private const float BottomHandLeftInset = 150f;
+        private const float BottomHandRightInset = 146f;
+        private const float BottomHandBottomOffset = 124f;
+
+        // Centre-to-centre step for the fanned local hand. Seven 84-wide tiles
+        // side by side need 624 units and only 504 are available, so they lap
+        // by 14. See docs/prototypes/board-layout.html.
+        private const float LocalHandFanStep = 70f;
+
+        // Side hands start below their profiles, which dock at the top of each
+        // column. Top-aligned rather than centred so this clearance holds on
+        // short screens too, where a centred column would ride up into them.
+        // A side profile widget is 164 tall centred on y 486, so it ends at
+        // 568; this clears it by RegionPadding.
+        private const float SideRegionTopOffset = 584f;
 
         private static readonly PlayerId HumanPlayer = new("alice");
 
@@ -1285,44 +1315,49 @@ namespace Pose.Game
             CreateScoreboard();
             CreatePoserPopup();
 
+            // Where the top cluster ends and the side columns / chain begin.
+            float topClusterBottom = TopRegionTopMargin + TopBandHeight;
+            // Where the bottom cluster starts, measured up from the bottom edge.
+            float bottomClusterTop = BottomHandBottomOffset + BottomBandHeight;
+
             RectTransform topRegion = CreateRegion(
                 "TopRegion",
                 anchorMin: new Vector2(0f, 1f),
                 anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(SideBandWidth + RegionPadding, -TopBottomBandHeight - TopRegionTopMargin),
-                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), -TopRegionTopMargin));
+                offsetMin: new Vector2(TopRegionLeftInset, -topClusterBottom),
+                offsetMax: new Vector2(-TopRegionRightInset, -TopRegionTopMargin));
             ConfigureRegionAsCenteredRow(topRegion);
 
             RectTransform bottomRegion = CreateRegion(
                 "BottomRegion",
                 anchorMin: new Vector2(0f, 0f),
                 anchorMax: new Vector2(1f, 0f),
-                offsetMin: new Vector2(SideBandWidth + RegionPadding, 0f),
-                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), TopBottomBandHeight + StatusFooterHeight));
+                offsetMin: new Vector2(BottomHandLeftInset, BottomHandBottomOffset),
+                offsetMax: new Vector2(-BottomHandRightInset, bottomClusterTop));
             ConfigureRegionAsVerticalStack(bottomRegion);
 
             RectTransform leftRegion = CreateRegion(
                 "LeftRegion",
                 anchorMin: new Vector2(0f, 0f),
                 anchorMax: new Vector2(0f, 1f),
-                offsetMin: new Vector2(0f, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
-                offsetMax: new Vector2(SideBandWidth, -(TopBottomBandHeight + RegionPadding)));
-            ConfigureRegionAsCenteredColumn(leftRegion);
+                offsetMin: new Vector2(0f, bottomClusterTop + RegionPadding),
+                offsetMax: new Vector2(SideBandWidth, -SideRegionTopOffset));
+            ConfigureRegionAsColumn(leftRegion, TextAnchor.UpperCenter);
 
             RectTransform rightRegion = CreateRegion(
                 "RightRegion",
                 anchorMin: new Vector2(1f, 0f),
                 anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(-SideBandWidth, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
-                offsetMax: new Vector2(0f, -(TopBottomBandHeight + RegionPadding)));
-            ConfigureRegionAsCenteredColumn(rightRegion);
+                offsetMin: new Vector2(-SideBandWidth, bottomClusterTop + RegionPadding),
+                offsetMax: new Vector2(0f, -SideRegionTopOffset));
+            ConfigureRegionAsColumn(rightRegion, TextAnchor.UpperCenter);
 
             RectTransform centerRegion = CreateRegion(
                 "CenterRegion",
                 anchorMin: new Vector2(0f, 0f),
                 anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(SideBandWidth + RegionPadding, TopBottomBandHeight + StatusFooterHeight + RegionPadding),
-                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), -(TopBottomBandHeight + RegionPadding)));
+                offsetMin: new Vector2(SideBandWidth + RegionPadding, bottomClusterTop + RegionPadding),
+                offsetMax: new Vector2(-(SideBandWidth + RegionPadding), -(topClusterBottom + RegionPadding)));
             ConfigureRegionAsCenteredRow(centerRegion);
 
             _chainView = CreateChainViewInside(centerRegion);
@@ -1330,14 +1365,32 @@ namespace Pose.Game
             // Seats are built once at scene load. Player-to-seat binding (and
             // whether a seat is even used) is decided per-round when the deal
             // lands — see SeatPlayersForOffline / SeatPlayersForOnline.
+            // Only the bottom seat gets the big fanned tiles — it is the one
+            // hand whose faces you read and aim at. The other three render as
+            // backs, so extra size would buy nothing and cost the side columns
+            // width they do not have.
             _bottomHandView = CreateHandView(
-                Players[0], bottomRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: true);
+                Players[0], bottomRegion, HandOrientation.Horizontal, TileOrientation.Portrait,
+                includesStatus: true,
+                shortDim: TileView.LocalShortDim,
+                longDim: TileView.LocalLongDim,
+                fanStep: LocalHandFanStep,
+                showName: false);
+            // No inline name plates on any seat: every seat now carries a
+            // profile widget with its name (BoardRoomHud.SetSeat, which runs
+            // offline as well as online), so a second label is duplication —
+            // and on the top row it is duplication the band cannot afford. The
+            // hand is 456 wide in a 488-wide region; a 120-wide plate beside it
+            // would overflow.
             _rightHandView = CreateHandView(
-                Players[1], rightRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+                Players[1], rightRegion, HandOrientation.Vertical, TileOrientation.Landscape,
+                includesStatus: false, showName: false);
             _topHandView = CreateHandView(
-                Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait, includesStatus: false);
+                Players[2], topRegion, HandOrientation.Horizontal, TileOrientation.Portrait,
+                includesStatus: false, showName: false);
             _leftHandView = CreateHandView(
-                Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape, includesStatus: false);
+                Players[3], leftRegion, HandOrientation.Vertical, TileOrientation.Landscape,
+                includesStatus: false, showName: false);
 
             CreateBoardRoomHud();
             CreateTurnTimerView();
@@ -1612,7 +1665,17 @@ namespace Pose.Game
                 bool isCurrent = !state.IsOver && p == state.CurrentPlayer;
                 string name = bot ? L10n.Get("player_bot") : p.Value;
                 int score = series ? c!.SeriesGamesForSeat(i) : 0;
-                _hud.SetSeat(pos, true, name, BoardRoomHud.SeatColors[i % 4], score, online: !bot, currentTurn: isCurrent);
+                // Team games colour the seat by TEAM, not by seat index. The
+                // hand's name plate used to carry this tint, but the plates are
+                // gone now that every seat has a profile — so the signal has to
+                // live on the profile or Partner mode loses it entirely.
+                // TeamAccentColor returns white outside team games, which is
+                // not a usable disc colour, so fall back to the seat palette.
+                Color teamTint = TeamAccentColor(state, p);
+                Color seatColor = teamTint == Color.white
+                    ? BoardRoomHud.SeatColors[i % 4]
+                    : teamTint;
+                _hud.SetSeat(pos, true, name, seatColor, score, online: !bot, currentTurn: isCurrent);
             }
 
             // Hide any avatar slot not used by this table's player count.
@@ -1750,10 +1813,16 @@ namespace Pose.Game
             hlg.childForceExpandHeight = false;
         }
 
-        private static void ConfigureRegionAsCenteredColumn(RectTransform region)
+        /// <summary>
+        /// Lays a region out as a column. Side hands pass
+        /// <see cref="TextAnchor.UpperCenter"/> so the stack always begins at
+        /// the region's top edge, just under its seat profile — a centred
+        /// column would ride up into that profile on a short screen.
+        /// </summary>
+        private static void ConfigureRegionAsColumn(RectTransform region, TextAnchor alignment)
         {
             VerticalLayoutGroup vlg = region.gameObject.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childAlignment = alignment;
             vlg.spacing = 8f;
             vlg.padding = new RectOffset(4, 4, 8, 8);
             vlg.childControlWidth = true;
@@ -1789,12 +1858,16 @@ namespace Pose.Game
             RectTransform parent,
             HandOrientation handOrientation,
             TileOrientation tileOrientation,
-            bool includesStatus)
+            bool includesStatus,
+            float shortDim = TileView.ShortDim,
+            float longDim = TileView.LongDim,
+            float? fanStep = null,
+            bool showName = true)
         {
             GameObject go = new($"Hand_{player.Value}", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             HandView hv = go.AddComponent<HandView>();
-            hv.Init(handOrientation, tileOrientation);
+            hv.Init(handOrientation, tileOrientation, shortDim, longDim, fanStep, showName);
 
             if (player == HumanPlayer)
             {

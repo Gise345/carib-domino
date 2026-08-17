@@ -39,6 +39,20 @@ namespace Pose.Game
 
         private HandOrientation _handOrientation = HandOrientation.Horizontal;
         private TileOrientation _tileOrientation = TileOrientation.Portrait;
+
+        // Tile size for this seat. The local hand is larger than the others.
+        private float _shortDim = TileView.ShortDim;
+        private float _longDim = TileView.LongDim;
+
+        // Centre-to-centre step between tiles in a horizontal hand. Null lays
+        // them out side by side with TileSpacing; a value smaller than the tile
+        // width fans them so each laps the one before it.
+        private float? _fanStep;
+
+        // The local hand hides its name plate — the corner profile already
+        // says who you are, and the label costs width the fanned hand needs.
+        private bool _showName = true;
+
         private bool _layoutBuilt;
 
         private TextMeshProUGUI? _nameLabel;
@@ -63,7 +77,29 @@ namespace Pose.Game
             }
         }
 
-        public void Init(HandOrientation handOrientation, TileOrientation tileOrientation)
+        /// <summary>
+        /// Fixes this seat's layout. Must be called before the first
+        /// <see cref="Setup"/>.
+        /// </summary>
+        /// <param name="handOrientation">Row (top/bottom) or column (sides).</param>
+        /// <param name="tileOrientation">Portrait or landscape tiles.</param>
+        /// <param name="shortDim">Tile short side; see <see cref="TileView.LocalShortDim"/>.</param>
+        /// <param name="longDim">Tile long side.</param>
+        /// <param name="fanStep">
+        /// Centre-to-centre spacing for a horizontal hand. Pass a value smaller
+        /// than the tile width to fan the tiles; null lays them side by side.
+        /// </param>
+        /// <param name="showName">
+        /// False to drop the name plate — used for the local hand, whose name
+        /// is already on the corner profile.
+        /// </param>
+        public void Init(
+            HandOrientation handOrientation,
+            TileOrientation tileOrientation,
+            float shortDim = TileView.ShortDim,
+            float longDim = TileView.LongDim,
+            float? fanStep = null,
+            bool showName = true)
         {
             if (_layoutBuilt)
             {
@@ -71,6 +107,10 @@ namespace Pose.Game
             }
             _handOrientation = handOrientation;
             _tileOrientation = tileOrientation;
+            _shortDim = shortDim;
+            _longDim = longDim;
+            _fanStep = fanStep;
+            _showName = showName;
         }
 
         public void Setup(
@@ -82,9 +122,12 @@ namespace Pose.Game
         {
             EnsureLayoutBuilt();
 
-            _nameLabel!.text = isCurrent ? $"{playerName} *" : playerName;
-            _nameLabel.fontStyle = isCurrent ? FontStyles.Bold : FontStyles.Normal;
-            _nameLabel.color = _accentColor;
+            if (_nameLabel != null)
+            {
+                _nameLabel.text = isCurrent ? $"{playerName} *" : playerName;
+                _nameLabel.fontStyle = isCurrent ? FontStyles.Bold : FontStyles.Normal;
+                _nameLabel.color = _accentColor;
+            }
 
             for (int i = _tilesContainer!.childCount - 1; i >= 0; i--)
             {
@@ -101,7 +144,7 @@ namespace Pose.Game
                     GameObject tileGo = new("TileBack", typeof(RectTransform));
                     tileGo.transform.SetParent(_tilesContainer, worldPositionStays: false);
                     TileView tv = tileGo.AddComponent<TileView>();
-                    tv.Init(_tileOrientation);
+                    tv.Init(_tileOrientation, _shortDim, _longDim);
                     tv.Mode = TileInteractionMode.None;
                     tv.SetupAsBack();
                 }
@@ -113,7 +156,7 @@ namespace Pose.Game
                 GameObject tileGo = new("Tile", typeof(RectTransform));
                 tileGo.transform.SetParent(_tilesContainer, worldPositionStays: false);
                 TileView tv = tileGo.AddComponent<TileView>();
-                tv.Init(_tileOrientation);
+                tv.Init(_tileOrientation, _shortDim, _longDim);
                 tv.Mode = tileMode != null ? tileMode(t) : TileInteractionMode.None;
                 tv.Setup(t);
                 tv.Clicked += OnTileClickedInternal;
@@ -160,8 +203,8 @@ namespace Pose.Game
             outer.childForceExpandHeight = false;
 
             float tileH = _tileOrientation == TileOrientation.Portrait
-                ? TileView.LongDim
-                : TileView.ShortDim;
+                ? _longDim
+                : _shortDim;
 
             LayoutElement rowLayout = gameObject.AddComponent<LayoutElement>();
             rowLayout.preferredHeight = tileH + 8f;
@@ -169,10 +212,13 @@ namespace Pose.Game
             rowLayout.preferredWidth = 1000f;
             rowLayout.flexibleWidth = 1f;
 
-            _nameLabel = CreateNameLabel(
-                preferredWidth: NameLabelWidthHorizontal,
-                preferredHeight: tileH,
-                alignment: TextAlignmentOptions.MidlineLeft);
+            if (_showName)
+            {
+                _nameLabel = CreateNameLabel(
+                    preferredWidth: NameLabelWidthHorizontal,
+                    preferredHeight: tileH,
+                    alignment: TextAlignmentOptions.MidlineLeft);
+            }
 
             _tilesContainer = CreateTilesContainer(asRow: true);
         }
@@ -189,8 +235,8 @@ namespace Pose.Game
             outer.childForceExpandHeight = false;
 
             float tileW = _tileOrientation == TileOrientation.Portrait
-                ? TileView.ShortDim
-                : TileView.LongDim;
+                ? _shortDim
+                : _longDim;
 
             LayoutElement colLayout = gameObject.AddComponent<LayoutElement>();
             colLayout.preferredWidth = tileW + 16f;
@@ -198,10 +244,13 @@ namespace Pose.Game
             colLayout.preferredHeight = 1000f;
             colLayout.flexibleHeight = 1f;
 
-            _nameLabel = CreateNameLabel(
-                preferredWidth: tileW + 16f,
-                preferredHeight: NameLabelHeightVertical,
-                alignment: TextAlignmentOptions.Center);
+            if (_showName)
+            {
+                _nameLabel = CreateNameLabel(
+                    preferredWidth: tileW + 16f,
+                    preferredHeight: NameLabelHeightVertical,
+                    alignment: TextAlignmentOptions.Center);
+            }
 
             _tilesContainer = CreateTilesContainer(asRow: false);
         }
@@ -244,7 +293,22 @@ namespace Pose.Game
                 vlg.childAlignment = TextAnchor.UpperCenter;
                 row = vlg;
             }
-            row.spacing = TileSpacing;
+            // A fan step smaller than the tile width becomes negative spacing,
+            // so each tile laps the one before it. Later siblings draw on top,
+            // and tiles are added left to right, so the lap falls on each
+            // tile's right edge — the outer pip column loses a few units, and
+            // the selected tile lifts clear of its neighbours anyway.
+            if (asRow && _fanStep.HasValue)
+            {
+                float tileW = _tileOrientation == TileOrientation.Portrait
+                    ? _shortDim
+                    : _longDim;
+                row.spacing = _fanStep.Value - tileW;
+            }
+            else
+            {
+                row.spacing = TileSpacing;
+            }
             row.childControlWidth = true;
             row.childControlHeight = true;
             row.childForceExpandWidth = false;
