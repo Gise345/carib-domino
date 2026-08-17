@@ -297,11 +297,9 @@ namespace Pose.Game
                 vlg.childAlignment = TextAnchor.UpperCenter;
                 row = vlg;
             }
-            // A fan step smaller than the tile width becomes negative spacing,
-            // so each tile laps the one before it. Later siblings draw on top,
-            // and tiles are added left to right, so the lap falls on each
-            // tile's right edge — the outer pip column loses a few units, and
-            // the selected tile lifts clear of its neighbours anyway.
+            // Centre-to-centre step, converted to layout spacing. Larger than
+            // the tile leaves a gap; smaller laps the tiles, with later
+            // siblings drawing over earlier ones. The local hand uses a gap.
             if (asRow && _fanStep.HasValue)
             {
                 float tileW = _tileOrientation == TileOrientation.Portrait

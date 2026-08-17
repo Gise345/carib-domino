@@ -39,7 +39,7 @@ namespace Pose.Game
         // Top hand holds opponent backs at the default tile size; the bottom
         // band has to fit the taller local tile.
         private const float TopBandHeight = 136f;
-        private const float BottomBandHeight = 196f;
+        private const float BottomBandHeight = 158f;
         private const float StatusFooterHeight = 90f;
         private const float SideBandWidth = 150f;
         private const float RegionPadding = 16f;
@@ -62,12 +62,16 @@ namespace Pose.Game
         private const float BottomHandRightInset = 146f;
         private const float BottomHandBottomOffset = 124f;
 
-        // Centre-to-centre step for the fanned local hand. The clear span
-        // between the turn clock and the corner is 508 units, which is what
-        // caps this: seven tiles need width + 6 × step to fit inside it.
-        // Trading 6 units of tile width buys 7 units of gap, halving the lap
-        // from 14 to 7 so the tiles read as separate pieces.
-        private const float LocalHandFanStep = 71f;
+        // Centre-to-centre step for the local hand. A step larger than the tile
+        // leaves a real gap; smaller would lap them.
+        //
+        // The tiles no longer overlap at all. The clear span between the turn
+        // clock and the corner is 508 units, and seven tiles plus six gaps have
+        // to live inside it — which caps the tile at 65 wide with an 8-unit
+        // gap. Overlapping bought width, but a lapped hand does not look like
+        // the reference: dominoes in a hand sit apart, and the covered edge ate
+        // the outer pip column.
+        private const float LocalHandFanStep = 73f;
 
         // Side hands start below their profiles, which dock at the top of each
         // column. Top-aligned rather than centred so this clearance holds on
@@ -1390,7 +1394,7 @@ namespace Pose.Game
             // Seats are built once at scene load. Player-to-seat binding (and
             // whether a seat is even used) is decided per-round when the deal
             // lands — see SeatPlayersForOffline / SeatPlayersForOnline.
-            // Only the bottom seat gets the big fanned tiles — it is the one
+            // Only the bottom seat gets the larger, spaced tiles — it is the one
             // hand whose faces you read and aim at. The other three render as
             // backs, so extra size would buy nothing and cost the side columns
             // width they do not have.

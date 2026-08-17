@@ -467,10 +467,12 @@ namespace Pose.Game
                 w.Name = null!;
             }
 
-            // Score pill.
-            GameObject pill = Child(root.transform, "Pill");
+            // Tile-count badge. Round rather than the old wide pill — it holds
+            // a single digit, and a circle beside the avatar reads as a count
+            // rather than as a score bar.
+            GameObject pill = Child(root.transform, "Count");
             LayoutElement ple = pill.AddComponent<LayoutElement>();
-            ple.preferredWidth = 74f; ple.preferredHeight = 34f;
+            ple.preferredWidth = 40f; ple.preferredHeight = 40f;
             w.ScorePill = pill.AddComponent<Image>();
             w.ScorePill.sprite = GradientSprite.RoundedDiagonal(0.5f, Color.white, Color.white);
             w.ScorePill.color = SeatColors[0];

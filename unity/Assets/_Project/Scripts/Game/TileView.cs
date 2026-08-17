@@ -64,17 +64,19 @@ namespace Pose.Game
         /// the only hand you aim at — opponents' tiles render as backs, so
         /// there is nothing on them to read and no reason to spend width.
         /// </summary>
-        public const float LocalShortDim = 78f;
+        public const float LocalShortDim = 65f;
 
         /// <inheritdoc cref="LocalShortDim"/>
-        public const float LocalLongDim = 156f;
+        public const float LocalLongDim = 130f;
 
         // True white, not cream. At the larger size the tile has to stay the
         // lightest thing on screen or it stops reading as the subject
         // (DESIGN_SYSTEM.md §1).
         private static readonly Color BodyColor = Color.white;
         private static readonly Color PipColor = new(0.10f, 0.07f, 0.06f);
-        private static readonly Color DividerColor = new(0.40f, 0.30f, 0.22f);
+        // Near-black, matching the pips. The old brown read as a decorative
+        // inlay; on a real tile the centre line is just a moulded groove.
+        private static readonly Color DividerColor = new(0.16f, 0.14f, 0.13f);
 
         // Depth, in two layers that both point straight DOWN so they agree
         // with the string lights overhead. The old single shadow threw up and
@@ -90,30 +92,31 @@ namespace Pose.Game
         // texture until the art pass.
         private static readonly Color SideColor = new(0.79f, 0.76f, 0.69f);
         private static readonly Color ShadowColor = new(0f, 0f, 0f, 0.5f);
-        private const float SideDepth = 7f;
-        private const float CastDepth = 14f;
+        private const float SideDepth = 4f;
+        private const float CastDepth = 7f;
 
         // A dimmed tile stays SOLID — it is a physical domino, so it never goes
         // see-through and shows the table through itself. Dimming darkens the
         // face instead, which is what "out of turn" looks like under a lamp.
-        private static readonly Color DimmedBodyColor = new(0.66f, 0.64f, 0.60f);
-        private static readonly Color DimmedSideColor = new(0.50f, 0.48f, 0.45f);
+        private static readonly Color DimmedBodyColor = new(0.67f, 0.67f, 0.67f);
+        private static readonly Color DimmedSideColor = new(0.50f, 0.50f, 0.50f);
 
         // Corner rounding as a fraction of the sprite, baked into its alpha.
-        private const float CornerRadius01 = 0.16f;
+        private const float CornerRadius01 = 0.12f;
         private static Sprite? _bodySprite;
 
         // Pips grow with the tile so they stay countable at a glance.
         private const float DotSizeRatio = 0.22f;
-        // Divider splitting the tile's two pip halves. Proportional rather
-        // than fixed: a flat 6 units reads as a moulded centre rule on the
-        // 84-wide local tile but as a heavy bar on the 60-wide chain tiles.
-        // 0.07 gives ~6 on the local hand and ~4 elsewhere, which is still
-        // well clear of the hairline that used to make landscape bridge tiles
-        // look like one undivided rectangle.
-        private const float DividerRatio = 0.07f;
+        // Divider splitting the tile's two pip halves: a hairline groove with a
+        // small round node at its midpoint. The node is the reason the hairline
+        // works — it gives the eye something to catch, so the line can stay
+        // thin without landscape tiles reading as one undivided rectangle,
+        // which is what the old heavy bar was compensating for.
+        private const float DividerRatio = 0.032f;
+        private const float DividerNodeRatio = 0.10f;
 
         private float DividerThickness => _shortDim * DividerRatio;
+        private float DividerNodeSize => _shortDim * DividerNodeRatio;
 
         private static readonly Vector2[][] DotPositions =
         {
@@ -653,6 +656,22 @@ namespace Pose.Game
             Image divImg = divider.AddComponent<Image>();
             divImg.color = DividerColor;
             divImg.raycastTarget = false;
+
+            // The node, centred on the tile and so on the line.
+            GameObject node = new("DividerNode", typeof(RectTransform));
+            node.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform nodeRt = (RectTransform)node.transform;
+            nodeRt.anchorMin = new Vector2(0.5f, 0.5f);
+            nodeRt.anchorMax = new Vector2(0.5f, 0.5f);
+            nodeRt.pivot = new Vector2(0.5f, 0.5f);
+            nodeRt.anchoredPosition = Vector2.zero;
+            float node1 = DividerNodeSize;
+            nodeRt.sizeDelta = new Vector2(node1, node1);
+
+            Image nodeImg = node.AddComponent<Image>();
+            nodeImg.sprite = GetDotSprite();
+            nodeImg.color = DividerColor;
+            nodeImg.raycastTarget = false;
         }
 
         private static void ClearChildren(RectTransform parent)
