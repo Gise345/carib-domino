@@ -35,6 +35,14 @@ namespace Pose.Core
         public const float DealSeconds = 0.7f;
 
         /// <summary>
+        /// Least time the swirl runs, even when the deal is already in hand.
+        /// Three cycles, which is what makes the shuffle read as a shuffle: each
+        /// cycle churns the set to a different pattern, and one of them on its
+        /// own looks like a single shove.
+        /// </summary>
+        public const float MinSwirlSeconds = 2.7f;
+
+        /// <summary>
         /// Hard ceiling on swirling. If the deal never arrives — a dropped
         /// call to <see cref="RequestFinish"/>, a wedged request — the shuffle
         /// still ends rather than spinning forever in front of the player.
@@ -46,6 +54,7 @@ namespace Pose.Core
         private readonly float _stack;
         private readonly float _deal;
         private readonly float _maxSwirl;
+        private readonly float _minSwirl;
 
         private float _phaseElapsed;
         private float _swirlTotal;
@@ -56,27 +65,39 @@ namespace Pose.Core
         /// <param name="stackSeconds">Override for <see cref="StackSeconds"/>.</param>
         /// <param name="dealSeconds">Override for <see cref="DealSeconds"/>.</param>
         /// <param name="maxSwirlSeconds">Override for <see cref="MaxSwirlSeconds"/>.</param>
+        /// <param name="minSwirlSeconds">Override for <see cref="MinSwirlSeconds"/>.</param>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown when any duration is not positive.
+        /// Thrown when any duration is not positive, or when the floor on
+        /// swirling sits above the ceiling.
         /// </exception>
         public ShuffleSequence(
             float gatherSeconds = GatherSeconds,
             float swirlCycleSeconds = SwirlCycleSeconds,
             float stackSeconds = StackSeconds,
             float dealSeconds = DealSeconds,
-            float maxSwirlSeconds = MaxSwirlSeconds)
+            float maxSwirlSeconds = MaxSwirlSeconds,
+            float minSwirlSeconds = MinSwirlSeconds)
         {
             Require(gatherSeconds, nameof(gatherSeconds));
             Require(swirlCycleSeconds, nameof(swirlCycleSeconds));
             Require(stackSeconds, nameof(stackSeconds));
             Require(dealSeconds, nameof(dealSeconds));
             Require(maxSwirlSeconds, nameof(maxSwirlSeconds));
+            Require(minSwirlSeconds, nameof(minSwirlSeconds));
+
+            if (minSwirlSeconds > maxSwirlSeconds)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(minSwirlSeconds),
+                    "The swirl cannot be required to run past its own ceiling.");
+            }
 
             _gather = gatherSeconds;
             _swirlCycle = swirlCycleSeconds;
             _stack = stackSeconds;
             _deal = dealSeconds;
             _maxSwirl = maxSwirlSeconds;
+            _minSwirl = minSwirlSeconds;
         }
 
         private static void Require(float value, string name)
@@ -170,8 +191,11 @@ namespace Pose.Core
                         _phaseElapsed -= _swirlCycle;
                         SwirlCyclesCompleted++;
                         // Leave only on a cycle boundary, so the motion never
-                        // stops halfway through a slide.
-                        if (_finishRequested || _swirlTotal >= _maxSwirl)
+                        // stops halfway through a slide — and not before the
+                        // floor, so a fast deal still gets a real shuffle. The
+                        // ceiling overrides both.
+                        if ((_finishRequested && _swirlTotal >= _minSwirl)
+                            || _swirlTotal >= _maxSwirl)
                         {
                             Phase = ShufflePhase.Stack;
                         }

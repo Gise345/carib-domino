@@ -12,9 +12,10 @@ namespace Pose.Core.Tests
         private const float Stack = 1f;
         private const float Deal = 2f;
         private const float MaxSwirl = 10f;
+        private const float MinSwirl = 2f;   // one cycle at this file's scale
 
         private static ShuffleSequence New() =>
-            new(Gather, Cycle, Stack, Deal, MaxSwirl);
+            new(Gather, Cycle, Stack, Deal, MaxSwirl, MinSwirl);
 
         /// <summary>Advances in small steps, as a real frame loop would.</summary>
         private static void Run(ShuffleSequence s, float seconds, float step = 0.1f)
@@ -107,6 +108,30 @@ namespace Pose.Core.Tests
 
             Assert.That(s.Phase, Is.EqualTo(ShufflePhase.Swirl));
             Assert.That(s.SwirlCyclesCompleted, Is.Zero);
+        }
+
+        [Test]
+        public void An_Instant_Deal_Still_Gets_The_Full_Floor_Of_Swirling()
+        {
+            // A cached seed used to buy one cycle and cut away. The shuffle has
+            // to run long enough to show more than a single shove.
+            ShuffleSequence s = New();
+            s.RequestFinish();
+
+            Run(s, Gather + MinSwirl - 0.2f);
+
+            Assert.That(s.Phase, Is.EqualTo(ShufflePhase.Swirl));
+
+            Run(s, Cycle);
+
+            Assert.That(s.Phase, Is.Not.EqualTo(ShufflePhase.Swirl));
+        }
+
+        [Test]
+        public void Rejects_A_Floor_Above_The_Ceiling()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => new ShuffleSequence(Gather, Cycle, Stack, Deal, MaxSwirl, MaxSwirl + 1f));
         }
 
         [Test]

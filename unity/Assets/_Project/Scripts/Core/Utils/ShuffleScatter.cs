@@ -30,6 +30,26 @@ namespace Pose.Core
     }
 
     /// <summary>
+    /// The shape one churn of the shuffle takes. Each cycle picks a different
+    /// one, so the set never repeats the same movement twice running — which is
+    /// what separates a shuffle from a shove.
+    /// </summary>
+    public enum ShufflePattern
+    {
+        /// <summary>Tiles bow out to alternating sides — a loose hand over the table.</summary>
+        Fan = 0,
+
+        /// <summary>The whole set sweeps around the middle of the table.</summary>
+        Around = 1,
+
+        /// <summary>Tiles converge through the middle and open out the far side.</summary>
+        Through = 2,
+
+        /// <summary>The two halves bow into each other and interleave as they pass.</summary>
+        Riffle = 3,
+    }
+
+    /// <summary>
     /// Lays a set of tiles out the way a hand-shuffled set actually lies: no
     /// rows, no columns, every tile at its own angle, neighbours overlapping
     /// where they fall.
@@ -198,6 +218,34 @@ namespace Pose.Core
         }
 
         /// <summary>
+        /// The movement this cycle uses to get the set from the last layout to
+        /// this one. Consecutive cycles never share a pattern — the step from
+        /// one cycle to the next is always 1, 2 or 3 places around the four, so
+        /// it can never land back where it was.
+        /// </summary>
+        /// <param name="cycle">Shuffle cycle, counting from zero.</param>
+        /// <returns>The pattern to travel in.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when the cycle is negative.
+        /// </exception>
+        public static ShufflePattern PatternOf(int cycle)
+        {
+            if (cycle < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(cycle), "Cycles count from zero.");
+            }
+
+            int index = 0;
+            for (int i = 1; i <= cycle; i++)
+            {
+                index = (index + 1 + (int)(Hash((uint)i, PatternSalt) % 3u)) % 4;
+            }
+
+            return (ShufflePattern)index;
+        }
+
+        /// <summary>
         /// Where a tile lies, and at what angle, in the given cycle.
         /// </summary>
         /// <param name="tileIndex">Tile to place.</param>
@@ -271,6 +319,7 @@ namespace Pose.Core
         private const uint JitterSalt = 0x51ED2701u;
         private const uint AngleSalt = 0x1B873593u;
         private const uint StaggerSalt = 0xCC9E2D51u;
+        private const uint PatternSalt = 0x27D4EB2Fu;
 
         private static uint Hash(uint a, uint b)
         {

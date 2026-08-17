@@ -41,15 +41,18 @@ namespace Pose.Game
         // deliberately tighter than the tile, so neighbours overlap where they
         // fall rather than lining up. See ShuffleScatter.
         private const int GridColumns = 5;
-        private const float CellW = TileShort + 14f;
-        private const float CellH = TileLong + 4f;
-        private const float ScatterJitter = 0.3f;
+        private const float CellW = TileShort + 2f;
+        private const float CellH = TileLong - 16f;
+        private const float ScatterJitter = 0.26f;
         private const float RestAngleSpread = 22f;
         private const float FieldMargin = 28f;
 
         // How far a travelling tile bows off the straight line between its old
-        // spot and its new one, so the churn curves instead of sliding.
-        private const float SwirlArc = 34f;
+        // spot and its new one, per pattern. Through pulls hardest — its whole
+        // point is that the set passes through the middle.
+        private const float FanArc = 34f;
+        private const float ThroughArc = 78f;
+        private const float RiffleArc = 52f;
 
         // Where tiles start: off board, spread around the edges.
         private const float EntryDistance = 900f;
@@ -95,6 +98,7 @@ namespace Pose.Game
         private readonly List<int> _drawOrder = new();
         private ShuffleSequence _sequence = new();
         private ShuffleScatter? _scatter;
+        private ShufflePattern _pattern = ShufflePattern.Fan;
         private int _lastCycle = -1;
         private int _tileBaseIndex;
         private RectTransform _root = null!;
@@ -215,17 +219,75 @@ namespace Pose.Game
                 float local = Mathf.Clamp01((t * 1.6f) - (f.Phase * 0.6f));
                 float e = EaseInOutCubic(local);
 
-                // Bow off the straight line, alternating sides, so crossing
-                // tiles sweep around each other instead of sliding through.
-                Vector2 line = f.SlotTo - f.SlotFrom;
-                Vector2 bow = new Vector2(-line.y, line.x).normalized
-                    * (Mathf.Sin(e * Mathf.PI) * SwirlArc * f.ArcSign);
-
-                f.Rt.anchoredPosition = Vector2.LerpUnclamped(f.SlotFrom, f.SlotTo, e) + bow;
+                f.Rt.anchoredPosition = PathPoint(f, e);
                 f.Rt.localRotation = Quaternion.Euler(
                     0f, 0f, Mathf.LerpUnclamped(f.AngleFrom, f.AngleTo, e));
                 SetAlpha(f, 1f);
             }
+        }
+
+        /// <summary>
+        /// Where a tile sits part way through its journey to the next layout.
+        /// The route is what makes one cycle read differently from the last —
+        /// the destinations are always a fresh scatter, but going around the
+        /// table looks nothing like cutting through the middle of it.
+        /// </summary>
+        private Vector2 PathPoint(Flying f, float e)
+        {
+            if (_pattern == ShufflePattern.Around)
+            {
+                return AroundPoint(f, e);
+            }
+
+            Vector2 straight = Vector2.LerpUnclamped(f.SlotFrom, f.SlotTo, e);
+            float swell = Mathf.Sin(e * Mathf.PI);
+            Vector2 line = f.SlotTo - f.SlotFrom;
+            Vector2 side = new Vector2(-line.y, line.x).normalized;
+
+            switch (_pattern)
+            {
+                case ShufflePattern.Through:
+                {
+                    // Pull the whole route toward the middle of the table, so the
+                    // set draws in through the centre and opens out beyond it.
+                    Vector2 mid = (f.SlotFrom + f.SlotTo) * 0.5f;
+                    Vector2 inward = mid.sqrMagnitude < 1f ? side : -mid.normalized;
+                    return straight + (inward * (swell * ThroughArc));
+                }
+
+                case ShufflePattern.Riffle:
+                {
+                    // Each half bows toward the other, so the two sides pass
+                    // through each other rather than round.
+                    float toward = f.SlotFrom.x < 0f ? 1f : -1f;
+                    return straight + (side * (swell * RiffleArc * toward));
+                }
+
+                default:
+                    // Fan: alternating sides, the loose hand-over-the-table churn.
+                    return straight + (side * (swell * FanArc * f.ArcSign));
+            }
+        }
+
+        /// <summary>
+        /// Carries a tile around the middle of the table rather than across it,
+        /// by travelling in angle and radius instead of a straight line. Every
+        /// tile turns the same way, so the set reads as one rotating mass.
+        /// </summary>
+        private static Vector2 AroundPoint(Flying f, float e)
+        {
+            float fromAngle = Mathf.Atan2(f.SlotFrom.y, f.SlotFrom.x);
+            float toAngle = Mathf.Atan2(f.SlotTo.y, f.SlotTo.x);
+
+            float sweep = toAngle - fromAngle;
+            if (sweep <= 0f)
+            {
+                sweep += Mathf.PI * 2f;
+            }
+
+            float angle = fromAngle + (sweep * e);
+            float radius = Mathf.LerpUnclamped(f.SlotFrom.magnitude, f.SlotTo.magnitude, e);
+            return new Vector2(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius);
         }
 
         private void DrawStack(float t)
@@ -372,6 +434,8 @@ namespace Pose.Game
             {
                 return;
             }
+
+            _pattern = ShuffleScatter.PatternOf(cycle);
 
             for (int i = 0; i < _tiles.Count; i++)
             {

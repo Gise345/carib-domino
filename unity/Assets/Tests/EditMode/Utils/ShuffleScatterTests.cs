@@ -10,10 +10,10 @@ namespace Pose.Core.Tests
         // A double-six set on a field roughly the shape the board gives it.
         private const int Tiles = 28;
         private const int Columns = 5;
-        private const float FieldW = 456f;
-        private const float FieldH = 768f;
+        private const float FieldW = 384f;
+        private const float FieldH = 648f;
         private const float AngleSpread = 22f;
-        private const float Jitter = 0.3f;
+        private const float Jitter = 0.26f;
 
         private static ShuffleScatter New() =>
             new(Tiles, Columns, FieldW, FieldH, AngleSpread, Jitter);
@@ -198,6 +198,44 @@ namespace Pose.Core.Tests
             Assert.That(again.X, Is.EqualTo(first.X));
             Assert.That(again.Y, Is.EqualTo(first.Y));
             Assert.That(again.AngleDegrees, Is.EqualTo(first.AngleDegrees));
+        }
+
+        // ---- Patterns -------------------------------------------------------
+
+        [Test]
+        public void No_Pattern_Plays_Twice_Running()
+        {
+            for (int cycle = 1; cycle < 40; cycle++)
+            {
+                Assert.That(
+                    ShuffleScatter.PatternOf(cycle),
+                    Is.Not.EqualTo(ShuffleScatter.PatternOf(cycle - 1)),
+                    $"cycle {cycle} repeated the previous pattern");
+            }
+        }
+
+        [Test]
+        public void Every_Pattern_Comes_Round()
+        {
+            HashSet<ShufflePattern> seen = new();
+            for (int cycle = 0; cycle < 16; cycle++)
+            {
+                seen.Add(ShuffleScatter.PatternOf(cycle));
+            }
+
+            Assert.That(seen.Count, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void The_Pattern_For_A_Cycle_Is_Stable()
+        {
+            Assert.That(ShuffleScatter.PatternOf(7), Is.EqualTo(ShuffleScatter.PatternOf(7)));
+        }
+
+        [Test]
+        public void Rejects_A_Negative_Cycle_For_A_Pattern()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => ShuffleScatter.PatternOf(-1));
         }
 
         // ---- Tilt -----------------------------------------------------------
