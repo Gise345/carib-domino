@@ -71,6 +71,16 @@ namespace Pose.Net
         public event Action? WaitingChanged;
 
         /// <summary>
+        /// Fires when this client could not take a seat at the table — the
+        /// table never answered, or it dealt without us. Carries the localisation
+        /// key for the reason — resolving it belongs to the UI, not here. The UI
+        /// must surface it and offer a way out: the alternative is a player
+        /// sitting on "waiting for players…" forever while everyone else can see
+        /// them in the room.
+        /// </summary>
+        public event Action<string>? JoinFailed;
+
+        /// <summary>
         /// Fires after each replicated move has been applied to
         /// <see cref="CurrentState"/>. Payload is (newState, appliedMove).
         /// </summary>
@@ -287,9 +297,21 @@ namespace Pose.Net
         // (and the between-rounds countdown). 10 seconds.
         public const float SeriesAdvanceDelaySeconds = 10f;
 
-        // Seconds a table waits for humans before the authority fills the empty
-        // seats with bots and deals. No one taps "start" — there is no host role.
-        private const float AutoStartSeconds = 60f;
+        // Keeps asking the table for a seat until it confirms one. A single
+        // request can be lost, and a lost request used to strand the player.
+        private readonly JoinRetryPolicy _joinRetry = new();
+        private bool _joinFailed;
+        private bool _standingUpTable;
+
+        // How often a client with no match object at all re-scans for one, in
+        // case the spawn notification was missed entirely.
+        private const float MatchRescanSeconds = 1f;
+        private float _sinceMatchRescan;
+
+        // Longest the table's own client waits on the server seed before opening
+        // the table with a local one. Generous enough for a slow link to the far
+        // side of the world, short enough that nobody stares at a dead room.
+        private const float SeedFetchTimeoutSeconds = 8f;
 
         // Drives bot seats on the table's authority. The chosen moves are recorded
         // in the (server-replayed) move log, so bot RNG needn't be deterministic
@@ -371,6 +393,7 @@ namespace Pose.Net
             // completed.
             if (_runner.IsSharedModeMasterClient)
             {
+                _standingUpTable = true;
                 _ = SpawnAsHostAsync();
             }
         }
@@ -400,6 +423,11 @@ namespace Pose.Net
             {
                 return;
             }
+
+            // Keep chasing a seat until the table confirms one. Runs before
+            // everything else: none of the round-management below means anything
+            // to a client that isn't seated yet.
+            DriveSeatClaim();
 
             // Authority can migrate at any time (the previous authority left).
             // When we become it, take over the host-side duties.
@@ -437,6 +465,130 @@ namespace Pose.Net
 
         private bool HasMatchAuthority =>
             _match != null && _match.Object != null && _match.Object.HasStateAuthority;
+
+        /// <summary>
+        /// Drives this client's claim on a seat until the table confirms it.
+        ///
+        /// Three things can go wrong between joining a Photon room and holding a
+        /// seat, and all three used to end the same way — the player sitting on
+        /// "waiting for players…" forever while everyone else could see them in
+        /// the room:
+        /// <list type="bullet">
+        ///   <item>the table object never reached us, so we never asked;</item>
+        ///   <item>we asked once and the request was lost;</item>
+        ///   <item>the table dealt without us.</item>
+        /// </list>
+        /// The first two are retried, the third is reported. Nothing here runs
+        /// on the client that owns the table — it seated itself on spawn.
+        /// </summary>
+        private void DriveSeatClaim()
+        {
+            if (_joinRetry.IsSeated || _joinFailed || _runner == null)
+            {
+                return;
+            }
+
+            // The table's own client is seat 0 by construction.
+            if (HasMatchAuthority)
+            {
+                _joinRetry.Seated();
+                return;
+            }
+
+            // We're the one standing the table up and are still waiting on the
+            // server seed. There is nothing to claim a seat at yet, and the
+            // clock must not run against us for our own spawn.
+            if (_standingUpTable && _match == null)
+            {
+                return;
+            }
+
+            if (_match != null)
+            {
+                if (_match.HasSeatFor(_runner.LocalPlayer.PlayerId))
+                {
+                    _joinRetry.Seated();
+                    Debug.Log("[OnlineMatchController] Seat confirmed by the table.");
+                    return;
+                }
+
+                // Dealt without us. No amount of asking fixes this one — the
+                // table refuses registrations once it has dealt.
+                if (_match.DealReady)
+                {
+                    FailJoin("online_join_already_started");
+                    return;
+                }
+            }
+
+            // The clock runs whether or not the table has been found: a room
+            // whose table never appears has to fail the same way as one that
+            // never seats us, rather than waiting on it forever.
+            JoinAttempt attempt = _joinRetry.Advance(Time.deltaTime);
+
+            if (_match == null)
+            {
+                RescanForMatch();
+                if (_match == null && attempt == JoinAttempt.GiveUp)
+                {
+                    FailJoin("online_join_no_table");
+                }
+                return;
+            }
+
+            switch (attempt)
+            {
+                case JoinAttempt.Resend:
+                    Debug.LogWarning(
+                        $"[OnlineMatchController] No seat yet after {_joinRetry.Elapsed:F1}s — " +
+                        $"asking again (attempt {_joinRetry.Resends + 1}).");
+                    _match.RPC_RegisterPlayer(_localPlayerId, _localUid);
+                    break;
+
+                case JoinAttempt.GiveUp:
+                    FailJoin("online_join_no_seat");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Looks for the table again, at most once a second. The spawn
+        /// notification is a one-shot event, and a client that misses it — this
+        /// controller created a frame late, or the object replicated during a
+        /// scene hitch — would otherwise never learn the table exists at all.
+        /// The scan costs nothing next to a player stuck in a dead room.
+        /// </summary>
+        private void RescanForMatch()
+        {
+            _sinceMatchRescan += Time.deltaTime;
+            if (_sinceMatchRescan < MatchRescanSeconds)
+            {
+                return;
+            }
+            _sinceMatchRescan = 0f;
+
+            NetworkedMatch? found = UnityEngine.Object.FindAnyObjectByType<NetworkedMatch>();
+            if (found != null)
+            {
+                Debug.LogWarning(
+                    "[OnlineMatchController] Found the table by rescan — its spawn " +
+                    "notification never reached us.");
+                OnNetworkedMatchSpawned(found);
+            }
+        }
+
+        private void FailJoin(string reasonKey)
+        {
+            if (_joinFailed)
+            {
+                return;
+            }
+            _joinFailed = true;
+            Debug.LogError(
+                $"[OnlineMatchController] Could not take a seat ({reasonKey}) after " +
+                $"{_joinRetry.Elapsed:F1}s.");
+            JoinFailed?.Invoke(reasonKey);
+        }
 
         /// <summary>
         /// Just became the table's authority (Fusion migrated it here after the
@@ -851,6 +1003,51 @@ namespace Pose.Net
         }
 
         /// <summary>
+        /// Fetches a server-issued seed, or gives up and returns a local one.
+        ///
+        /// A failed call throws and is caught, but an unreachable backend does
+        /// not fail — it hangs. Somewhere the callable is slow to reach or
+        /// blocked outright, an untimed await means the table is never stood up
+        /// at all and every player in the room waits on a host that is itself
+        /// waiting. The deadline turns that into a degraded round (unsettleable,
+        /// but playable) rather than a dead room.
+        /// </summary>
+        /// <param name="count">Seats in the round being started.</param>
+        /// <param name="mode">Ruleset being played.</param>
+        /// <returns>The seed and its match id; the id is empty for a fallback.</returns>
+        private static async Task<(ulong Seed, string MatchId)> FetchSeedAsync(int count, GameMode mode)
+        {
+            try
+            {
+                Task<MatchService.IssuedSeed> call = MatchService.StartMatch(count, mode);
+                Task finished = await Task.WhenAny(
+                    call, Task.Delay(TimeSpan.FromSeconds(SeedFetchTimeoutSeconds)));
+
+                if (finished != call)
+                {
+                    // The call is left to run out on its own; whatever it
+                    // eventually returns is no longer wanted.
+                    Debug.LogWarning(
+                        $"[OnlineMatchController] startMatch did not answer within " +
+                        $"{SeedFetchTimeoutSeconds}s — using a LOCAL fallback seed so the " +
+                        "table can still open. This round cannot be settled.");
+                    return (FallbackSeed(), string.Empty);
+                }
+
+                MatchService.IssuedSeed issued = await call;
+                return (issued.Seed, issued.MatchId);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning(
+                    "[OnlineMatchController] startMatch failed — using a LOCAL fallback seed. " +
+                    "This round cannot be settled (no server seed). " +
+                    $"{e.GetType().Name}: {e.Message}");
+                return (FallbackSeed(), string.Empty);
+            }
+        }
+
+        /// <summary>
         /// Host init: fetch a server-issued seed FIRST, then spawn the match with
         /// it. Fetching before the spawn means that by the time any joiner can
         /// register, the seed and match id are already set — no gating on a
@@ -859,27 +1056,29 @@ namespace Pose.Net
         /// </summary>
         private async Task SpawnAsHostAsync()
         {
-            ulong seed;
-            string matchId;
-            try
-            {
-                MatchService.IssuedSeed issued = await MatchService.StartMatch(_targetPlayerCount, _targetMode);
-                seed = issued.Seed;
-                matchId = issued.MatchId;
-            }
-            catch (Exception e)
-            {
-                seed = FallbackSeed();
-                matchId = string.Empty;
-                Debug.LogWarning(
-                    "[OnlineMatchController] startMatch failed — using a LOCAL fallback seed. " +
-                    "This round cannot be settled (no server seed). " +
-                    $"{e.GetType().Name}: {e.Message}");
-            }
+            (ulong seed, string matchId) = await FetchSeedAsync(_targetPlayerCount, _targetMode);
 
             // The runner may have been torn down while we awaited (back-to-lobby).
             if (_runner == null || !_runner.IsRunning)
             {
+                return;
+            }
+
+            // Somebody else's table landed while we were fetching a seed — they
+            // were the master client and we misread it, or authority moved. Take
+            // their table rather than standing up a second one: two tables in a
+            // room is how everyone ends up connected to a game that never deals.
+            if (_match != null || !_runner.IsSharedModeMasterClient)
+            {
+                _standingUpTable = false;
+                Debug.LogWarning(
+                    "[OnlineMatchController] Stood down from hosting — a table already " +
+                    "exists in this room. Joining it instead.");
+                NetworkedMatch? theirs = _match ?? UnityEngine.Object.FindAnyObjectByType<NetworkedMatch>();
+                if (theirs != null)
+                {
+                    OnNetworkedMatchSpawned(theirs);
+                }
                 return;
             }
 
@@ -898,7 +1097,7 @@ namespace Pose.Net
             _match.RegisteredCount = 1;
             // Open the fill window: if the table hasn't filled with humans by the
             // deadline, the authority deals with bots in the empty seats.
-            _match.ArmAutoStart(AutoStartSeconds);
+            _match.ArmAutoStart(NetworkedMatch.AutoStartSeconds);
             Debug.Log(
                 $"[OnlineMatchController] Spawned as HOST. seed={seed}, match={matchId}, " +
                 $"count={_targetPlayerCount}, player0={_localPlayerId}");
@@ -906,9 +1105,20 @@ namespace Pose.Net
 
         private void OnNetworkedMatchSpawned(NetworkedMatch match)
         {
-            if (_match != null && _match == match)
+            if (_match != null)
             {
-                return; // already wired (host's own spawn callback)
+                // Either our own (the host's spawn callback) or a second table
+                // that should never have existed — two clients both believing
+                // they were the master client. Sticking with the first one keeps
+                // every client on the same table; swapping would move us to the
+                // newcomer's table and abandon the seat we already hold.
+                if (_match != match)
+                {
+                    Debug.LogError(
+                        "[OnlineMatchController] A second NetworkedMatch appeared in this room — " +
+                        "ignoring it and staying on the table we joined.");
+                }
+                return;
             }
             _match = match;
             _match.DealReadyChanged += OnDealReady;
@@ -1027,22 +1237,7 @@ namespace Pose.Net
             // it below the original target) so the recorded match matches the deal.
             int count = _match?.PlayerCount ?? _targetPlayerCount;
             GameMode mode = _match?.GameMode ?? _targetMode;
-            ulong seed;
-            string matchId;
-            try
-            {
-                MatchService.IssuedSeed issued = await MatchService.StartMatch(count, mode);
-                seed = issued.Seed;
-                matchId = issued.MatchId;
-            }
-            catch (Exception e)
-            {
-                seed = FallbackSeed();
-                matchId = string.Empty;
-                Debug.LogWarning(
-                    "[OnlineMatchController] startMatch (advance) failed — using a LOCAL fallback seed. " +
-                    $"{e.GetType().Name}: {e.Message}");
-            }
+            (ulong seed, string matchId) = await FetchSeedAsync(count, mode);
 
             if (_match != null && _match.Object != null && _match.Object.HasStateAuthority)
             {

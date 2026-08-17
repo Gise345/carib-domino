@@ -436,6 +436,7 @@ namespace Pose.Game
             _onlineMatchController.MoveApplied += OnOnlineMoveApplied;
             _onlineMatchController.RematchVotesChanged += OnRematchVotesChanged;
             _onlineMatchController.WaitingChanged += OnWaitingChanged;
+            _onlineMatchController.JoinFailed += OnJoinFailed;
             _onlineMatchController.OpponentLeft += OnOpponentLeft;
             _onlineMatchController.SeatsChanged += OnSeatsChanged;
             _onlineMatchController.MatchAbandonedWin += OnMatchAbandonedWin;
@@ -584,6 +585,22 @@ namespace Pose.Game
             int have = _onlineMatchController.RegisteredCount;
             int want = _onlineMatchController.TargetPlayerCount;
             _lobbyView.SetWaitingStatus(L10n.Get("waiting_for_players", have, want));
+        }
+
+        /// <summary>
+        /// This client never got a seat at the table. Say so on the waiting
+        /// overlay and hand the player back their Cancel button — the failure
+        /// used to be silent, leaving them watching "waiting for players…"
+        /// indefinitely while the others played on without them.
+        /// </summary>
+        private void OnJoinFailed(string reasonKey)
+        {
+            // The shuffle has long since run out its own ceiling by the time a
+            // join is declared failed, so there is nothing to stop here.
+            if (_lobbyView != null)
+            {
+                _lobbyView.FailWaiting(L10n.Get(reasonKey));
+            }
         }
 
         private void UnsubscribeFromLobby()
@@ -2446,6 +2463,7 @@ namespace Pose.Game
             _onlineMatchController.MoveApplied -= OnOnlineMoveApplied;
             _onlineMatchController.RematchVotesChanged -= OnRematchVotesChanged;
             _onlineMatchController.WaitingChanged -= OnWaitingChanged;
+            _onlineMatchController.JoinFailed -= OnJoinFailed;
             _onlineMatchController.OpponentLeft -= OnOpponentLeft;
             _onlineMatchController.SeatsChanged -= OnSeatsChanged;
             _onlineMatchController.MatchAbandonedWin -= OnMatchAbandonedWin;

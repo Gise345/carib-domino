@@ -1353,7 +1353,13 @@ namespace Pose.Game
             SetWaitingStatus(status);
         }
 
-        private void FailWaiting(string error)
+        /// <summary>
+        /// Shows a failure in the waiting overlay and releases the busy state, so
+        /// the player can back out. Public because a join can fail after the
+        /// lobby has handed off — the table never seated us — and the lobby is
+        /// still the screen in front of them.
+        /// </summary>
+        public void FailWaiting(string error)
         {
             _busy = false;
             if (_waitingStatus != null)

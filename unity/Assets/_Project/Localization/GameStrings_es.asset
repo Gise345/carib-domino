@@ -18,6 +18,18 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData: []
+  - m_Id: 50470000000051
+    m_Localized: "No se pudo conseguir un asiento en esa mesa. Intentalo de nuevo."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000052
+    m_Localized: "Esa partida ya empezo sin ti."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000053
+    m_Localized: "No se pudo conectar con la mesa. Revisa tu conexion e intentalo de nuevo."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

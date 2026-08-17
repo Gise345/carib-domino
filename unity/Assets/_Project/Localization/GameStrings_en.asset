@@ -266,6 +266,18 @@ MonoBehaviour:
     m_Localized: "Shuffling…"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000051
+    m_Localized: "Couldn't get a seat at that table. Try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000052
+    m_Localized: "That game already started without you."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000053
+    m_Localized: "Couldn't reach the table. Check your connection and try again."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

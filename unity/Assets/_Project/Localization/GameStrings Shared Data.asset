@@ -259,6 +259,18 @@ MonoBehaviour:
     m_Key: shuffle_dealing
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000051
+    m_Key: online_join_no_seat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000052
+    m_Key: online_join_already_started
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000053
+    m_Key: online_join_no_table
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

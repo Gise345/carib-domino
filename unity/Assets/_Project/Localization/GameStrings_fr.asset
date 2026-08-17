@@ -18,6 +18,18 @@ MonoBehaviour:
   m_Metadata:
     m_Items: []
   m_TableData: []
+  - m_Id: 50470000000051
+    m_Localized: "Impossible d'obtenir une place a cette table. Reessayez."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000052
+    m_Localized: "Cette partie a deja commence sans vous."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000053
+    m_Localized: "Impossible de joindre la table. Verifiez votre connexion et reessayez."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

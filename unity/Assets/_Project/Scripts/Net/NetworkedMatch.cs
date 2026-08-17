@@ -216,6 +216,36 @@ namespace Pose.Net
 
         private static int SeatMask(int count) => (1 << count) - 1;
 
+        /// <summary>
+        /// Seconds a table waits for humans before the authority fills the empty
+        /// seats with bots and deals. Re-armed on every arrival, so the window is
+        /// measured from the last player to show up rather than from when the
+        /// table opened — otherwise a player joining a minute after the table was
+        /// created is refused a seat before they ever had a chance at one.
+        /// </summary>
+        public const float AutoStartSeconds = 60f;
+
+        /// <summary>
+        /// True if <paramref name="playerRefId"/> already holds a seat.
+        ///
+        /// Scans only the seats that have actually been handed out: an untouched
+        /// seat reads back 0, and 0 is a perfectly valid <see cref="PlayerRef"/>,
+        /// so scanning the whole array would tell one unlucky player they were
+        /// seated when they were not.
+        /// </summary>
+        public bool HasSeatFor(int playerRefId)
+        {
+            int seated = Mathf.Clamp(RegisteredCount, 0, MaxPlayers);
+            for (int i = 0; i < seated; i++)
+            {
+                if (SeatPlayerRefs.Get(i) == playerRefId)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>True if seat <paramref name="seat"/> is a bot.</summary>
         public bool IsBotSeat(int seat) =>
             seat >= 0 && seat < MaxPlayers && (BotSeatMask & (1 << seat)) != 0;
@@ -291,15 +321,16 @@ namespace Pose.Net
                 Debug.LogWarning($"[NetworkedMatch] RPC_RegisterPlayer dropped — room full at {seat}.");
                 return;
             }
-            // Ignore a duplicate registration from a player who already has a seat
-            // (e.g. a retried RPC), so a client can't consume two seats.
-            for (int i = 0; i < seat; i++)
+            // A joiner asks repeatedly until it sees itself seated, because a
+            // single request can be lost on a long link (JoinRetryPolicy). Every
+            // repeat lands here, so this has to be idempotent: an already-seated
+            // player is ignored rather than handed a second seat.
+            if (HasSeatFor(info.Source.PlayerId))
             {
-                if (SeatPlayerRefs.Get(i) == info.Source.PlayerId)
-                {
-                    Debug.LogWarning($"[NetworkedMatch] RPC_RegisterPlayer ignored — player already seated at {i}.");
-                    return;
-                }
+                Debug.Log(
+                    $"[NetworkedMatch] RPC_RegisterPlayer from an already-seated player — " +
+                    "ignoring the repeat.");
+                return;
             }
 
             PlayerIds.Set(seat, playerId);
@@ -311,12 +342,19 @@ namespace Pose.Net
             if (RegisteredCount >= PlayerCount)
             {
                 StartFirstRound();
+                return;
             }
+
+            // Someone just arrived, so the rest of the table gets a fresh window
+            // to arrive too. Without this the deadline runs from when the table
+            // opened, and a player who joins late enough is refused outright.
+            ArmAutoStart(AutoStartSeconds);
         }
 
         /// <summary>
-        /// Authority-only. Arms the auto-start deadline (see
-        /// <see cref="AutoStartTimer"/>). Called once when the table opens.
+        /// Authority-only. Arms (or re-arms) the auto-start deadline — see
+        /// <see cref="AutoStartTimer"/>. Called when the table opens and again
+        /// on each arrival, so the window always runs from the last player in.
         /// </summary>
         public void ArmAutoStart(float seconds)
         {
