@@ -1544,7 +1544,39 @@ namespace Pose.Game
         /// </summary>
         private void StartShuffle()
         {
-            _shuffle?.Play(onComplete: null);
+            if (_shuffle == null)
+            {
+                return;
+            }
+            // Hands stay empty until the shuffle actually deals them out. The
+            // board still renders behind the scrim as before — this only holds
+            // the tiles back, so they arrive with the flying ones rather than
+            // being revealed already sitting in place when the scrim fades.
+            SetHandsVisible(false);
+            _shuffle.Play(onComplete: () => SetHandsVisible(true));
+        }
+
+        /// <summary>
+        /// Fades the four hands in or out. A CanvasGroup rather than
+        /// deactivating them, so their layout keeps resolving while hidden and
+        /// the tiles are already in place the instant they are shown.
+        /// </summary>
+        private void SetHandsVisible(bool visible)
+        {
+            HandView?[] hands = { _bottomHandView, _rightHandView, _topHandView, _leftHandView };
+            foreach (HandView? hv in hands)
+            {
+                if (hv == null)
+                {
+                    continue;
+                }
+                if (!hv.TryGetComponent(out CanvasGroup group))
+                {
+                    group = hv.gameObject.AddComponent<CanvasGroup>();
+                }
+                group.alpha = visible ? 1f : 0f;
+                group.blocksRaycasts = visible;
+            }
         }
 
         /// <summary>

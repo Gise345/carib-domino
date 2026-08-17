@@ -30,14 +30,20 @@ namespace Pose.Game
         /// <summary>Tiles in a double-six set — what the shuffle shows.</summary>
         private const int TileCount = 28;
 
-        private const float TileShort = 56f;
-        private const float TileLong = 112f;
+        private const float TileShort = 62f;
+        private const float TileLong = 124f;
 
-        // Radius of the loose cluster the tiles swirl within.
-        private const float ClusterRadius = 150f;
-        // How far a tile drifts from its cluster slot over a swirl cycle.
-        private const float SwirlDrift = 34f;
-        private const float SwirlSpinDegrees = 14f;
+        // The set is laid OUT, not heaped: every tile gets its own cell in a
+        // grid, so nothing overlaps and the whole set is readable while it
+        // shuffles. It is allowed to take up most of the board.
+        private const int GridColumns = 5;
+        private const float CellPadX = 26f;
+        private const float CellPadY = 22f;
+
+        // Drift stays inside each tile's own share of the padding, so tiles
+        // jostle without ever climbing over one another.
+        private const float SwirlDrift = 9f;
+        private const float SwirlSpinDegrees = 5f;
 
         // Where tiles start: off board, spread around the edges.
         private const float EntryDistance = 900f;
@@ -59,6 +65,10 @@ namespace Pose.Game
         private static readonly Color ScrimColor = new(0.03f, 0.10f, 0.08f, 0.93f);
         private static readonly Color LabelColor = new(0.91f, 0.87f, 0.79f);
         private const float LabelFontSize = 30f;
+
+        private static float CellW => TileShort + CellPadX;
+        private static float CellH => TileLong + CellPadY;
+        private static int GridRows => (TileCount + GridColumns - 1) / GridColumns;
 
         private sealed class Flying
         {
@@ -256,12 +266,13 @@ namespace Pose.Game
                 CanvasGroup cg = go.AddComponent<CanvasGroup>();
                 cg.alpha = 0f;
 
-                // Cluster slots on a loose spiral so the pile looks heaped
-                // rather than laid out on a grid.
+                // One cell each, centred on the board.
                 float k = i / (float)TileCount;
-                float spiral = k * Mathf.PI * 6f;
-                float radius = ClusterRadius * Mathf.Sqrt(k);
-                Vector2 slot = new(Mathf.Cos(spiral) * radius, Mathf.Sin(spiral) * radius * 0.62f);
+                int col = i % GridColumns;
+                int rowIdx = i / GridColumns;
+                Vector2 slot = new(
+                    (col - ((GridColumns - 1) * 0.5f)) * CellW,
+                    -(rowIdx - ((GridRows - 1) * 0.5f)) * CellH);
 
                 float entryAngle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
                 Vector2 entry = new(
