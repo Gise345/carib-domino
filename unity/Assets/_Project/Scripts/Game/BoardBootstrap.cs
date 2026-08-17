@@ -175,6 +175,10 @@ namespace Pose.Game
         // Tracked so the clock restarts if the situation changes mid-turn.
         private bool _timedForcedPass;
 
+        // A tile the player tapped that can legally go on either end. Both ends
+        // are lit while this is set, and the next end tapped plays it there.
+        private TileView? _armedTile;
+
         private void Start()
         {
             GameSettings.Apply();
@@ -627,6 +631,67 @@ namespace Pose.Game
         }
 
         // ---- Click handler (unambiguous play) -----------------------------
+
+        /// <summary>
+        /// A tile that can go on either end has been tapped. Light both ends
+        /// and remember it: the next tap on an end plays it there. Dragging the
+        /// tile onto an end does the same thing by a different route.
+        /// </summary>
+        private void OnHumanTileSelected(TileView tv)
+        {
+            _armedTile = tv;
+            OnHumanTileDragStarted(tv);
+        }
+
+        /// <summary>The armed tile was tapped again — stand down.</summary>
+        private void OnHumanTileDeselected(TileView tv)
+        {
+            if (_armedTile == tv)
+            {
+                _armedTile = null;
+            }
+            HideDropZones();
+        }
+
+        /// <summary>
+        /// An end was tapped. Plays the armed tile there — the half of the
+        /// choose-an-end interaction that does not require dragging.
+        /// </summary>
+        private void OnEndTapped(ChainEnd end)
+        {
+            if (_armedTile == null || _state == null || _state.IsOver)
+            {
+                return;
+            }
+            if (_state.CurrentPlayer != _localPlayer)
+            {
+                return;
+            }
+
+            Tile tile = _armedTile.Tile;
+            _armedTile = null;
+            HideDropZones();
+
+            IReadOnlyList<Move> legal = _rules.GetLegalMoves(_state);
+            for (int i = 0; i < legal.Count; i++)
+            {
+                if (legal[i] is PlaceMove pm && pm.Tile == tile && pm.End == end)
+                {
+                    SubmitLocalMove(pm);
+                    return;
+                }
+            }
+        }
+
+        private void HideDropZones()
+        {
+            if (_chainView == null)
+            {
+                return;
+            }
+            _chainView.LeftZone?.SetVisible(false);
+            _chainView.RightZone?.SetVisible(false);
+        }
 
         private void OnHumanTileClicked(TileView tv)
         {
@@ -1114,6 +1179,11 @@ namespace Pose.Game
                 openingTile = openingMove.Tile;
             }
             _chainView!.Setup(state.Chain, openingTile);
+
+            // Hands are rebuilt below, so any armed tile is about to be
+            // destroyed. Drop the reference and put the end lights out.
+            _armedTile = null;
+            HideDropZones();
 
             // Per-tile interaction mode for the local player's hand.
             //
@@ -1881,6 +1951,8 @@ namespace Pose.Game
             GameObject go = new("ChainView", typeof(RectTransform));
             go.transform.SetParent(parent, worldPositionStays: false);
             ChainView cv = go.AddComponent<ChainView>();
+            cv.LeftZone!.Tapped += OnEndTapped;
+            cv.RightZone!.Tapped += OnEndTapped;
             cv.LeftZone!.Dropped += OnTileDroppedOnEnd;
             cv.RightZone!.Dropped += OnTileDroppedOnEnd;
             return cv;
@@ -1907,6 +1979,8 @@ namespace Pose.Game
                 hv.TileClicked += OnHumanTileClicked;
                 hv.TileDragStarted += OnHumanTileDragStarted;
                 hv.TileDragEnded += OnHumanTileDragEnded;
+                hv.TileSelected += OnHumanTileSelected;
+                hv.TileDeselected += OnHumanTileDeselected;
             }
 
             if (includesStatus)

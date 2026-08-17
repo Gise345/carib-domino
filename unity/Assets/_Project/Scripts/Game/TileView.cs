@@ -168,6 +168,15 @@ namespace Pose.Game
         public event Action<TileView>? DragStarted;
         public event Action<TileView>? DragEnded;
 
+        /// <summary>
+        /// Raised when a two-end tile is tapped and armed. The board responds
+        /// by lighting both playable ends so the player can pick one.
+        /// </summary>
+        public event Action<TileView>? Selected;
+
+        /// <summary>Raised when an armed tile is tapped again, cancelling it.</summary>
+        public event Action<TileView>? Deselected;
+
         private TileOrientation _orientation = TileOrientation.Portrait;
 
         // Per-instance so one hand can be bigger than another. Defaults to the
@@ -185,6 +194,7 @@ namespace Pose.Game
         private RectTransform? _secondPipPanel;
         private Image? _body;
         private Shadow? _sideShadow;
+        private Shadow? _castShadow;
         private CanvasGroup? _canvasGroup;
         private Outline? _selectionOutline;
         private bool _isSelected;
@@ -194,10 +204,26 @@ namespace Pose.Game
         private static readonly Color SelectionOutlineColor = new(1f, 0.92f, 0.50f, 1f);
         private const float SelectionScale = 1.10f;
 
+        // How the tile behaves in the hand while picked up: bigger, tilted, and
+        // throwing a deeper shadow, so it reads as lifted off the table rather
+        // than sliding along it.
+        private const float DragScale = 1.18f;
+        private const float DragTiltDegrees = -5f;
+        private const float DragShadowMultiplier = 3.5f;
+        private const int DragSortingOrder = 30000;
+
         // Drag state.
         private Transform? _originalParent;
         private int _originalSiblingIndex;
         private Vector3 _originalLocalPosition;
+
+        // The layout group that owns this tile in the hand drives its anchors
+        // and size. Reparenting to the canvas root leaves those values behind,
+        // so they are captured here and restored if the drag is cancelled.
+        private Vector2 _originalAnchorMin;
+        private Vector2 _originalAnchorMax;
+        private Vector2 _originalPivot;
+        private Vector2 _originalSizeDelta;
         private Canvas? _rootCanvas;
         private bool _dropAccepted;
         private bool _dragging;
@@ -342,22 +368,44 @@ namespace Pose.Game
                 return;
             }
 
-            if (!TwoTapModeStatic)
+            // A Drag-mode tile is one that can legally go on EITHER end, on two
+            // different pips. Tapping it never plays it, in either tap mode —
+            // which end it lands on is the player's decision, not the rule
+            // engine's enumeration order. Tapping selects it and lights both
+            // ends; the player then taps an end, or drags the tile to one.
+            //
+            // This used to auto-play the first legal placement, so a [6|4]
+            // tapped on a board open at 6 and 4 always went down on the 6 and
+            // there was no way to ask for the 4.
+            if (_mode == TileInteractionMode.Drag)
             {
-                // 1-tap mode: Click tiles play immediately; Drag tiles ignore
-                // taps and require the explicit drag-to-end interaction.
-                if (_mode == TileInteractionMode.Click)
+                if (_currentlySelected == this)
                 {
-                    Clicked?.Invoke(this);
+                    SetSelected(false);
+                    _currentlySelected = null;
+                    Deselected?.Invoke(this);
+                    return;
                 }
+
+                if (_currentlySelected != null)
+                {
+                    _currentlySelected.SetSelected(false);
+                }
+                SetSelected(true);
+                _currentlySelected = this;
+                Selected?.Invoke(this);
                 return;
             }
 
-            // 2-tap mode applies to both Click and Drag mode tiles. For a
-            // Drag-mode tile the player can still drag for explicit end
-            // choice; 2-tap plays the first legal placement (whichever the
-            // rule engine returns first, typically LEFT) — handy when there
-            // are only one or two tiles left and dragging is fiddly.
+            // Click-mode tiles have only one possible placement, so a tap is
+            // unambiguous and plays it — immediately in 1-tap mode, on the
+            // confirming tap in 2-tap mode.
+            if (!TwoTapModeStatic)
+            {
+                Clicked?.Invoke(this);
+                return;
+            }
+
             if (_currentlySelected == this)
             {
                 SetSelected(false);
@@ -369,6 +417,7 @@ namespace Pose.Game
             if (_currentlySelected != null)
             {
                 _currentlySelected.SetSelected(false);
+                _currentlySelected.Deselected?.Invoke(_currentlySelected);
             }
             SetSelected(true);
             _currentlySelected = this;
@@ -385,6 +434,31 @@ namespace Pose.Game
             {
                 _currentlySelected.SetSelected(false);
                 _currentlySelected = null;
+            }
+        }
+
+        /// <summary>
+        /// Picks the tile up off the table, or sets it back down: scale, tilt
+        /// and a deeper shadow. The shadow is what actually sells the height —
+        /// a tile that only grows reads as zooming, not lifting.
+        /// </summary>
+        private void ApplyDragLift(bool lifted)
+        {
+            transform.localScale = lifted
+                ? new Vector3(DragScale, DragScale, 1f)
+                : Vector3.one;
+            transform.localRotation = lifted
+                ? Quaternion.Euler(0f, 0f, DragTiltDegrees)
+                : Quaternion.identity;
+
+            float multiplier = lifted ? DragShadowMultiplier : 1f;
+            if (_sideShadow != null)
+            {
+                _sideShadow.effectDistance = new Vector2(0f, -SideDepth * _depthScale * multiplier);
+            }
+            if (_castShadow != null)
+            {
+                _castShadow.effectDistance = new Vector2(0f, -CastDepth * _depthScale * multiplier);
             }
         }
 
@@ -421,6 +495,12 @@ namespace Pose.Game
             _originalSiblingIndex = transform.GetSiblingIndex();
             _originalLocalPosition = transform.localPosition;
 
+            RectTransform rt = (RectTransform)transform;
+            _originalAnchorMin = rt.anchorMin;
+            _originalAnchorMax = rt.anchorMax;
+            _originalPivot = rt.pivot;
+            _originalSizeDelta = rt.sizeDelta;
+
             // Get the rootCanvas (topmost in hierarchy) so we can reparent to
             // the absolute root layer — not whatever sub-canvas the hand might
             // be nested in.
@@ -450,14 +530,36 @@ namespace Pose.Game
                     }
                 }
                 dragOverlay.overrideSorting = true;
-                dragOverlay.sortingOrder = 999;
+                // Match the root canvas's sorting LAYER, not just its order. A
+                // high order inside a different layer still draws underneath —
+                // which is how a dragged tile ends up invisible rather than on
+                // top of the board.
+                dragOverlay.sortingLayerID = _rootCanvas.sortingLayerID;
+                dragOverlay.sortingOrder = DragSortingOrder;
+
+                // The hand's layout group drove this tile's anchors and size.
+                // Away from that group those values no longer describe a tile —
+                // stretch anchors turn sizeDelta into an inset, and the rect
+                // collapses. Pin it to an explicit centred rect at its real
+                // size so it is visible wherever it is put.
+                RectTransform dragRt = (RectTransform)transform;
+                dragRt.anchorMin = new Vector2(0.5f, 0.5f);
+                dragRt.anchorMax = new Vector2(0.5f, 0.5f);
+                dragRt.pivot = new Vector2(0.5f, 0.5f);
+                dragRt.sizeDelta = _orientation == TileOrientation.Portrait
+                    ? new Vector2(_shortDim, _longDim)
+                    : new Vector2(_longDim, _shortDim);
             }
 
             if (_canvasGroup != null)
             {
+                // Never let a lifted tile be see-through; the player is meant
+                // to be tracking it.
+                _canvasGroup.alpha = 1f;
                 _canvasGroup.blocksRaycasts = false;
             }
 
+            ApplyDragLift(true);
             DragStarted?.Invoke(this);
         }
 
@@ -519,9 +621,20 @@ namespace Pose.Game
                 return;
             }
 
+            ApplyDragLift(false);
+
             transform.SetParent(_originalParent, worldPositionStays: false);
             transform.SetSiblingIndex(_originalSiblingIndex);
             transform.localPosition = _originalLocalPosition;
+
+            // Hand back the anchors and size the layout group was driving, so
+            // the tile drops into its slot instead of sitting centred on it.
+            RectTransform rt = (RectTransform)transform;
+            rt.anchorMin = _originalAnchorMin;
+            rt.anchorMax = _originalAnchorMax;
+            rt.pivot = _originalPivot;
+            rt.sizeDelta = _originalSizeDelta;
+
             if (_canvasGroup != null)
             {
                 _canvasGroup.blocksRaycasts = _mode == TileInteractionMode.Click
@@ -575,9 +688,9 @@ namespace Pose.Game
             _sideShadow.effectColor = SideColor;
             _sideShadow.effectDistance = new Vector2(0f, -SideDepth * _depthScale);
 
-            Shadow cast = gameObject.AddComponent<Shadow>();
-            cast.effectColor = ShadowColor;
-            cast.effectDistance = new Vector2(0f, -CastDepth * _depthScale);
+            _castShadow = gameObject.AddComponent<Shadow>();
+            _castShadow.effectColor = ShadowColor;
+            _castShadow.effectDistance = new Vector2(0f, -CastDepth * _depthScale);
 
             // Yellow outline used for the 2-tap selection highlight. Disabled
             // by default; SetSelected toggles it on/off.

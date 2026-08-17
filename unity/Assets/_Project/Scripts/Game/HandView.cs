@@ -37,6 +37,12 @@ namespace Pose.Game
         public event Action<TileView>? TileDragStarted;
         public event Action<TileView>? TileDragEnded;
 
+        /// <summary>A two-end tile was tapped and is awaiting an end choice.</summary>
+        public event Action<TileView>? TileSelected;
+
+        /// <summary>An armed tile was tapped again and stood down.</summary>
+        public event Action<TileView>? TileDeselected;
+
         private HandOrientation _handOrientation = HandOrientation.Horizontal;
         private TileOrientation _tileOrientation = TileOrientation.Portrait;
 
@@ -166,12 +172,16 @@ namespace Pose.Game
                 tv.Clicked += OnTileClickedInternal;
                 tv.DragStarted += OnTileDragStartedInternal;
                 tv.DragEnded += OnTileDragEndedInternal;
+                tv.Selected += OnTileSelectedInternal;
+                tv.Deselected += OnTileDeselectedInternal;
             }
         }
 
         private void OnTileClickedInternal(TileView tv) => TileClicked?.Invoke(tv);
         private void OnTileDragStartedInternal(TileView tv) => TileDragStarted?.Invoke(tv);
         private void OnTileDragEndedInternal(TileView tv) => TileDragEnded?.Invoke(tv);
+        private void OnTileSelectedInternal(TileView tv) => TileSelected?.Invoke(tv);
+        private void OnTileDeselectedInternal(TileView tv) => TileDeselected?.Invoke(tv);
 
         private void EnsureLayoutBuilt()
         {

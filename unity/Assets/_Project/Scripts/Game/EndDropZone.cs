@@ -17,7 +17,7 @@ namespace Pose.Game
     /// the matching legal move.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
-    public sealed class EndDropZone : MonoBehaviour, IDropHandler
+    public sealed class EndDropZone : MonoBehaviour, IDropHandler, IPointerClickHandler
     {
         public const float Width = 100f;
         public const float Height = TileView.LongDim;
@@ -27,6 +27,13 @@ namespace Pose.Game
 
         public ChainEnd End { get; private set; }
         public event Action<TileView, ChainEnd>? Dropped;
+
+        /// <summary>
+        /// Raised when the zone is tapped rather than dropped on. This is the
+        /// tap half of choosing an end: the player taps a two-end tile to arm
+        /// it, then taps the end they want.
+        /// </summary>
+        public event Action<ChainEnd>? Tapped;
 
         private CanvasGroup? _canvasGroup;
         private TextMeshProUGUI? _label;
@@ -64,6 +71,17 @@ namespace Pose.Game
                 return;
             }
             Dropped?.Invoke(tv, End);
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            // A drop also ends with a click-like release; OnDrop has already
+            // handled that case, and pointerDrag is still set for it.
+            if (eventData.pointerDrag != null)
+            {
+                return;
+            }
+            Tapped?.Invoke(End);
         }
 
         private void BuildVisuals()
