@@ -221,7 +221,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 50470000000045
-    m_Localized: "Welcome to the table."
+    m_Localized: "Welcome to the Yard."
     m_Metadata:
       m_Items: []
   - m_Id: 50470000000011
@@ -260,6 +260,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 50470000000049
     m_Localized: "{0} ran out of time"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000050
+    m_Localized: "Shuffling…"
     m_Metadata:
       m_Items: []
   references:

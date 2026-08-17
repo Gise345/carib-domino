@@ -173,6 +173,7 @@ namespace Pose.Game
         // or force-quit stops ticking, and a stalled table must resolve anyway.
         private readonly TurnTimer _turnTimer = new();
         private TurnTimerView? _turnTimerView;
+        private ShuffleAnimation? _shuffle;
 
         // The seat the clock is currently counting, so a turn change restarts
         // it. Null when nothing is being timed.
@@ -399,6 +400,7 @@ namespace Pose.Game
                 _lobbyView = null;
             }
             // Offline mode — the existing bots-driven Cut-Throat scene.
+            StartShuffle();
             StartGame();
         }
 
@@ -421,6 +423,9 @@ namespace Pose.Game
                 Debug.LogError("[BoardBootstrap] PhotonBootstrap.Runner is null — cannot start online match.");
                 return;
             }
+
+            // Covers the startMatch round-trip for the server-issued seed.
+            StartShuffle();
 
             string localPlayerId = ProfileService.Instance?.Profile?.DisplayName ?? "anon";
             string localUid = FirebaseBootstrap.Instance?.Uid ?? string.Empty;
@@ -474,6 +479,7 @@ namespace Pose.Game
             }
 
             Render();
+            NotifyShuffleDealReady();
         }
 
         private void OnOnlineRoundStarted(MatchState state)
@@ -639,6 +645,7 @@ namespace Pose.Game
                 new SeededRandomSource(seed));
 
             Render();
+            NotifyShuffleDealReady();
             ScheduleBotIfNeeded();
         }
 
@@ -1508,6 +1515,41 @@ namespace Pose.Game
 
             CreateBoardRoomHud();
             CreateTurnTimerView();
+            CreateShuffleAnimation();
+        }
+
+        /// <summary>
+        /// The opening shuffle. Built last so it covers everything — it is a
+        /// full-screen scrim, and the board is allowed to render underneath it
+        /// as normal. That is what keeps the deal off the animation's critical
+        /// path: nothing waits, the finished board is simply revealed as the
+        /// tiles are dealt away.
+        /// </summary>
+        private void CreateShuffleAnimation()
+        {
+            GameObject go = new("ShuffleAnimation", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _shuffle = go.AddComponent<ShuffleAnimation>();
+        }
+
+        /// <summary>
+        /// Starts the shuffle as a match begins, before the deal is asked for.
+        /// Once per match, not per round — a series already has its own
+        /// between-rounds interstitial, and reshuffling on every round would
+        /// sit in front of players who are mid-game.
+        /// </summary>
+        private void StartShuffle()
+        {
+            _shuffle?.Play(onComplete: null);
+        }
+
+        /// <summary>
+        /// The deal has landed and the board has rendered behind the scrim.
+        /// Lets the shuffle wind up at its next cycle boundary.
+        /// </summary>
+        private void NotifyShuffleDealReady()
+        {
+            _shuffle?.NotifyDealReady();
         }
 
         /// <summary>

@@ -255,6 +255,10 @@ MonoBehaviour:
     m_Key: nudge_auto_played_other
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000050
+    m_Key: shuffle_dealing
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
