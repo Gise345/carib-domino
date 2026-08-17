@@ -18,10 +18,11 @@ namespace Pose.Game
     /// never held up by the animation — at worst the swirl finishes the cycle
     /// it is in.
     ///
-    /// Everything random here is cosmetic: which way a tile drifts, how far it
-    /// jitters. The hands themselves come from the server seed and are dealt by
-    /// the rule engine, so this deliberately uses plain <c>UnityEngine.Random</c>
-    /// (permitted for cosmetic motion) and never touches, reveals or influences
+    /// Everything unpredictable here is cosmetic: where a tile lands, how it
+    /// tilts, which way it sweeps in. Layout comes from <see cref="ShuffleScatter"/>
+    /// and the rest from plain <c>UnityEngine.Random</c>, both permitted for
+    /// cosmetic motion. The hands themselves come from the server seed and are
+    /// dealt by the rule engine, so nothing here touches, reveals or influences
     /// the real deal.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -33,17 +34,22 @@ namespace Pose.Game
         private const float TileShort = 62f;
         private const float TileLong = 124f;
 
-        // The set is laid OUT, not heaped: every tile gets its own cell in a
-        // grid, so nothing overlaps and the whole set is readable while it
-        // shuffles. It is allowed to take up most of the board.
+        // The set is spread, not heaped. An invisible grid hands every tile its
+        // own cell, which is the only thing stopping the shuffle bulking up in
+        // one corner — everything you actually see is the offset inside that
+        // cell, the tilt on top of it, and the churn between cycles. Cells are
+        // deliberately tighter than the tile, so neighbours overlap where they
+        // fall rather than lining up. See ShuffleScatter.
         private const int GridColumns = 5;
-        private const float CellPadX = 26f;
-        private const float CellPadY = 22f;
+        private const float CellW = TileShort + 14f;
+        private const float CellH = TileLong + 4f;
+        private const float ScatterJitter = 0.3f;
+        private const float RestAngleSpread = 22f;
+        private const float FieldMargin = 28f;
 
-        // Drift stays inside each tile's own share of the padding, so tiles
-        // jostle without ever climbing over one another.
-        private const float SwirlDrift = 9f;
-        private const float SwirlSpinDegrees = 5f;
+        // How far a travelling tile bows off the straight line between its old
+        // spot and its new one, so the churn curves instead of sliding.
+        private const float SwirlArc = 34f;
 
         // Where tiles start: off board, spread around the edges.
         private const float EntryDistance = 900f;
@@ -66,25 +72,31 @@ namespace Pose.Game
         private static readonly Color LabelColor = new(0.91f, 0.87f, 0.79f);
         private const float LabelFontSize = 30f;
 
-        private static float CellW => TileShort + CellPadX;
-        private static float CellH => TileLong + CellPadY;
         private static int GridRows => (TileCount + GridColumns - 1) / GridColumns;
 
         private sealed class Flying
         {
             public RectTransform Rt = null!;
             public Vector2 Entry;      // off-board start
-            public Vector2 Slot;       // place in the swirl cluster
-            public Vector2 Stacked;     // place in the final stack
+            public Vector2 SlotFrom;   // where the current churn started
+            public Vector2 SlotTo;     // where it is travelling to
+            public Vector2 Stacked;    // place in the final stack
             public Vector2 Target;     // seat it is dealt to
             public float Phase;        // per-tile offset so they don't move in lockstep
             public float EntryAngle;
+            public float AngleFrom;
+            public float AngleTo;
+            public float ArcSign;      // which side of the line it bows out on
             public float StackAngle;
             public float DealDelay;    // 0..1 through the deal phase
         }
 
         private readonly List<Flying> _tiles = new();
+        private readonly List<int> _drawOrder = new();
         private ShuffleSequence _sequence = new();
+        private ShuffleScatter? _scatter;
+        private int _lastCycle = -1;
+        private int _tileBaseIndex;
         private RectTransform _root = null!;
         private Image? _scrim;
         private TextMeshProUGUI? _label;
@@ -107,6 +119,7 @@ namespace Pose.Game
         {
             _onComplete = onComplete;
             _sequence = new ShuffleSequence();
+            _lastCycle = -1;
             _running = true;
             gameObject.SetActive(true);
             BuildTiles();
@@ -131,6 +144,9 @@ namespace Pose.Game
             _root.offsetMax = Vector2.zero;
             BuildScrim();
             BuildLabel();
+            // Tiles live above the scrim and the label, and their draw order is
+            // re-dealt every cycle, so they need a fixed floor to sort from.
+            _tileBaseIndex = _root.childCount;
             gameObject.SetActive(false);
         }
 
@@ -143,6 +159,15 @@ namespace Pose.Game
 
             ShufflePhase phase = _sequence.Advance(Time.deltaTime);
             float t = _sequence.PhaseProgress;
+
+            // Each cycle re-deals the cells, which is what sends tiles across
+            // the table past one another. Only while swirling: once the sequence
+            // has moved on, tiles must stay where the last cycle left them.
+            if (phase == ShufflePhase.Swirl && _sequence.SwirlCyclesCompleted != _lastCycle)
+            {
+                _lastCycle = _sequence.SwirlCyclesCompleted;
+                Rescatter(_lastCycle + 1);
+            }
 
             switch (phase)
             {
@@ -174,22 +199,31 @@ namespace Pose.Game
                 // Staggered so they arrive as a stream rather than a wall.
                 float local = Mathf.Clamp01((e * 1.35f) - (f.Phase * 0.35f));
                 local = EaseOutCubic(local);
-                f.Rt.anchoredPosition = Vector2.LerpUnclamped(f.Entry, f.Slot, local);
+                f.Rt.anchoredPosition = Vector2.LerpUnclamped(f.Entry, f.SlotTo, local);
                 f.Rt.localRotation = Quaternion.Euler(
-                    0f, 0f, Mathf.LerpUnclamped(f.EntryAngle, 0f, local));
+                    0f, 0f, Mathf.LerpUnclamped(f.EntryAngle, f.AngleTo, local));
                 SetAlpha(f, local);
             }
         }
 
         private void DrawSwirl(float t)
         {
-            float angle = t * Mathf.PI * 2f;
             foreach (Flying f in _tiles)
             {
-                float a = angle + (f.Phase * Mathf.PI * 2f);
-                Vector2 drift = new(Mathf.Cos(a) * SwirlDrift, Mathf.Sin(a * 1.3f) * SwirlDrift);
-                f.Rt.anchoredPosition = f.Slot + drift;
-                f.Rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(a) * SwirlSpinDegrees);
+                // Staggered starts, so the set churns the way a hand moves over
+                // it — tiles going one after another, not the whole set at once.
+                float local = Mathf.Clamp01((t * 1.6f) - (f.Phase * 0.6f));
+                float e = EaseInOutCubic(local);
+
+                // Bow off the straight line, alternating sides, so crossing
+                // tiles sweep around each other instead of sliding through.
+                Vector2 line = f.SlotTo - f.SlotFrom;
+                Vector2 bow = new Vector2(-line.y, line.x).normalized
+                    * (Mathf.Sin(e * Mathf.PI) * SwirlArc * f.ArcSign);
+
+                f.Rt.anchoredPosition = Vector2.LerpUnclamped(f.SlotFrom, f.SlotTo, e) + bow;
+                f.Rt.localRotation = Quaternion.Euler(
+                    0f, 0f, Mathf.LerpUnclamped(f.AngleFrom, f.AngleTo, e));
                 SetAlpha(f, 1f);
             }
         }
@@ -199,10 +233,10 @@ namespace Pose.Game
             float e = EaseOutCubic(t);
             foreach (Flying f in _tiles)
             {
-                // Carry on from wherever the swirl left this tile.
-                Vector2 from = f.Slot;
-                f.Rt.anchoredPosition = Vector2.LerpUnclamped(from, f.Stacked, e);
-                f.Rt.localRotation = Quaternion.Euler(0f, 0f, Mathf.LerpUnclamped(0f, f.StackAngle, e));
+                // Carry on from wherever the last cycle left this tile.
+                f.Rt.anchoredPosition = Vector2.LerpUnclamped(f.SlotTo, f.Stacked, e);
+                f.Rt.localRotation = Quaternion.Euler(
+                    0f, 0f, Mathf.LerpUnclamped(f.AngleTo, f.StackAngle, e));
             }
             SetLabelAlpha(1f - e);
             SetScrimAlpha(1f);
@@ -242,6 +276,8 @@ namespace Pose.Game
         private void BuildTiles()
         {
             ClearTiles();
+            ShuffleScatter scatter = BuildScatter();
+            _scatter = scatter;
 
             for (int i = 0; i < TileCount; i++)
             {
@@ -266,13 +302,9 @@ namespace Pose.Game
                 CanvasGroup cg = go.AddComponent<CanvasGroup>();
                 cg.alpha = 0f;
 
-                // One cell each, centred on the board.
                 float k = i / (float)TileCount;
-                int col = i % GridColumns;
-                int rowIdx = i / GridColumns;
-                Vector2 slot = new(
-                    (col - ((GridColumns - 1) * 0.5f)) * CellW,
-                    -(rowIdx - ((GridRows - 1) * 0.5f)) * CellH);
+                ScatterPlacement rest = scatter.Placement(i, 0);
+                Vector2 slot = new(rest.X, rest.Y);
 
                 float entryAngle = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
                 Vector2 entry = new(
@@ -286,7 +318,11 @@ namespace Pose.Game
                 {
                     Rt = rt,
                     Entry = entry,
-                    Slot = slot,
+                    SlotFrom = slot,
+                    SlotTo = slot,
+                    AngleFrom = rest.AngleDegrees,
+                    AngleTo = rest.AngleDegrees,
+                    ArcSign = (i % 2 == 0) ? 1f : -1f,
                     Stacked = new Vector2(
                         (i - (TileCount / 2f)) * StackSpread,
                         (i - (TileCount / 2f)) * StackSpread * 0.35f),
@@ -299,6 +335,85 @@ namespace Pose.Game
             }
 
             SetLabelAlpha(1f);
+        }
+
+        /// <summary>
+        /// Sizes the scatter field. The board canvas is constant-pixel, so this
+        /// is measured off the live rect rather than assumed — on a narrow
+        /// screen the cells tighten and the tiles overlap more, instead of the
+        /// set running off the table.
+        /// </summary>
+        private ShuffleScatter BuildScatter()
+        {
+            // The field carries the columns plus the slack each row slides
+            // within, so a staggered row still lands on the table.
+            float wanted = (GridColumns + (2f * ShuffleScatter.StaggerFraction)) * CellW;
+
+            Rect rect = _root.rect;
+            float width = Mathf.Min(
+                wanted,
+                Mathf.Max(CellW, rect.width - (FieldMargin * 2f)));
+            float height = Mathf.Min(
+                GridRows * CellH,
+                Mathf.Max(CellH, rect.height - (FieldMargin * 2f)));
+
+            return new ShuffleScatter(
+                TileCount, GridColumns, width, height, RestAngleSpread, ScatterJitter);
+        }
+
+        /// <summary>
+        /// Sends every tile to a freshly dealt cell. This is the shuffle itself:
+        /// tiles cross the table and each other, rather than jostling in place.
+        /// </summary>
+        private void Rescatter(int cycle)
+        {
+            ShuffleScatter? scatter = _scatter;
+            if (scatter == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _tiles.Count; i++)
+            {
+                Flying f = _tiles[i];
+                f.SlotFrom = f.SlotTo;
+                f.AngleFrom = f.AngleTo;
+
+                ScatterPlacement next = scatter.Placement(i, cycle);
+                f.SlotTo = new Vector2(next.X, next.Y);
+                f.AngleTo = next.AngleDegrees;
+                f.ArcSign = ((i + cycle) % 2 == 0) ? 1f : -1f;
+            }
+
+            ReorderTiles(cycle);
+        }
+
+        /// <summary>
+        /// Re-deals which tile draws over which, so overlapping pairs keep
+        /// swapping rather than one always sitting on top. Applied in ascending
+        /// order so each call lands where it is put.
+        /// </summary>
+        private void ReorderTiles(int cycle)
+        {
+            ShuffleScatter? scatter = _scatter;
+            if (scatter == null)
+            {
+                return;
+            }
+
+            _drawOrder.Clear();
+            for (int i = 0; i < _tiles.Count; i++)
+            {
+                _drawOrder.Add(i);
+            }
+
+            _drawOrder.Sort((a, b) =>
+                scatter.CellOf(a, cycle).CompareTo(scatter.CellOf(b, cycle)));
+
+            for (int k = 0; k < _drawOrder.Count; k++)
+            {
+                _tiles[_drawOrder[k]].Rt.SetSiblingIndex(_tileBaseIndex + k);
+            }
         }
 
         private void ClearTiles()
@@ -387,6 +502,18 @@ namespace Pose.Game
         {
             float inv = 1f - Mathf.Clamp01(t);
             return 1f - (inv * inv * inv);
+        }
+
+        private static float EaseInOutCubic(float t)
+        {
+            t = Mathf.Clamp01(t);
+            if (t < 0.5f)
+            {
+                return 4f * t * t * t;
+            }
+
+            float inv = (-2f * t) + 2f;
+            return 1f - (inv * inv * inv * 0.5f);
         }
 
         private static float EaseInCubic(float t)
