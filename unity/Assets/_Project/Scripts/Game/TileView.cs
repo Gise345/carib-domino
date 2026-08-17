@@ -115,10 +115,20 @@ namespace Pose.Game
         private const float DividerRatio = 0.032f;
         private const float DividerNodeRatio = 0.10f;
 
-        // How much of the tile's short side the art divider spans. Just short
-        // of the full width so the bar stops inside the tile's rounded corners
-        // rather than running out over the edge.
-        private const float DividerSpanRatio = 0.92f;
+        // Where the ink actually sits inside divider.png, measured from the
+        // file: the bar runs the middle 48% of the sprite's height and 14.8% of
+        // its width, and everything around it is transparent padding. Sizing
+        // the frame to the tile therefore drew a 2-unit hairline across half
+        // the tile's width. These let the frame be derived from the bar we want
+        // rather than from the sprite's bounds.
+        private const float DividerArtLengthFraction = 0.48f;
+        private const float DividerArtWidthFraction = 0.148f;
+
+        // The bar we actually want on screen, as fractions of the tile's short
+        // side: nearly the full width, and thick enough to read as a moulded
+        // groove rather than a scratch.
+        private const float DividerBarLengthRatio = 0.90f;
+        private const float DividerBarThicknessRatio = 0.075f;
 
         private float DividerThickness => _shortDim * DividerRatio;
         private float DividerNodeSize => _shortDim * DividerNodeRatio;
@@ -226,9 +236,6 @@ namespace Pose.Game
         private const float DragShadowMultiplier = 3.5f;
         private const int DragSortingOrder = 30000;
 
-        // Below this much travel a release counts as a tap, not a drag.
-        private const float TapSlopPixels = 24f;
-
         // Drag state.
         private Transform? _originalParent;
         private int _originalSiblingIndex;
@@ -241,7 +248,6 @@ namespace Pose.Game
         private Vector2 _originalAnchorMax;
         private Vector2 _originalPivot;
         private Vector2 _originalSizeDelta;
-        private Vector2 _dragStartScreenPos;
         private Canvas? _rootCanvas;
         private bool _dropAccepted;
         private bool _dragging;
@@ -513,7 +519,6 @@ namespace Pose.Game
 
             _dropAccepted = false;
             _dragging = true;
-            _dragStartScreenPos = eventData.position;
             _originalParent = transform.parent;
             _originalSiblingIndex = transform.GetSiblingIndex();
             _originalLocalPosition = transform.localPosition;
@@ -635,16 +640,20 @@ namespace Pose.Game
                 return;
             }
 
-            // Forgiveness: Unity calls a press that wandered a few pixels a
-            // drag, not a click, so a Click-mode tile tapped with an unsteady
-            // thumb would go back to the hand and feel unresponsive. A release
-            // that never really travelled counts as a tap.
+            // A Click-mode tile has no meaningful choice to make — either one
+            // legal placement, or two onto ends showing the same pip, which
+            // come to the same board. So letting go of it anywhere plays it:
+            // there is nowhere else it could have gone, and making the player
+            // drag it all the way onto a small target to say something the game
+            // already knows is just work.
             //
-            // Only for Click mode. A two-end tile must never resolve its end
-            // this way — that is the whole point of arming it.
-            bool barelyMoved =
-                Vector2.Distance(_dragStartScreenPos, eventData.position) < TapSlopPixels;
-            bool treatAsTap = _mode == TileInteractionMode.Click && barelyMoved;
+            // This also covers the case it was written for, a press that
+            // wandered a few pixels and so arrived as a drag rather than a tap.
+            //
+            // Never for a two-end tile. Dropping one of those away from an end
+            // must return it to the hand, because the end is exactly what the
+            // player has not said yet.
+            bool treatAsTap = _mode == TileInteractionMode.Click;
 
             ApplyDragLift(false);
 
@@ -894,11 +903,14 @@ namespace Pose.Game
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
 
-            // The sprite runs the full span of the tile's short side, at the
-            // aspect it was authored in.
-            float span = _shortDim * DividerSpanRatio;
-            float width = span * (sprite.rect.width / sprite.rect.height);
-            rt.sizeDelta = new Vector2(width, span);
+            // Size the frame so the BAR lands where we want it, scaling up
+            // through the sprite's padding. The two fractions are close enough
+            // to the sprite's own aspect that the node stays round.
+            float barLength = _shortDim * DividerBarLengthRatio;
+            float barThickness = _shortDim * DividerBarThicknessRatio;
+            rt.sizeDelta = new Vector2(
+                barThickness / DividerArtWidthFraction,
+                barLength / DividerArtLengthFraction);
             // Authored vertical: a landscape tile wants it as-is, a portrait
             // tile wants it lying across.
             rt.localRotation = horizontal ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.identity;
@@ -906,7 +918,10 @@ namespace Pose.Game
             Image img = divider.AddComponent<Image>();
             img.sprite = sprite;
             img.raycastTarget = false;
-            img.preserveAspect = true;
+            // Deliberately off: preserving the aspect would letterbox the
+            // sprite back to its authored ratio and silently cancel the width
+            // boost above.
+            img.preserveAspect = false;
         }
 
         private static Sprite GetDotSprite()
