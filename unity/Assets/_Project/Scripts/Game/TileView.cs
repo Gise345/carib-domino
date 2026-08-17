@@ -115,6 +115,11 @@ namespace Pose.Game
         private const float DividerRatio = 0.032f;
         private const float DividerNodeRatio = 0.10f;
 
+        // How much of the tile's short side the art divider spans. Just short
+        // of the full width so the bar stops inside the tile's rounded corners
+        // rather than running out over the edge.
+        private const float DividerSpanRatio = 0.92f;
+
         private float DividerThickness => _shortDim * DividerRatio;
         private float DividerNodeSize => _shortDim * DividerNodeRatio;
 
@@ -159,6 +164,15 @@ namespace Pose.Game
         /// in-progress games keep behaving even before settings are read.
         /// </summary>
         public static bool TwoTapModeStatic { get; set; }
+
+        /// <summary>
+        /// Sprites every tile draws from, or null to draw procedurally. Static
+        /// because tiles are created from code all over the board — hands, the
+        /// chain, the Last Play badge — and none of them are prefabs with an
+        /// Inspector slot to wire. <see cref="BoardBootstrap"/> sets this once
+        /// at boot from its serialized <see cref="TileArtSet"/>.
+        /// </summary>
+        public static TileArtSet? Art { get; set; }
 
         private static TileView? _currentlySelected;
 
@@ -687,22 +701,27 @@ namespace Pose.Game
         {
             _canvasGroup = gameObject.AddComponent<CanvasGroup>();
 
+            Sprite? artBody = Art?.BodyFor(_orientation);
+
             _body = gameObject.AddComponent<Image>();
-            _body.sprite = BodySprite();
+            _body.sprite = artBody != null ? artBody : BodySprite();
             _body.color = BodyColor;
             _body.raycastTarget = true;
 
-            // Order matters: the side band is added first so the cast shadow,
-            // added second, is thrown by the body AND its edge together —
-            // which is what a solid slab actually does.
+            // The tile's own thickness. Drawn as an offset copy of the body
+            // when there is no art, but the art bakes its edge into the sprite,
+            // so adding this on top of it would double the lip.
             //
             // Depth scales with the tile. Chain tiles butt up against each
             // other with only 2 units between them, so a full-depth shadow
             // would spill across the neighbour below and the chain would read
             // as smeared rather than laid out.
-            _sideShadow = gameObject.AddComponent<Shadow>();
-            _sideShadow.effectColor = SideColor;
-            _sideShadow.effectDistance = new Vector2(0f, -SideDepth * _depthScale);
+            if (artBody == null)
+            {
+                _sideShadow = gameObject.AddComponent<Shadow>();
+                _sideShadow.effectColor = SideColor;
+                _sideShadow.effectDistance = new Vector2(0f, -SideDepth * _depthScale);
+            }
 
             _castShadow = gameObject.AddComponent<Shadow>();
             _castShadow.effectColor = ShadowColor;
@@ -763,6 +782,15 @@ namespace Pose.Game
 
         private void CreateDivider(bool horizontal)
         {
+            // The art divider is one sprite carrying bar and node together, so
+            // it replaces both procedural pieces. It is drawn vertically, which
+            // suits a landscape tile; a portrait tile turns it a quarter turn.
+            if (Art?.Divider != null)
+            {
+                CreateArtDivider(horizontal, Art.Divider);
+                return;
+            }
+
             GameObject divider = new("Divider", typeof(RectTransform));
             divider.transform.SetParent(transform, worldPositionStays: false);
             RectTransform divRt = (RectTransform)divider.transform;
@@ -851,8 +879,43 @@ namespace Pose.Game
             img.raycastTarget = false;
         }
 
+        /// <summary>
+        /// Places the art divider. Sized from the tile's short side so it scales
+        /// with the tile, and rotated rather than stretched so the node stays
+        /// round instead of turning into an ellipse on a portrait tile.
+        /// </summary>
+        private void CreateArtDivider(bool horizontal, Sprite sprite)
+        {
+            GameObject divider = new("Divider", typeof(RectTransform));
+            divider.transform.SetParent(transform, worldPositionStays: false);
+            RectTransform rt = (RectTransform)divider.transform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+
+            // The sprite runs the full span of the tile's short side, at the
+            // aspect it was authored in.
+            float span = _shortDim * DividerSpanRatio;
+            float width = span * (sprite.rect.width / sprite.rect.height);
+            rt.sizeDelta = new Vector2(width, span);
+            // Authored vertical: a landscape tile wants it as-is, a portrait
+            // tile wants it lying across.
+            rt.localRotation = horizontal ? Quaternion.Euler(0f, 0f, 90f) : Quaternion.identity;
+
+            Image img = divider.AddComponent<Image>();
+            img.sprite = sprite;
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+        }
+
         private static Sprite GetDotSprite()
         {
+            if (Art?.Pip != null)
+            {
+                return Art.Pip;
+            }
+
             if (_dotSprite != null)
             {
                 return _dotSprite;

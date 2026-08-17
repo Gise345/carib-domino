@@ -83,6 +83,13 @@ namespace Pose.Game
         // plate), so it ends at 550; this clears it by RegionPadding.
         private const float SideRegionTopOffset = 566f;
 
+        /// <summary>
+        /// Sprites the dominoes are drawn from. Assign the TileArtSet asset in
+        /// the Inspector; leave it empty and tiles draw themselves procedurally,
+        /// exactly as they did before the art existed.
+        /// </summary>
+        [SerializeField] private TileArtSet? _tileArt;
+
         private static readonly PlayerId HumanPlayer = new("alice");
 
         private static readonly PlayerId[] Players =
@@ -181,6 +188,11 @@ namespace Pose.Game
 
         private void Start()
         {
+            // Before anything builds a tile. Null is fine — TileView falls back
+            // to drawing itself, which is how the board looked before the art
+            // landed.
+            TileView.Art = _tileArt;
+
             GameSettings.Apply();
 
             ConfigureRoot();
