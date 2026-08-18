@@ -83,6 +83,19 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------------
+    // /facebookIndex/{facebookId} — server-only fbId -> uid map (M7). Written by
+    // syncFacebookIdentity (Admin SDK) from the caller's VERIFIED auth-token
+    // Facebook id, and read by resolveFacebookFriends to turn a friend's
+    // Facebook id into an app player. Denied to clients entirely: it must not be
+    // client-writable (a spoofed fbId could hijack another player's friend links)
+    // and must not be client-readable (the friend graph must not be scrapeable).
+    // ADR 0019.
+    // -----------------------------------------------------------------------
+    match /facebookIndex/{facebookId} {
+      allow read, write: if false;
+    }
+
+    // -----------------------------------------------------------------------
     // /series/{seriesId} — server-side match series (M6): roster (seat -> the
     // player's own authenticated uid), pot, and running team-points. Written
     // and read only by Cloud Functions (openSeries / joinSeries / settlement);

@@ -30,6 +30,11 @@ export { getLeaderboard } from './social/leaderboard';
 export { getProfile } from './social/getProfile';
 export { claimInviteReward } from './social/claimInviteReward';
 
+// Social auth (M7 phase 1): after a client links Facebook onto its Firebase
+// account, syncFacebookIdentity records the verified fbId -> uid mapping (read
+// from the signed token) so friends can be resolved later. See ADR 0019.
+export { syncFacebookIdentity } from './social/syncFacebookIdentity';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.
