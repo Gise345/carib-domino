@@ -3,7 +3,15 @@
     "allow": [
       "Bash(git add *)",
       "Bash(git commit *)",
-      "Bash([ -f \"$LOG\" ])"
+      "Bash([ -f \"$LOG\" ])",
+      "Bash(mkdir -p unity/Assets/_Project/Art/UI)",
+      "Bash(cp assets/images/Pose-logo.png unity/Assets/_Project/Art/UI/Pose-logo.png)",
+      "Bash(ls -l \"/c/carib-domino/assets/images/lobby-rum.png\" 2>/dev/null && python -c \" *)",
+      "Read(//c/carib-domino/unity/Temp/**)",
+      "Bash(cd c:/carib-domino && sed -n '/private void RefreshHud/,/^        }/p' unity/Assets/_Project/Scripts/Game/BoardBootstrap.cs | head -60)"
+    ],
+    "additionalDirectories": [
+      "c:\\carib-domino\\unity\\Assets\\_Project\\Scripts\\Game"
     ]
   }
 }
