@@ -90,6 +90,10 @@ namespace Pose.Game
         private GameObject? _friendsConnectButton;
         private TextMeshProUGUI? _accountStatusLabel;
         private TextMeshProUGUI? _accountActionLabel;
+        private TextMeshProUGUI? _statCoins;
+        private TextMeshProUGUI? _statGames;
+        private TextMeshProUGUI? _statWins;
+        private TextMeshProUGUI? _statWinRate;
 
         private Transform _contentArea = null!;
         private Image? _comingSoonHeader;
@@ -1018,10 +1022,10 @@ namespace Pose.Game
             GameObject screen = CreateContentPanel("ProfilePanel");
             CreateTitle(screen.transform, "Profile", -30f, 56f);
             GameObject col = CreateColumn(screen.transform);
-            StatRow(col.transform, "Coins", "10,000");
-            StatRow(col.transform, "Games played", "0");
-            StatRow(col.transform, "Wins", "0");
-            StatRow(col.transform, "Win rate", "—");
+            _statCoins = StatRow(col.transform, "Coins", "—");
+            _statGames = StatRow(col.transform, "Games played", "—");
+            _statWins = StatRow(col.transform, "Wins", "—");
+            _statWinRate = StatRow(col.transform, "Win rate", "—");
 
             CreateSectionLabel(col.transform, L10n.Get("account_section"));
             _accountStatusLabel = AddColumnLabel(col.transform, string.Empty);
@@ -1109,6 +1113,36 @@ namespace Pose.Game
         {
             AuthService.Instance?.SignOut();
             LoggedOut?.Invoke();
+        }
+
+        private async void LoadProfileStats()
+        {
+            try
+            {
+                SocialService.ProfileCard card = await SocialService.GetProfileAsync();
+                if (_statCoins != null)
+                {
+                    _statCoins.text = card.Coins.ToString("N0");
+                }
+                if (_statGames != null)
+                {
+                    _statGames.text = card.MatchesPlayed.ToString();
+                }
+                if (_statWins != null)
+                {
+                    _statWins.text = card.Wins.ToString();
+                }
+                if (_statWinRate != null)
+                {
+                    _statWinRate.text = card.MatchesPlayed > 0
+                        ? $"{Mathf.RoundToInt(card.WinRate * 100f)}%"
+                        : "—";
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] profile load failed: {ex.Message}");
+            }
         }
 
         // ---- Friends + leaderboard (M7 phase 2) ---------------------------
@@ -1467,7 +1501,7 @@ namespace Pose.Game
             return screen;
         }
 
-        private void StatRow(Transform parent, string label, string value)
+        private TextMeshProUGUI StatRow(Transform parent, string label, string value)
         {
             GameObject row = CreateChild(parent, $"Stat_{label}");
             LayoutElement le = row.AddComponent<LayoutElement>();
@@ -1504,6 +1538,7 @@ namespace Pose.Game
             vt.color = CodeTextColor;
             vt.text = value;
             vt.raycastTarget = false;
+            return vt;
         }
 
         // ---- Coming soon ---------------------------------------------------
@@ -1591,6 +1626,7 @@ namespace Pose.Game
             else if (tab == Tab.Profile)
             {
                 RefreshAccountSection();
+                LoadProfileStats();
             }
         }
 

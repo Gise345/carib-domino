@@ -58,6 +58,52 @@ namespace Pose.Net
             }
         }
 
+        /// <summary>The player's own profile-card aggregate (name, coins, record).</summary>
+        public readonly struct ProfileCard
+        {
+            public string Name { get; }
+            public int Coins { get; }
+            public int MatchesPlayed { get; }
+            public int Wins { get; }
+            public int Losses { get; }
+            public int Draws { get; }
+            public float WinRate { get; }
+
+            public ProfileCard(string name, int coins, int matchesPlayed, int wins, int losses, int draws, float winRate)
+            {
+                Name = name;
+                Coins = coins;
+                MatchesPlayed = matchesPlayed;
+                Wins = wins;
+                Losses = losses;
+                Draws = draws;
+                WinRate = winRate;
+            }
+        }
+
+        /// <summary>
+        /// Reads the caller's own profile-card aggregate (name, coins, record) via
+        /// the <c>getProfile</c> Cloud Function — one call for the Profile tab.
+        /// </summary>
+        public static async Task<ProfileCard> GetProfileAsync()
+        {
+            HttpsCallableResult result = await FirebaseFunctions.DefaultInstance
+                .GetHttpsCallable("getProfile").CallAsync();
+
+            if (result.Data is IDictionary d)
+            {
+                return new ProfileCard(
+                    AsString(d["name"]),
+                    AsInt(d["coins"]),
+                    AsInt(d["matchesPlayed"]),
+                    AsInt(d["wins"]),
+                    AsInt(d["losses"]),
+                    AsInt(d["draws"]),
+                    AsFloat(d["winRate"]));
+            }
+            return default;
+        }
+
         /// <summary>
         /// Convenience: fetches the player's Facebook friend ids and resolves them
         /// to app friends in one call. Empty if not signed into Facebook.
@@ -197,6 +243,16 @@ namespace Pose.Net
             double d => (int)d,
             string s when int.TryParse(s, out int parsed) => parsed,
             _ => 0,
+        };
+
+        private static float AsFloat(object? value) => value switch
+        {
+            double d => (float)d,
+            long l => l,
+            int i => i,
+            float f => f,
+            string s when float.TryParse(s, out float parsed) => parsed,
+            _ => 0f,
         };
 
         private static string AsString(object? value) => value as string ?? string.Empty;
