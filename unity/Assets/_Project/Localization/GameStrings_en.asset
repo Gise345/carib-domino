@@ -278,6 +278,102 @@ MonoBehaviour:
     m_Localized: "Couldn't reach the table. Check your connection and try again."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000054
+    m_Localized: "Sign in to save your progress and challenge friends."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000055
+    m_Localized: "Continue with Facebook"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000056
+    m_Localized: "Sign in with Email"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000057
+    m_Localized: "Continue as Guest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000058
+    m_Localized: "Email"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000059
+    m_Localized: "Password"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000060
+    m_Localized: "Sign in"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000061
+    m_Localized: "Create account"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000062
+    m_Localized: "New here? Create an account"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000063
+    m_Localized: "Have an account? Sign in"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000064
+    m_Localized: "Forgot password?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000065
+    m_Localized: "Reset email sent — check your inbox."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000066
+    m_Localized: "← Back"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000067
+    m_Localized: "Just a moment…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000068
+    m_Localized: "Sign-in cancelled."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000069
+    m_Localized: "Something went wrong. Please try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000070
+    m_Localized: "Enter a valid email and a password of at least 6 characters."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000071
+    m_Localized: "Couldn't sign you in. Check your details and try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000072
+    m_Localized: "Playing as guest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000073
+    m_Localized: "Connected with Facebook"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000074
+    m_Localized: "Signed in with email"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000075
+    m_Localized: "Connect Facebook"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000076
+    m_Localized: "Disconnect Facebook"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000077
+    m_Localized: "Log out"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

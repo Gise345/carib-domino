@@ -46,6 +46,9 @@ namespace Pose.Game
         public event Action<string, int, GameMode, MatchFormat>? OnlineRoomActive;
         public event Action? WaitingCancelled;
 
+        /// <summary>Raised when the player logs out from the Profile tab (M7).</summary>
+        public event Action? LoggedOut;
+
         private enum Tab { Yard, Friends, Profile, Settings, Shop }
 
         private readonly struct Country
@@ -1007,8 +1010,31 @@ namespace Pose.Game
             StatRow(col.transform, "Games played", "0");
             StatRow(col.transform, "Wins", "0");
             StatRow(col.transform, "Win rate", "—");
-            CreateSectionLabel(col.transform, "ACHIEVEMENTS — COMING SOON");
+
+            CreateSectionLabel(col.transform, AccountStatusLabel());
+            GameObject logout = CreateButton(L10n.Get("account_logout"), OnLogoutClicked);
+            logout.transform.SetParent(col.transform, worldPositionStays: false);
             return screen;
+        }
+
+        private static string AccountStatusLabel()
+        {
+            AuthService? auth = AuthService.Instance;
+            if (auth == null || !auth.IsSignedIn || auth.IsGuest)
+            {
+                return L10n.Get("account_status_guest");
+            }
+            if (auth.IsFacebookLinked)
+            {
+                return L10n.Get("account_status_facebook");
+            }
+            return L10n.Get("account_status_email");
+        }
+
+        private void OnLogoutClicked()
+        {
+            AuthService.Instance?.SignOut();
+            LoggedOut?.Invoke();
         }
 
         private GameObject BuildSettingsPanel()

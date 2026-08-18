@@ -271,6 +271,102 @@ MonoBehaviour:
     m_Key: online_join_no_table
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000054
+    m_Key: login_subtitle
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000055
+    m_Key: login_facebook
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000056
+    m_Key: login_email
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000057
+    m_Key: login_guest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000058
+    m_Key: login_email_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000059
+    m_Key: login_password_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000060
+    m_Key: login_signin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000061
+    m_Key: login_create
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000062
+    m_Key: login_to_signup
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000063
+    m_Key: login_to_signin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000064
+    m_Key: login_forgot
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000065
+    m_Key: login_reset_sent
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000066
+    m_Key: login_back
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000067
+    m_Key: login_busy
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000068
+    m_Key: login_cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000069
+    m_Key: login_err_generic
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000070
+    m_Key: login_err_email_pw
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000071
+    m_Key: login_err_signin
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000072
+    m_Key: account_status_guest
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000073
+    m_Key: account_status_facebook
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000074
+    m_Key: account_status_email
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000075
+    m_Key: account_connect_facebook
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000076
+    m_Key: account_disconnect_facebook
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000077
+    m_Key: account_logout
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

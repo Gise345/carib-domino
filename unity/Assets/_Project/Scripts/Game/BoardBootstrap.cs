@@ -240,8 +240,18 @@ namespace Pose.Game
         private void OnFirebaseReady()
         {
             UnsubscribeFromFirebase();
-            Debug.Log($"[BoardBootstrap] Auth ready, uid: {FirebaseBootstrap.Instance!.Uid}");
-            LoadProfile();
+            // A returning player already has a persisted session → straight to
+            // profile + lobby. A new player has none → show the login screen,
+            // which drives AuthService and calls back via OnLoggedIn (M7).
+            if (AuthService.Instance != null && AuthService.Instance.IsSignedIn)
+            {
+                Debug.Log($"[BoardBootstrap] Session found, uid: {AuthService.Instance.Uid}");
+                LoadProfile();
+            }
+            else
+            {
+                ShowLogin();
+            }
         }
 
         private void OnFirebaseFailed(string error)
@@ -286,7 +296,7 @@ namespace Pose.Game
                 // the Ready/Failed event on a fast-completing path.
                 ps.Ready += OnProfileReady;
                 ps.Failed += OnProfileFailed;
-                ps.LoadOrCreate(FirebaseBootstrap.Instance!.Uid!);
+                ps.LoadOrCreate(AuthService.Instance!.Uid!);
             }
         }
 
@@ -362,6 +372,7 @@ namespace Pose.Game
         private Image? _rootBackground;
 
         private LobbyView? _lobbyView;
+        private LoginView? _loginView;
         private OnlineMatchController? _onlineMatchController;
         private Coroutine? _autoPoseRoutine;
         private Coroutine? _autoPassRoutine;
@@ -370,6 +381,32 @@ namespace Pose.Game
         // buttons dispatch to the right action.
         private enum OverlayMode { RoundOver, OpponentLeft, MatchOver }
         private OverlayMode _overlayMode = OverlayMode.RoundOver;
+
+        private void ShowLogin()
+        {
+            if (_loginView != null)
+            {
+                return;
+            }
+            _hud?.gameObject.SetActive(false);
+            GameObject go = new("LoginView", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _loginView = go.AddComponent<LoginView>();
+            _loginView.SetLogoSprite(_logoSprite);
+            _loginView.SetBackgroundSprite(_lobbyBackgroundSprite);
+            _loginView.LoggedIn += OnLoggedIn;
+        }
+
+        private void OnLoggedIn()
+        {
+            if (_loginView != null)
+            {
+                _loginView.LoggedIn -= OnLoggedIn;
+                Destroy(_loginView.gameObject);
+                _loginView = null;
+            }
+            LoadProfile();
+        }
 
         private void ShowLobby()
         {
@@ -389,6 +426,7 @@ namespace Pose.Game
             _lobbyView.PracticeChosen += OnPracticeChosen;
             _lobbyView.OnlineRoomActive += OnOnlineRoomActive;
             _lobbyView.WaitingCancelled += OnWaitingCancelled;
+            _lobbyView.LoggedOut += OnLoggedOut;
         }
 
         private void OnPracticeChosen()
@@ -612,6 +650,19 @@ namespace Pose.Game
             _lobbyView.PracticeChosen -= OnPracticeChosen;
             _lobbyView.OnlineRoomActive -= OnOnlineRoomActive;
             _lobbyView.WaitingCancelled -= OnWaitingCancelled;
+            _lobbyView.LoggedOut -= OnLoggedOut;
+        }
+
+        private void OnLoggedOut()
+        {
+            // Tear down the lobby and return to the login screen (M7).
+            UnsubscribeFromLobby();
+            if (_lobbyView != null)
+            {
+                Destroy(_lobbyView.gameObject);
+                _lobbyView = null;
+            }
+            ShowLogin();
         }
 
         private void OnProfileFailed(string error)
