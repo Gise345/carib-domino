@@ -374,6 +374,58 @@ MonoBehaviour:
     m_Localized: "Log out"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000078
+    m_Localized: "Global"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000079
+    m_Localized: "Friends"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000080
+    m_Localized: "Loading…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000081
+    m_Localized: "No rankings yet — play a match!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000082
+    m_Localized: "Connect Facebook to rank against friends."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000083
+    m_Localized: "Couldn't load the leaderboard."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000084
+    m_Localized: "{0} wins"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000085
+    m_Localized: "Friends"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000086
+    m_Localized: "Loading…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000087
+    m_Localized: "None of your friends play yet — invite them!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000088
+    m_Localized: "Connect Facebook to find friends who play."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000089
+    m_Localized: "Couldn't load your friends."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 504700000090
+    m_Localized: "ACCOUNT"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

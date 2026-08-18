@@ -367,6 +367,58 @@ MonoBehaviour:
     m_Key: account_logout
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000078
+    m_Key: lb_global
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000079
+    m_Key: lb_friends
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000080
+    m_Key: lb_loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000081
+    m_Key: lb_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000082
+    m_Key: lb_friends_connect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000083
+    m_Key: lb_error
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000084
+    m_Key: lb_wins_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000085
+    m_Key: friends_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000086
+    m_Key: friends_loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000087
+    m_Key: friends_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000088
+    m_Key: friends_connect
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000089
+    m_Key: friends_error
+    m_Metadata:
+      m_Items: []
+  - m_Id: 504700000090
+    m_Key: account_section
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -80,6 +80,17 @@ namespace Pose.Game
         private GameObject? _rulesScreen;
         private GameObject? _countryPopup;
 
+        // Social (M7 phase 2): leaderboard overlay, friends list, account section.
+        private GameObject? _leaderboardScreen;
+        private Transform? _leaderboardContent;
+        private TextMeshProUGUI? _leaderboardStatus;
+        private string _leaderboardScope = "global";
+        private Transform? _friendsContent;
+        private TextMeshProUGUI? _friendsStatus;
+        private GameObject? _friendsConnectButton;
+        private TextMeshProUGUI? _accountStatusLabel;
+        private TextMeshProUGUI? _accountActionLabel;
+
         private Transform _contentArea = null!;
         private Image? _comingSoonHeader;
         private TextMeshProUGUI? _comingSoonTitle;
@@ -238,7 +249,7 @@ namespace Pose.Game
             // full-screen overlays on top of them, then popups on top of all.
             BuildContentArea();
             BuildYard();
-            _friendsPanel = BuildPlaceholderPanel("Friends", "Connect with friends to play and send coins.\nFacebook & in-game friends — coming soon.");
+            _friendsPanel = BuildFriendsPanel();
             _profilePanel = BuildProfilePanel();
             _settingsPanel = BuildSettingsPanel();
             _shopPanel = BuildPlaceholderPanel("Shop", "Buy coins and skins here — coming soon.");
@@ -254,6 +265,7 @@ namespace Pose.Game
             _friendsRoomScreen = BuildFriendsRoomScreen();
             _comingSoonScreen = BuildComingSoon();
             _rulesScreen = BuildRulesScreen();
+            _leaderboardScreen = BuildLeaderboardScreen();
 
             _countryPopup = BuildCountryPopup();
             _waitingOverlay = BuildWaitingOverlay();
@@ -398,9 +410,9 @@ namespace Pose.Game
             hlg.childForceExpandHeight = false;
 
             CreatePill(bar.transform, IconFactory.Trophy(), "Leaderboard", Hex("#FFB300"), Hex("#E65100"),
-                () => ShowOverlay(_comingSoonScreenForTitle("Leaderboard")));
+                OpenLeaderboard);
             CreatePill(bar.transform, IconFactory.Chart(), "Ranking", Hex("#3E8BFF"), Hex("#0B3F9E"),
-                () => ShowOverlay(_comingSoonScreenForTitle("Ranking")));
+                OpenLeaderboard);
         }
 
         private void BuildSideRail()
@@ -1011,9 +1023,17 @@ namespace Pose.Game
             StatRow(col.transform, "Wins", "0");
             StatRow(col.transform, "Win rate", "—");
 
-            CreateSectionLabel(col.transform, AccountStatusLabel());
+            CreateSectionLabel(col.transform, L10n.Get("account_section"));
+            _accountStatusLabel = AddColumnLabel(col.transform, string.Empty);
+
+            GameObject action = CreateButton(string.Empty, OnAccountActionClicked);
+            action.transform.SetParent(col.transform, worldPositionStays: false);
+            _accountActionLabel = action.GetComponentInChildren<TextMeshProUGUI>();
+
             GameObject logout = CreateButton(L10n.Get("account_logout"), OnLogoutClicked);
             logout.transform.SetParent(col.transform, worldPositionStays: false);
+
+            RefreshAccountSection();
             return screen;
         }
 
@@ -1031,10 +1051,383 @@ namespace Pose.Game
             return L10n.Get("account_status_email");
         }
 
+        private void RefreshAccountSection()
+        {
+            AuthService? auth = AuthService.Instance;
+            bool linked = auth != null && auth.IsFacebookLinked;
+            if (_accountStatusLabel != null)
+            {
+                _accountStatusLabel.text = AccountStatusLabel();
+            }
+            if (_accountActionLabel != null)
+            {
+                _accountActionLabel.text = L10n.Get(
+                    linked ? "account_disconnect_facebook" : "account_connect_facebook");
+            }
+        }
+
+        private async void OnAccountActionClicked()
+        {
+            AuthService? auth = AuthService.Instance;
+            if (auth == null)
+            {
+                return;
+            }
+            try
+            {
+                if (auth.IsFacebookLinked)
+                {
+                    if (auth.HasEmail)
+                    {
+                        await auth.UnlinkFacebookAsync();
+                        RefreshAccountSection();
+                    }
+                    else
+                    {
+                        // Facebook is the only credential — disconnecting it would
+                        // orphan the account, so treat it as a sign-out.
+                        auth.SignOut();
+                        LoggedOut?.Invoke();
+                    }
+                }
+                else
+                {
+                    bool connected = await auth.ConnectFacebookAsync();
+                    if (connected)
+                    {
+                        RefreshAccountSection();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] account action failed: {ex.Message}");
+            }
+        }
+
         private void OnLogoutClicked()
         {
             AuthService.Instance?.SignOut();
             LoggedOut?.Invoke();
+        }
+
+        // ---- Friends + leaderboard (M7 phase 2) ---------------------------
+
+        private GameObject BuildFriendsPanel()
+        {
+            GameObject screen = CreateContentPanel("FriendsPanel");
+            CreateTitle(screen.transform, L10n.Get("friends_title"), -30f, 56f);
+
+            GameObject bodyGo = CreateChild(screen.transform, "Body");
+            RectTransform brt = (RectTransform)bodyGo.transform;
+            brt.anchorMin = Vector2.zero;
+            brt.anchorMax = Vector2.one;
+            brt.offsetMin = new Vector2(20f, 130f);
+            brt.offsetMax = new Vector2(-20f, -150f);
+            (Transform content, TextMeshProUGUI status) = CreateListArea(brt, 0f);
+            _friendsContent = content;
+            _friendsStatus = status;
+
+            _friendsConnectButton = CreateButton(L10n.Get("account_connect_facebook"), OnConnectFacebookClicked);
+            _friendsConnectButton.transform.SetParent(screen.transform, worldPositionStays: false);
+            RectTransform cbrt = (RectTransform)_friendsConnectButton.transform;
+            cbrt.anchorMin = new Vector2(0.5f, 0f);
+            cbrt.anchorMax = new Vector2(0.5f, 0f);
+            cbrt.pivot = new Vector2(0.5f, 0f);
+            cbrt.anchoredPosition = new Vector2(0f, 36f);
+            cbrt.sizeDelta = new Vector2(ButtonWidth, ButtonHeight);
+            _friendsConnectButton.SetActive(false);
+            return screen;
+        }
+
+        private GameObject BuildLeaderboardScreen()
+        {
+            (GameObject screen, RectTransform body) = CreateFullScreen("LeaderboardScreen", "Leaderboard");
+
+            GameObject toggle = CreateChild(body, "ScopeToggle");
+            RectTransform trt = (RectTransform)toggle.transform;
+            trt.anchorMin = new Vector2(0f, 1f);
+            trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(0.5f, 1f);
+            trt.offsetMin = new Vector2(0f, -84f);
+            trt.offsetMax = Vector2.zero;
+            trt.sizeDelta = new Vector2(0f, 84f);
+            HorizontalLayoutGroup hlg = toggle.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.spacing = 20f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+            MakeToggleButton(toggle.transform, L10n.Get("lb_global"), () => LoadLeaderboard("global"));
+            MakeToggleButton(toggle.transform, L10n.Get("lb_friends"), () => LoadLeaderboard("friends"));
+
+            (Transform content, TextMeshProUGUI status) = CreateListArea(body, 100f);
+            _leaderboardContent = content;
+            _leaderboardStatus = status;
+            return screen;
+        }
+
+        private void OpenLeaderboard()
+        {
+            ShowOverlay(_leaderboardScreen);
+            LoadLeaderboard(_leaderboardScope);
+        }
+
+        private async void LoadLeaderboard(string scope)
+        {
+            _leaderboardScope = scope;
+            if (_leaderboardContent == null || _leaderboardStatus == null)
+            {
+                return;
+            }
+            ClearChildren(_leaderboardContent);
+            _leaderboardStatus.gameObject.SetActive(true);
+            _leaderboardStatus.text = L10n.Get("lb_loading");
+            try
+            {
+                List<SocialService.LeaderRow> rows;
+                if (scope == "friends")
+                {
+                    if (AuthService.Instance == null || !AuthService.Instance.IsFacebookLinked)
+                    {
+                        _leaderboardStatus.text = L10n.Get("lb_friends_connect");
+                        return;
+                    }
+                    List<SocialService.Friend> friends = await SocialService.GetPlayingFriendsAsync();
+                    List<string> uids = new();
+                    foreach (SocialService.Friend f in friends)
+                    {
+                        uids.Add(f.Uid);
+                    }
+                    rows = await SocialService.GetLeaderboardAsync("friends", "wins", uids);
+                }
+                else
+                {
+                    rows = await SocialService.GetLeaderboardAsync("global", "wins", null);
+                }
+
+                if (rows.Count == 0)
+                {
+                    _leaderboardStatus.text = L10n.Get("lb_empty");
+                    return;
+                }
+                _leaderboardStatus.gameObject.SetActive(false);
+                foreach (SocialService.LeaderRow r in rows)
+                {
+                    AddLeaderRow(_leaderboardContent, r.Rank, r.Name, L10n.Get("lb_wins_fmt", r.Wins), r.IsSelf);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] leaderboard load failed: {ex.Message}");
+                if (_leaderboardStatus != null)
+                {
+                    _leaderboardStatus.text = L10n.Get("lb_error");
+                }
+            }
+        }
+
+        private async void LoadFriends()
+        {
+            if (_friendsContent == null || _friendsStatus == null)
+            {
+                return;
+            }
+            ClearChildren(_friendsContent);
+            bool linked = AuthService.Instance != null && AuthService.Instance.IsFacebookLinked;
+            _friendsConnectButton?.SetActive(!linked);
+            _friendsStatus.gameObject.SetActive(true);
+            if (!linked)
+            {
+                _friendsStatus.text = L10n.Get("friends_connect");
+                return;
+            }
+            _friendsStatus.text = L10n.Get("friends_loading");
+            try
+            {
+                List<SocialService.Friend> friends = await SocialService.GetPlayingFriendsAsync();
+                if (friends.Count == 0)
+                {
+                    _friendsStatus.text = L10n.Get("friends_empty");
+                    return;
+                }
+                _friendsStatus.gameObject.SetActive(false);
+                int rank = 1;
+                foreach (SocialService.Friend f in friends)
+                {
+                    AddLeaderRow(_friendsContent, rank, f.Name, L10n.Get("lb_wins_fmt", f.Wins), false);
+                    rank++;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] friends load failed: {ex.Message}");
+                if (_friendsStatus != null)
+                {
+                    _friendsStatus.text = L10n.Get("friends_error");
+                }
+            }
+        }
+
+        private async void OnConnectFacebookClicked()
+        {
+            AuthService? auth = AuthService.Instance;
+            if (auth == null)
+            {
+                return;
+            }
+            try
+            {
+                bool connected = await auth.ConnectFacebookAsync();
+                if (connected)
+                {
+                    RefreshAccountSection();
+                    LoadFriends();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] connect Facebook failed: {ex.Message}");
+            }
+        }
+
+        // A vertical scrollable list filling the given region, with a centered
+        // status label for loading/empty/error states. Returns (content, status).
+        private (Transform content, TextMeshProUGUI status) CreateListArea(RectTransform region, float topReserve)
+        {
+            GameObject statusGo = CreateChild(region, "ListStatus");
+            RectTransform strt = (RectTransform)statusGo.transform;
+            strt.anchorMin = strt.anchorMax = new Vector2(0.5f, 0.5f);
+            strt.pivot = new Vector2(0.5f, 0.5f);
+            strt.anchoredPosition = Vector2.zero;
+            strt.sizeDelta = new Vector2(560f, 120f);
+            TextMeshProUGUI status = statusGo.AddComponent<TextMeshProUGUI>();
+            status.alignment = TextAlignmentOptions.Center;
+            status.fontSize = 26f;
+            status.color = BodyTextColor;
+            status.textWrappingMode = TextWrappingModes.Normal;
+            status.raycastTarget = false;
+
+            GameObject scroll = CreateChild(region, "Scroll");
+            RectTransform srt = (RectTransform)scroll.transform;
+            srt.anchorMin = Vector2.zero;
+            srt.anchorMax = Vector2.one;
+            srt.offsetMin = Vector2.zero;
+            srt.offsetMax = new Vector2(0f, -topReserve);
+            ScrollRect sr = scroll.AddComponent<ScrollRect>();
+            sr.horizontal = false;
+            sr.vertical = true;
+            sr.movementType = ScrollRect.MovementType.Elastic;
+            sr.scrollSensitivity = 36f;
+
+            GameObject viewport = CreateChild(scroll.transform, "Viewport");
+            RectTransform vprt = (RectTransform)viewport.transform;
+            vprt.anchorMin = Vector2.zero;
+            vprt.anchorMax = Vector2.one;
+            vprt.offsetMin = Vector2.zero;
+            vprt.offsetMax = new Vector2(-18f, 0f);
+            Image vpImg = viewport.AddComponent<Image>();
+            vpImg.color = new Color(1f, 1f, 1f, 0f);
+            viewport.AddComponent<RectMask2D>();
+            sr.viewport = vprt;
+
+            GameObject content = CreateChild(viewport.transform, "Content");
+            RectTransform crt = (RectTransform)content.transform;
+            crt.anchorMin = new Vector2(0f, 1f);
+            crt.anchorMax = new Vector2(1f, 1f);
+            crt.pivot = new Vector2(0.5f, 1f);
+            VerticalLayoutGroup vlg = content.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 8f;
+            vlg.padding = new RectOffset(6, 6, 6, 12);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = true;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+            ContentSizeFitter cfit = content.AddComponent<ContentSizeFitter>();
+            cfit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            sr.content = crt;
+
+            return (content.transform, status);
+        }
+
+        private void AddLeaderRow(Transform parent, int rank, string name, string detail, bool isSelf)
+        {
+            GameObject row = CreateChild(parent, "LbRow");
+            LayoutElement le = row.AddComponent<LayoutElement>();
+            le.preferredWidth = 640f;
+            le.preferredHeight = 76f;
+            Image bg = row.AddComponent<Image>();
+            bg.sprite = GradientSprite.RoundedDiagonal(
+                0.25f,
+                isSelf ? Hex("#1FA845") : Hex("#0C3325"),
+                isSelf ? Hex("#0F7A33") : Hex("#082418"));
+            bg.color = Color.white;
+            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.padding = new RectOffset(22, 22, 0, 0);
+            hlg.spacing = 14f;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            AddCell(row.transform, rank.ToString(), 30f, CodeTextColor, 64f, TextAlignmentOptions.Center);
+            AddCell(row.transform, name, 28f, BodyTextColor, 380f, TextAlignmentOptions.Left);
+            AddCell(row.transform, detail, 26f, CodeTextColor, 150f, TextAlignmentOptions.Right);
+        }
+
+        private void AddCell(Transform parent, string text, float size, Color color, float width, TextAlignmentOptions align)
+        {
+            GameObject go = CreateChild(parent, "Cell");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = width;
+            le.preferredHeight = 60f;
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.text = text;
+            tmp.fontSize = size;
+            tmp.color = color;
+            tmp.alignment = align;
+            tmp.raycastTarget = false;
+        }
+
+        private void MakeToggleButton(Transform parent, string label, Action onClick)
+        {
+            GameObject go = CreateChild(parent, $"Toggle_{label}");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = 220f;
+            le.preferredHeight = 66f;
+            Image bg = go.AddComponent<Image>();
+            bg.sprite = GradientSprite.RoundedDiagonal(0.4f, Hex("#0E4A31"), Hex("#083120"));
+            bg.color = Color.white;
+            Button btn = go.AddComponent<Button>();
+            btn.targetGraphic = bg;
+            btn.onClick.AddListener(() => onClick());
+            AddLabel(go.transform, label, 28f, BodyTextColor, TextAlignmentOptions.Center);
+        }
+
+        private TextMeshProUGUI AddColumnLabel(Transform parent, string text)
+        {
+            GameObject go = CreateChild(parent, "AccountStatus");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = ButtonWidth;
+            le.preferredHeight = 40f;
+            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
+            tmp.alignment = TextAlignmentOptions.Center;
+            tmp.fontSize = 24f;
+            tmp.color = BodyTextColor;
+            tmp.text = text;
+            tmp.raycastTarget = false;
+            return tmp;
+        }
+
+        private static void ClearChildren(Transform t)
+        {
+            for (int i = t.childCount - 1; i >= 0; i--)
+            {
+                Destroy(t.GetChild(i).gameObject);
+            }
         }
 
         private GameObject BuildSettingsPanel()
@@ -1189,6 +1582,16 @@ namespace Pose.Game
         {
             // Yard tab always returns to the Yard home.
             ShowContent(tab == Tab.Yard ? _yardPanel : panel, tab);
+
+            // Lazy-load social data when its tab opens (M7).
+            if (tab == Tab.Friends)
+            {
+                LoadFriends();
+            }
+            else if (tab == Tab.Profile)
+            {
+                RefreshAccountSection();
+            }
         }
 
         private void ShowContent(GameObject? panel, Tab activeTab)
