@@ -27,10 +27,7 @@ export const getProfile = onCall(async (request: CallableRequest<unknown>) => {
   const uid = request.auth.uid;
   const db = getFirestore();
 
-  const snaps = await db.getAll(
-    db.collection('users').doc(uid),
-    db.collection('stats').doc(uid),
-  );
+  const snaps = await db.getAll(db.collection('users').doc(uid), db.collection('stats').doc(uid));
   const coins = await db.runTransaction((txn: Transaction) => readOrInitWallet(db, txn, uid));
 
   const user = snaps[0]?.data();
