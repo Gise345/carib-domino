@@ -1,0 +1,169 @@
+# Store release pipelines for Pose (ADR 0020).
+#
+# Both workflows run on macOS: iOS has no alternative, and keeping Android on the
+# same image means one Unity install and one licence activation path to maintain.
+#
+# Every credential lives in a Codemagic environment group — see
+# docs/SETUP/store-releases.md for what each group must contain.
+
+definitions:
+  unity: &unity
+    UNITY_VERSION: 6000.4.5f1
+    UNITY_CHANGESET: cc83ebd631f8
+    UNITY_HOME: /Applications/Unity/Hub/Editor/6000.4.5f1
+    UNITY_BIN: /Applications/Unity/Hub/Editor/6000.4.5f1/Unity.app/Contents/MacOS/Unity
+    UNITY_PROJECT: $CM_BUILD_DIR/unity
+    POSE_BUNDLE_ID: com.invovibe.posedominoes
+
+  scripts:
+    - &install_unity
+      name: Install the Editor version this project is pinned to
+      script: |
+        if [ ! -x "$UNITY_BIN" ]; then
+          echo "Unity $UNITY_VERSION not on this image — installing via Hub"
+          /Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub -- --headless install \
+            --version "$UNITY_VERSION" --changeset "$UNITY_CHANGESET" \
+            --module ios android --childModules
+        fi
+        "$UNITY_BIN" -version || true
+
+    - &activate_unity
+      name: Activate the Unity licence
+      script: |
+        "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout \
+          -serial "$UNITY_SERIAL" -username "$UNITY_EMAIL" -password "$UNITY_PASSWORD"
+
+    - &restore_firebase_config
+      name: Restore the Firebase config files
+      # google-services.json / GoogleService-Info.plist are gitignored, so CI has to
+      # write them back before Unity's Firebase editor plugins run.
+      script: |
+        echo "$GOOGLE_SERVICES_JSON" | base64 --decode > "$UNITY_PROJECT/Assets/google-services.json"
+        echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > "$UNITY_PROJECT/Assets/GoogleService-Info.plist"
+
+    - &return_unity_licence
+      name: Return the Unity licence
+      script: |
+        "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout -returnlicense
+      ignore_failure: true
+
+workflows:
+  android-internal:
+    name: Android → Play internal testing
+    instance_type: mac_mini_m2
+    max_build_duration: 90
+    environment:
+      groups:
+        - unity           # UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL
+        - firebase        # GOOGLE_SERVICES_JSON, GOOGLE_SERVICE_INFO_PLIST (base64)
+        - android-signing # POSE_KEYSTORE (base64), POSE_KEYSTORE_PASS, POSE_KEY_ALIAS, POSE_KEY_PASS
+        - google-play     # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      vars:
+        <<: *unity
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'android-v*'
+          include: true
+    scripts:
+      - *install_unity
+      - *activate_unity
+      - *restore_firebase_config
+      - name: Restore the upload keystore
+        script: |
+          echo "$POSE_KEYSTORE" | base64 --decode > "$CM_BUILD_DIR/pose-upload.keystore"
+      - name: Build the app bundle
+        script: |
+          export POSE_KEYSTORE_PATH="$CM_BUILD_DIR/pose-upload.keystore"
+          export POSE_BUILD_NUMBER="$PROJECT_BUILD_NUMBER"
+          export POSE_BUILD_OUTPUT="$CM_BUILD_DIR/artifacts"
+          "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout \
+            -projectPath "$UNITY_PROJECT" \
+            -buildTarget Android \
+            -executeMethod Pose.Build.BuildScript.BuildAndroidAab
+      - *return_unity_licence
+    artifacts:
+      - artifacts/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: false
+      email:
+        recipients:
+          - gise.a.k@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  ios-testflight:
+    name: iOS → TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      groups:
+        - unity     # UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL
+        - firebase  # GOOGLE_SERVICES_JSON, GOOGLE_SERVICE_INFO_PLIST (base64)
+        - appstore  # APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER,
+                    # APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY, POSE_APPLE_TEAM_ID
+      vars:
+        <<: *unity
+        XCODE_PROJECT_DIR: $CM_BUILD_DIR/unity/Builds/iOS
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - tag
+      tag_patterns:
+        - pattern: 'ios-v*'
+          include: true
+    scripts:
+      - *install_unity
+      - *activate_unity
+      - *restore_firebase_config
+      - name: Export the Xcode project from Unity
+        script: |
+          export POSE_BUILD_NUMBER="$PROJECT_BUILD_NUMBER"
+          "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout \
+            -projectPath "$UNITY_PROJECT" \
+            -buildTarget iOS \
+            -executeMethod Pose.Build.BuildScript.BuildIos
+      - name: Install CocoaPods dependencies
+        # The Facebook and Firebase iOS SDKs arrive as pods written by Unity's
+        # External Dependency Manager, so the workspace — not the project — is
+        # what actually builds.
+        script: |
+          cd "$XCODE_PROJECT_DIR"
+          if [ -f Podfile ]; then pod install; fi
+      - name: Fetch signing files
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$POSE_BUNDLE_ID" \
+            --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles --project "$XCODE_PROJECT_DIR/Unity-iPhone.xcodeproj"
+      - name: Build the .ipa
+        script: |
+          cd "$XCODE_PROJECT_DIR"
+          if [ -d Unity-iPhone.xcworkspace ]; then
+            xcode-project build-ipa --workspace Unity-iPhone.xcworkspace --scheme Unity-iPhone
+          else
+            xcode-project build-ipa --project Unity-iPhone.xcodeproj --scheme Unity-iPhone
+          fi
+      - *return_unity_licence
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+      email:
+        recipients:
+          - gise.a.k@gmail.com
+        notify:
+          success: true
+          failure: true
