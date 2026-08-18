@@ -35,6 +35,11 @@ export { claimInviteReward } from './social/claimInviteReward';
 // from the signed token) so friends can be resolved later. See ADR 0019.
 export { syncFacebookIdentity } from './social/syncFacebookIdentity';
 
+// Social friends (M7 phase 2): resolveFacebookFriends turns the caller's Facebook
+// friend ids into app friends (uid + name + record) via the /facebookIndex map;
+// the uids feed getLeaderboard(scope:'friends'). See ADR 0019.
+export { resolveFacebookFriends } from './social/resolveFacebookFriends';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.
