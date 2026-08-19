@@ -28,6 +28,11 @@ namespace Pose.Net
 
         private FirebaseAuth? _auth;
 
+        // Completes when Firebase has reported the initial auth state (its
+        // StateChanged fires once on subscribe with the restored session). The
+        // boot awaits this so a persisted user is never mistaken for signed-out.
+        private readonly TaskCompletionSource<bool> _initialState = new();
+
         /// <summary>The signed-in Firebase user, or null if signed out.</summary>
         public FirebaseUser? CurrentUser => _auth?.CurrentUser;
 
@@ -71,7 +76,18 @@ namespace Pose.Net
             }
         }
 
-        private void OnAuthStateChanged(object sender, EventArgs e) => AuthChanged?.Invoke();
+        private void OnAuthStateChanged(object sender, EventArgs e)
+        {
+            _initialState.TrySetResult(true);
+            AuthChanged?.Invoke();
+        }
+
+        /// <summary>
+        /// Completes once Firebase has restored (or confirmed the absence of) a
+        /// persisted session. Await this before deciding login-vs-lobby so a
+        /// signed-in user isn't shown the login screen during the cold-start race.
+        /// </summary>
+        public Task InitialAuthStateAsync() => _initialState.Task;
 
         /// <summary>
         /// Ensures a session exists for boot: if a persisted user is already

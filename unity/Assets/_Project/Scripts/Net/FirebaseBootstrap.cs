@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Threading.Tasks;
 using Firebase;
 using UnityEngine;
 
@@ -69,6 +70,13 @@ namespace Pose.Net
                 }
 
                 EnsureAuthService();
+                AuthService auth = AuthService.Instance!;
+
+                // Wait for Firebase to restore any persisted session before we
+                // decide login-vs-lobby — its StateChanged fires once with the
+                // initial (restored) state. Bounded by a short timeout so a
+                // genuinely signed-out cold start isn't held up.
+                await Task.WhenAny(auth.InitialAuthStateAsync(), Task.Delay(2000));
 
                 // Do NOT auto-sign-in. A returning player has a persisted session
                 // (AuthService.Uid is non-null); a new player has none, and
