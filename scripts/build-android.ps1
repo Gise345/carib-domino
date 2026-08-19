@@ -17,13 +17,18 @@
 .PARAMETER Apk
     Build a sideloadable APK instead of the AAB that Play requires.
 
+.PARAMETER TimeoutMinutes
+    Backstop for a wedged Editor. A cold IL2CPP build can legitimately take 30+
+    minutes, so raise this rather than lower it.
+
 .EXAMPLE
     ./scripts/build-android.ps1 -Version 0.1.0
 #>
 [CmdletBinding()]
 param(
     [string]$Version,
-    [switch]$Apk
+    [switch]$Apk,
+    [int]$TimeoutMinutes = 90
 )
 
 $ErrorActionPreference = 'Stop'
@@ -86,17 +91,38 @@ New-Item -ItemType Directory -Force -Path $buildsDir | Out-Null
 
 Write-Host "Building $artifact  version $Version  versionCode $buildNumber"
 Write-Host "Log: $logFile"
+Write-Host "This takes a while on a cold Library -- IL2CPP compiles the whole game to C++."
 
-& $unityExe -batchmode -nographics -quit `
-    -projectPath $unityProject `
-    -buildTarget Android `
-    -executeMethod $method `
-    -logFile $logFile
+# No -quit. If startup triggers a script recompile, -quit tears the Editor down
+# before -executeMethod is invoked and Unity exits 0 having built nothing.
+# BuildScript.Guarded owns the exit code instead; the timeout below is the backstop
+# in case it somehow never reaches it.
+$unityArgs = @(
+    '-batchmode', '-nographics',
+    '-projectPath', $unityProject,
+    '-buildTarget', 'Android',
+    '-executeMethod', $method,
+    '-logFile', $logFile
+)
 
-if ($LASTEXITCODE -ne 0) {
+$proc = Start-Process -FilePath $unityExe -ArgumentList $unityArgs -PassThru -NoNewWindow
+if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
+    $proc.Kill()
+    throw "Unity was still running after $TimeoutMinutes minutes and was killed. Log: $logFile"
+}
+$unityExit = $proc.ExitCode
+
+$ranBuild = Select-String -Path $logFile -Pattern '\[PoseBuild\]' -Quiet
+if (-not $ranBuild) {
+    Write-Host "--- last 30 log lines ---"
+    Get-Content $logFile -Tail 30
+    throw "Unity exited ($unityExit) without ever invoking $method. Usually this means the project failed to compile -- search $logFile for 'error CS'."
+}
+
+if ($unityExit -ne 0) {
     Write-Host "--- last 40 log lines ---"
     Get-Content $logFile -Tail 40
-    throw "Unity exited with $LASTEXITCODE. Full log: $logFile"
+    throw "Unity exited with $unityExit. Full log: $logFile"
 }
 
 $artifactPath = Join-Path $buildsDir $artifact

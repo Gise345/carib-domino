@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
@@ -25,18 +26,54 @@ namespace Pose.Build
         private const string XcodeProjectDirName = "iOS";
 
         /// <summary>Android App Bundle for Google Play internal testing.</summary>
-        public static void BuildAndroidAab() => RunAndroid(appBundle: true, artifactName: AabName);
+        public static void BuildAndroidAab() => Guarded(() => RunAndroid(appBundle: true, artifactName: AabName));
 
         /// <summary>Standalone APK for sideloading onto a test device.</summary>
-        public static void BuildAndroidApk() => RunAndroid(appBundle: false, artifactName: ApkName);
+        public static void BuildAndroidApk() => Guarded(() => RunAndroid(appBundle: false, artifactName: ApkName));
 
         /// <summary>Exports the Xcode project. The .ipa is produced by xcodebuild on macOS.</summary>
-        public static void BuildIos()
+        public static void BuildIos() => Guarded(() =>
         {
             SwitchTarget(BuildTargetGroup.iOS, BuildTarget.iOS);
             ReleaseBuildSettings.Apply(BuildTarget.iOS);
 
             Run(BuildTarget.iOS, Path.Combine(OutputDir(), XcodeProjectDirName));
+        });
+
+        /// <summary>
+        /// Runs a build and guarantees the Editor exits with a meaningful code.
+        /// Callers launch Unity WITHOUT <c>-quit</c>: when startup triggers a script
+        /// recompile, <c>-quit</c> tears the Editor down before <c>-executeMethod</c>
+        /// is ever invoked, and the run exits 0 having built nothing. Since nothing
+        /// else will stop the Editor, every path out of a batch-mode build has to
+        /// come through here.
+        /// </summary>
+        private static void Guarded(Action build)
+        {
+            try
+            {
+                build();
+                Complete(0);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Build failed: {ex}");
+                Complete(1);
+            }
+        }
+
+        private static void Complete(int exitCode)
+        {
+            if (Application.isBatchMode)
+            {
+                EditorApplication.Exit(exitCode);
+                return;
+            }
+
+            if (exitCode != 0)
+            {
+                throw new BuildFailedException("Build failed — see the Console for the cause.");
+            }
         }
 
         private static void RunAndroid(bool appBundle, string artifactName)
@@ -54,8 +91,8 @@ namespace Pose.Build
             string[] scenes = EnabledScenes();
             if (scenes.Length == 0)
             {
-                Fail("No scenes are enabled in Build Settings — the player would be empty.");
-                return;
+                throw new BuildFailedException(
+                    "No scenes are enabled in Build Settings — the player would be empty.");
             }
 
             Directory.CreateDirectory(Path.GetDirectoryName(locationPathName)!);
@@ -68,7 +105,9 @@ namespace Pose.Build
                 options = BuildOptions.None,
             };
 
-            Debug.Log($"Building {target} → {locationPathName} " +
+            // "[PoseBuild]" is the marker the wrapper scripts grep for to tell a real
+            // build failure apart from -executeMethod never having been invoked.
+            Debug.Log($"[PoseBuild] Building {target} -> {locationPathName} " +
                       $"(version {PlayerSettings.bundleVersion}, {scenes.Length} scene(s))");
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
@@ -76,9 +115,9 @@ namespace Pose.Build
 
             if (summary.result != BuildResult.Succeeded)
             {
-                Fail($"Build {summary.result} after {summary.totalTime} " +
-                     $"with {summary.totalErrors} error(s).");
-                return;
+                throw new BuildFailedException(
+                    $"Build {summary.result} after {summary.totalTime} " +
+                    $"with {summary.totalErrors} error(s).");
             }
 
             Debug.Log($"Build succeeded in {summary.totalTime}: {summary.outputPath}");
@@ -113,20 +152,10 @@ namespace Pose.Build
 
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
             {
-                Fail($"Could not switch the active build target to {target} — " +
-                     "is that platform module installed?");
+                throw new BuildFailedException(
+                    $"Could not switch the active build target to {target} — " +
+                    "is that platform module installed?");
             }
-        }
-
-        /// <summary>
-        /// Logs and exits non-zero. Throwing is not enough: <c>-quit</c> in batch mode
-        /// still reports success for an unhandled exception in some Unity versions,
-        /// which would let CI publish nothing and call it green.
-        /// </summary>
-        private static void Fail(string message)
-        {
-            Debug.LogError(message);
-            EditorApplication.Exit(1);
         }
     }
 }
