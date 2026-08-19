@@ -87,7 +87,9 @@ namespace Pose.Game
         private string _leaderboardScope = "global";
         private Transform? _friendsContent;
         private TextMeshProUGUI? _friendsStatus;
-        private GameObject? _friendsConnectButton;
+        private GameObject? _friendsActionButton;
+        private TextMeshProUGUI? _friendsActionLabel;
+        private TextMeshProUGUI? _inviteStatus;
         private TextMeshProUGUI? _accountStatusLabel;
         private TextMeshProUGUI? _accountActionLabel;
         private TextMeshProUGUI? _statCoins;
@@ -1156,21 +1158,30 @@ namespace Pose.Game
             RectTransform brt = (RectTransform)bodyGo.transform;
             brt.anchorMin = Vector2.zero;
             brt.anchorMax = Vector2.one;
-            brt.offsetMin = new Vector2(20f, 130f);
+            brt.offsetMin = new Vector2(20f, 190f);
             brt.offsetMax = new Vector2(-20f, -150f);
             (Transform content, TextMeshProUGUI status) = CreateListArea(brt, 0f);
             _friendsContent = content;
             _friendsStatus = status;
 
-            _friendsConnectButton = CreateButton(L10n.Get("account_connect_facebook"), OnConnectFacebookClicked);
-            _friendsConnectButton.transform.SetParent(screen.transform, worldPositionStays: false);
-            RectTransform cbrt = (RectTransform)_friendsConnectButton.transform;
-            cbrt.anchorMin = new Vector2(0.5f, 0f);
-            cbrt.anchorMax = new Vector2(0.5f, 0f);
-            cbrt.pivot = new Vector2(0.5f, 0f);
-            cbrt.anchoredPosition = new Vector2(0f, 36f);
-            cbrt.sizeDelta = new Vector2(ButtonWidth, ButtonHeight);
-            _friendsConnectButton.SetActive(false);
+            _inviteStatus = AddColumnLabel(screen.transform, string.Empty);
+            RectTransform isrt = (RectTransform)_inviteStatus.transform;
+            isrt.anchorMin = new Vector2(0.5f, 0f);
+            isrt.anchorMax = new Vector2(0.5f, 0f);
+            isrt.pivot = new Vector2(0.5f, 0f);
+            isrt.anchoredPosition = new Vector2(0f, 132f);
+            isrt.sizeDelta = new Vector2(600f, 44f);
+
+            // One action button: Invite (when Facebook-connected) or Connect.
+            _friendsActionButton = CreateButton(string.Empty, OnFriendsActionClicked);
+            _friendsActionButton.transform.SetParent(screen.transform, worldPositionStays: false);
+            RectTransform abrt = (RectTransform)_friendsActionButton.transform;
+            abrt.anchorMin = new Vector2(0.5f, 0f);
+            abrt.anchorMax = new Vector2(0.5f, 0f);
+            abrt.pivot = new Vector2(0.5f, 0f);
+            abrt.anchoredPosition = new Vector2(0f, 40f);
+            abrt.sizeDelta = new Vector2(ButtonWidth, ButtonHeight);
+            _friendsActionLabel = _friendsActionButton.GetComponentInChildren<TextMeshProUGUI>();
             return screen;
         }
 
@@ -1270,7 +1281,11 @@ namespace Pose.Game
             }
             ClearChildren(_friendsContent);
             bool linked = AuthService.Instance != null && AuthService.Instance.IsFacebookLinked;
-            _friendsConnectButton?.SetActive(!linked);
+            _friendsActionButton?.SetActive(true);
+            if (_friendsActionLabel != null)
+            {
+                _friendsActionLabel.text = L10n.Get(linked ? "invite_button" : "account_connect_facebook");
+            }
             _friendsStatus.gameObject.SetActive(true);
             if (!linked)
             {
@@ -1323,6 +1338,57 @@ namespace Pose.Game
             catch (Exception ex)
             {
                 Debug.LogWarning($"[LobbyView] connect Facebook failed: {ex.Message}");
+            }
+        }
+
+        // The Friends-tab action button: invite (when connected) or connect.
+        private void OnFriendsActionClicked()
+        {
+            if (AuthService.Instance != null && AuthService.Instance.IsFacebookLinked)
+            {
+                OnInviteClicked();
+            }
+            else
+            {
+                OnConnectFacebookClicked();
+            }
+        }
+
+        private async void OnInviteClicked()
+        {
+            if (_inviteStatus == null)
+            {
+                return;
+            }
+            _inviteStatus.text = L10n.Get("invite_sending");
+            try
+            {
+                SocialService.InviteResult result = await SocialService.SendInviteAndClaimAsync(
+                    L10n.Get("invite_message"), L10n.Get("invite_title"));
+                string message = result.Outcome switch
+                {
+                    "ok" => L10n.Get("invite_rewarded", result.RemainingToday),
+                    "cap" => L10n.Get("invite_cap"),
+                    "duplicate" => L10n.Get("invite_duplicate"),
+                    "cancelled" => L10n.Get("invite_cancelled"),
+                    _ => L10n.Get("invite_error"),
+                };
+                if (_inviteStatus != null)
+                {
+                    _inviteStatus.text = message;
+                }
+                if (result.Rewarded)
+                {
+                    LoadProfileStats();
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[LobbyView] invite failed: {ex.Message}");
+                if (_inviteStatus != null)
+                {
+                    _inviteStatus.text = L10n.Get("invite_error");
+                }
             }
         }
 

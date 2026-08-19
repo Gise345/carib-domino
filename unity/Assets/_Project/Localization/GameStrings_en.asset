@@ -426,6 +426,42 @@ MonoBehaviour:
     m_Localized: "ACCOUNT"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000091
+    m_Localized: "Invite a friend · +250"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000092
+    m_Localized: "Nice — +250 coins! ({0} left today)"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000093
+    m_Localized: "You've earned all your invite coins today."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000094
+    m_Localized: "Already rewarded for that invite."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000095
+    m_Localized: "Invite cancelled."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000096
+    m_Localized: "Couldn't send the invite. Try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000097
+    m_Localized: "Come play Pose: Caribbean Dominoes with me!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000098
+    m_Localized: "Invite friends"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000099
+    m_Localized: "Opening…"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

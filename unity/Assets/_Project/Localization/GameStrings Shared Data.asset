@@ -419,6 +419,42 @@ MonoBehaviour:
     m_Key: account_section
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000091
+    m_Key: invite_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000092
+    m_Key: invite_rewarded
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000093
+    m_Key: invite_cap
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000094
+    m_Key: invite_duplicate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000095
+    m_Key: invite_cancelled
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000096
+    m_Key: invite_error
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000097
+    m_Key: invite_message
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000098
+    m_Key: invite_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000099
+    m_Key: invite_sending
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

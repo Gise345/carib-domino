@@ -58,6 +58,80 @@ namespace Pose.Net
             }
         }
 
+        /// <summary>Outcome of sending a Facebook invite and claiming its reward.</summary>
+        public readonly struct InviteResult
+        {
+            public bool Rewarded { get; }
+            public int Coins { get; }
+            public int RemainingToday { get; }
+            /// <summary>"ok", "cap", "duplicate", "cancelled", or an error marker.</summary>
+            public string Outcome { get; }
+
+            public InviteResult(bool rewarded, int coins, int remainingToday, string outcome)
+            {
+                Rewarded = rewarded;
+                Coins = coins;
+                RemainingToday = remainingToday;
+                Outcome = outcome;
+            }
+        }
+
+        /// <summary>
+        /// Opens the Facebook game-request (invite) dialog, then claims the reward
+        /// via the <c>claimInviteReward</c> Cloud Function (server-authoritative:
+        /// +250 coins, capped per day, de-duped by the request id). Rewards on
+        /// send, per ADR 0017; returns a "cancelled" outcome if the player backs out.
+        /// </summary>
+        public static async Task<InviteResult> SendInviteAndClaimAsync(string message, string title)
+        {
+            await FacebookAuthService.InitAsync();
+            if (!FB.IsLoggedIn)
+            {
+                return new InviteResult(false, 0, 0, "not_logged_in");
+            }
+
+            TaskCompletionSource<IAppRequestResult> tcs = new();
+            FB.AppRequest(
+                message: message,
+                to: null,
+                filters: null,
+                excludeIds: null,
+                maxRecipients: null,
+                data: string.Empty,
+                title: title,
+                callback: result => tcs.TrySetResult(result));
+            IAppRequestResult request = await tcs.Task;
+
+            if (request.Cancelled)
+            {
+                return new InviteResult(false, 0, 0, "cancelled");
+            }
+            if (!string.IsNullOrEmpty(request.Error))
+            {
+                throw new InvalidOperationException($"Facebook invite failed: {request.Error}");
+            }
+
+            // Reward is de-duped server-side by this id; use the FB request id, or
+            // a fresh guid if the SDK returned none.
+            string inviteId = !string.IsNullOrEmpty(request.RequestID)
+                ? request.RequestID
+                : Guid.NewGuid().ToString();
+
+            Dictionary<string, object> payload = new() { ["inviteId"] = inviteId };
+            HttpsCallableResult result = await FirebaseFunctions.DefaultInstance
+                .GetHttpsCallable("claimInviteReward").CallAsync(payload);
+
+            if (result.Data is IDictionary d)
+            {
+                return new InviteResult(
+                    AsBool(d["rewarded"]),
+                    AsInt(d["coins"]),
+                    AsInt(d["remainingToday"]),
+                    AsString(d["outcome"]));
+            }
+            return new InviteResult(false, 0, 0, "unknown");
+        }
+
         /// <summary>The player's own profile-card aggregate (name, coins, record).</summary>
         public readonly struct ProfileCard
         {
