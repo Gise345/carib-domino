@@ -29,9 +29,23 @@ definitions:
 
     - &activate_unity
       name: Activate the Unity licence
+      # Plus/Pro activates from a serial. Personal has no serial: it needs a .ulf
+      # obtained once from license.unity3d.com/manual and dropped in place. The
+      # Personal path is unofficial on macOS runners — see docs/SETUP/store-releases.md.
       script: |
-        "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout \
-          -serial "$UNITY_SERIAL" -username "$UNITY_EMAIL" -password "$UNITY_PASSWORD"
+        if [ -n "$UNITY_SERIAL" ]; then
+          echo "Activating with a Plus/Pro serial"
+          "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout \
+            -serial "$UNITY_SERIAL" -username "$UNITY_EMAIL" -password "$UNITY_PASSWORD"
+        elif [ -n "$UNITY_LICENSE" ]; then
+          echo "Installing a manually-activated Personal licence file"
+          sudo mkdir -p "/Library/Application Support/Unity"
+          echo "$UNITY_LICENSE" | base64 --decode \
+            | sudo tee "/Library/Application Support/Unity/Unity_lic.ulf" > /dev/null
+        else
+          echo "Set UNITY_SERIAL (Plus/Pro) or UNITY_LICENSE (base64 .ulf) in the 'unity' group." >&2
+          exit 1
+        fi
 
     - &restore_firebase_config
       name: Restore the Firebase config files
@@ -43,8 +57,14 @@ definitions:
 
     - &return_unity_licence
       name: Return the Unity licence
+      # Only serial-based seats are checked out and must be returned; a Personal
+      # .ulf is a file on an ephemeral runner and dies with it.
       script: |
-        "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout -returnlicense
+        if [ -n "$UNITY_SERIAL" ]; then
+          "$UNITY_BIN" -batchmode -nographics -quit -logFile /dev/stdout -returnlicense
+        else
+          echo "Personal licence file — nothing to return"
+        fi
       ignore_failure: true
 
 workflows:

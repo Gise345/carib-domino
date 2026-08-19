@@ -87,8 +87,14 @@ Firebase config files are restored on CI from secure variables too.
 - **Two certificate identities exist per Android build** — the upload key and
   Google's app signing key. Firebase SHA fingerprints and Facebook key hashes must
   be registered for both, or login works when sideloaded and fails from Play.
-- **CI needs a Unity licence that activates headlessly.** A Plus/Pro serial does;
-  Personal needs the `.alf`/`.ulf` flow and a different activation step.
+- **The Unity seat is Personal, which may block the iOS workflow entirely.** CI
+  activation is designed around a Plus/Pro serial; Personal has no serial and needs
+  a manually activated `.ulf`, which is issued per-machine and unsupported on cloud
+  macOS runners (GameCI supports Personal on Linux containers only). `codemagic.yaml`
+  handles both paths so the free attempt costs nothing, but the fallback is a real
+  Mac — rented, borrowed or bought — not a configuration change. **Android is
+  unaffected**: it builds locally on Windows under the same Personal licence, so
+  Play internal testing is reachable today regardless of how this resolves.
 - **`targetSdk 36` changes runtime behaviour** (predictive back, mandatory
   edge-to-edge on Android 15+). The first internal build needs a real device check
   before testers are added.

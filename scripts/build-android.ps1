@@ -37,7 +37,7 @@ $counterFile = Join-Path $configDir 'build-number'
 # --- Unity must not be holding the project lock -----------------------------
 $lockFile = Join-Path $unityProject 'Temp\UnityLockfile'
 if (Test-Path $lockFile) {
-    throw "Unity has $unityProject open (Temp\UnityLockfile exists). Close the Editor and retry — batch mode cannot open a locked project."
+    throw "Unity has $unityProject open (Temp\UnityLockfile exists). Close the Editor and retry -- batch mode cannot open a locked project."
 }
 
 # --- Resolve the Editor matching ProjectVersion.txt -------------------------
@@ -50,7 +50,7 @@ if (-not (Test-Path $unityExe)) {
 
 # --- Signing credentials ----------------------------------------------------
 if (-not (Test-Path $signingEnv)) {
-    throw "Missing $signingEnv. See docs/SETUP/store-releases.md — an unsigned build cannot be uploaded to Play."
+    throw "Missing $signingEnv. See docs/SETUP/store-releases.md -- an unsigned build cannot be uploaded to Play."
 }
 foreach ($line in Get-Content $signingEnv) {
     if ($line -match '^\s*([A-Z0-9_]+)\s*=\s*(.*)$') {
@@ -58,7 +58,7 @@ foreach ($line in Get-Content $signingEnv) {
     }
 }
 if (-not (Test-Path $env:POSE_KEYSTORE_PATH)) {
-    throw "Keystore not found at $($env:POSE_KEYSTORE_PATH). Restore it from your backup — it is the only key Play will accept for this app."
+    throw "Keystore not found at $($env:POSE_KEYSTORE_PATH). Restore it from your backup -- it is the only key Play will accept for this app."
 }
 
 # --- Version + build number -------------------------------------------------

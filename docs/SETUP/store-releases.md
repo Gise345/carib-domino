@@ -22,9 +22,11 @@ backup you have yet**:
 |---|---|
 | Alias | `pose-upload` |
 | Algorithm | RSA 2048, valid 10,950 days (~30 years) |
-| SHA-1 | `55:1F:ED:54:22:B8:F0:9D:75:A0:16:2A:F7:6C:F3:05:23:13:1A:82` |
-| SHA-256 | `71:ED:78:52:3F:B7:63:CD:F3:89:31:3A:AD:F3:86:43:EE:C2:AC:BB:21:19:87:FE:EB:D0:B8:67:8D:7F:AA:1B` |
-| Facebook key hash | `VR/tVCK48J11oBYq92zzBSMTGoI=` |
+| SHA-1 | `BA:99:C9:A6:DB:30:D3:47:84:1F:F9:CE:4D:67:7E:DD:20:20:4C:24` |
+| SHA-256 | `8A:B3:B1:59:84:B9:40:2D:B0:73:C3:D0:5F:41:75:FC:B7:02:EA:47:65:EA:DC:D9:93:0F:9B:CA:9B:5E:B9:4B` |
+| Facebook key hash | `upnJptsw00eEH/nOTWd+3SAgTCQ=` |
+
+Re-derive any of these at any time with `./scripts/cert-fingerprints.ps1`.
 
 > **Do this now:** copy both files into your password manager or an encrypted
 > backup. With Play App Signing enrolled, a lost *upload* key is recoverable via a
@@ -68,10 +70,26 @@ email list, and roll out.
 
 ### 1.4 Re-register the *app signing* fingerprints
 
-Once 1.1 is done, take the SHA-1 and SHA-256 from the App signing page and add
-them to Firebase (Part 4) and Facebook (Part 5) **in addition to** the upload
+There is no way to download the app signing **key** — Google holds the private half
+in their KMS and only they can sign with it. What you download is the
+**certificate**, which is all Firebase and Facebook need.
+
+On the App signing page: copy the SHA-1 and SHA-256, or hit **Download
+certificate** for `deployment_cert.der` and run:
+
+```powershell
+./scripts/cert-fingerprints.ps1 ~/Downloads/deployment_cert.der
+```
+
+That prints the SHA-1, SHA-256 and the base64 Facebook key hash in the exact
+formats those consoles want.
+
+Add them to Firebase (Part 4) and Facebook (Part 5) **in addition to** the upload
 fingerprints. Miss this and Facebook login works on your sideloaded APK and fails
 for every tester who installs from Play.
+
+If the page instead says the key will be generated on first upload, do 1.2 first
+and come back.
 
 ---
 
@@ -109,7 +127,8 @@ Connect `github.com/Gise345/carib-domino`, then create these **environment group
 |---|---|---|
 | `unity` | `UNITY_EMAIL` | your Unity account email |
 | | `UNITY_PASSWORD` | your Unity account password |
-| | `UNITY_SERIAL` | Plus/Pro serial — see the caveat below |
+| | `UNITY_LICENSE` | base64 of a manually activated `.ulf` — Personal, see Part 6 |
+| | `UNITY_SERIAL` | only if you ever move to Plus/Pro; leave unset on Personal |
 | `firebase` | `GOOGLE_SERVICES_JSON` | base64 of `unity/Assets/google-services.json` |
 | | `GOOGLE_SERVICE_INFO_PLIST` | base64 of `unity/Assets/GoogleService-Info.plist` |
 | `android-signing` | `POSE_KEYSTORE` | base64 of `pose-upload.keystore` |
@@ -142,10 +161,43 @@ git tag ios-v0.1.0;     git push origin ios-v0.1.0
 they always increase. `bundleVersion` comes from ProjectSettings unless you set
 `POSE_BUILD_VERSION`.
 
-> **Unity licence caveat — check this before you burn build minutes.** Headless
-> Unity on CI activates cleanly with a **Plus/Pro** serial. Unity Personal has no
-> serial to paste and needs the manual `.alf` / `.ulf` licence-file dance instead.
-> If you're on Personal, say so and I'll swap the activation step for that flow.
+---
+
+## Part 6 — The Unity Personal licence problem (iOS only)
+
+**Android is not affected.** `scripts/build-android.ps1` runs on your own machine
+with your own Editor licence. You can start Play internal testing today and ignore
+this entire section. It only blocks the TestFlight half.
+
+Headless Unity on a cloud runner activates cleanly from a **Plus/Pro serial**.
+Personal has no serial. The workaround is a manually activated licence file:
+
+```powershell
+./scripts/unity-request-license.ps1     # close the Editor first
+```
+
+Upload the `.alf` it produces to <https://license.unity3d.com/manual>, choose
+**Unity Personal**, and base64 the returned `.ulf` into `UNITY_LICENSE`.
+
+**Be honest with yourself about the odds.** A Personal `.ulf` is issued against the
+machine that generated the `.alf`, and reusing it on an ephemeral cloud runner is
+not something Unity supports. GameCI — the most-used Unity CI tooling — states
+Personal licences work on their Linux containers only, not macOS. It costs maybe 30
+minutes and a few build minutes to find out. `codemagic.yaml` already handles both
+activation paths, so nothing needs changing to try it.
+
+If it fails, in rough order of cost:
+
+| Route | Cost | Notes |
+|---|---|---|
+| Rented Mac (MacinCloud, MacStadium) | ~$30–80/mo | Log into Unity Hub normally — Personal activates like any real machine. Fully supported. Build and upload with Transporter. |
+| Unity Build Automation (Unity DevOps) | metered, small free tier | Unity's own service, so no activation problem by construction. **Verify it's offered on Personal before planning around it** — I have not confirmed that. |
+| Borrow a Mac | free | A friend's Mac with Xcode gets you a TestFlight build in an afternoon. |
+| Mac mini M4 | ~$599 once | If Pose ships on iOS at all, this stops being a workaround and starts being a tool. |
+| Unity Pro | ~$2,200/yr | Solves it, but nothing else here justifies it. |
+
+Whichever you pick, the Unity side of the build is unchanged — `BuildScript.BuildIos`
+exports the same Xcode project on any machine.
 
 ---
 
