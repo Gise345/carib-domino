@@ -106,6 +106,12 @@ $unityArgs = @(
 )
 
 $proc = Start-Process -FilePath $unityExe -ArgumentList $unityArgs -PassThru -NoNewWindow
+
+# Touching .Handle forces .NET to keep the native handle open. Without it,
+# Start-Process -PassThru hands back a Process whose ExitCode reads as $null once
+# the process is gone, and every finished build looks like a failure.
+$null = $proc.Handle
+
 if (-not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)) {
     $proc.Kill()
     throw "Unity was still running after $TimeoutMinutes minutes and was killed. Log: $logFile"
@@ -119,7 +125,12 @@ if (-not $ranBuild) {
     throw "Unity exited ($unityExit) without ever invoking $method. Usually this means the project failed to compile -- search $logFile for 'error CS'."
 }
 
-if ($unityExit -ne 0) {
+if ($null -eq $unityExit) {
+    # Belt and braces: if the exit code is somehow still unreadable, the artifact
+    # check below is the real proof, so warn rather than fail a good build.
+    Write-Warning "Could not read Unity's exit code; relying on the build log and artifact check."
+}
+elseif ($unityExit -ne 0) {
     Write-Host "--- last 40 log lines ---"
     Get-Content $logFile -Tail 40
     throw "Unity exited with $unityExit. Full log: $logFile"
