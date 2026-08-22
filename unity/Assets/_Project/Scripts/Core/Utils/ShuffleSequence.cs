@@ -184,6 +184,13 @@ namespace Pose.Core
                     case ShufflePhase.Gather when _phaseElapsed >= _gather:
                         _phaseElapsed -= _gather;
                         Phase = ShufflePhase.Swirl;
+                        // Whatever is left of this tick is swirl time. Counting
+                        // it only at the top of Advance missed the carry-over
+                        // into the swirl entirely, so one very large delta — a
+                        // frame resumed from the background — could satisfy
+                        // neither the floor nor the ceiling and leave the
+                        // shuffle spinning.
+                        _swirlTotal += _phaseElapsed;
                         moved = true;
                         break;
 
