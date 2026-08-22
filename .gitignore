@@ -255,3 +255,9 @@ unity/hs_err_pid*.log
 # dotnet dev-tool build output (scripts/)
 scripts/**/bin/
 scripts/**/obj/
+
+# Addressables remote content (M7 OTA). The Unity Addressables build writes the
+# catalog + bundles into content/public/<BuildTarget>/; those are build output.
+# Only the placeholder index.html is tracked.
+/content/public/*
+!/content/public/index.html
