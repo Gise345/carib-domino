@@ -196,8 +196,12 @@ namespace Pose.Game
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
             Image img = go.AddComponent<Image>();
+            // Transparent at the TOP of this rect, dark at the bottom —
+            // GradientSprite.Vertical runs stops[0] to stops[last] downward, so
+            // passing the dark first shaded the sky and left the small print
+            // sitting on bare artwork.
             img.sprite = GradientSprite.Vertical(
-                new Color(0f, 0f, 0f, 0.62f), new Color(0f, 0f, 0f, 0f));
+                new Color(0f, 0f, 0f, 0f), new Color(0f, 0f, 0f, 0.80f));
             img.color = Color.white;
             img.raycastTarget = false;
         }
