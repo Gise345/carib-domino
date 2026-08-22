@@ -240,6 +240,9 @@
   }
   .email-form.is-on { display: flex; }
   .chooser.is-off { display: none; }
+  /* The email screen stands alone: the terms line belongs to choosing HOW to
+     sign in, and it is agreed on the way in. */
+  .legal.is-off { display: none; }
 
   .field {
     width: 100%;
@@ -530,6 +533,7 @@
     function show(email) {
       chooser.classList.toggle("is-off", email);
       form.classList.toggle("is-on", email);
+      document.querySelector(".legal").classList.toggle("is-off", email);
       segChooser.setAttribute("aria-pressed", String(!email));
       segEmail.setAttribute("aria-pressed", String(email));
     }

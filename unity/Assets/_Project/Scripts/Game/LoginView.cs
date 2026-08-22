@@ -28,6 +28,16 @@ namespace Pose.Game
         private const float ButtonHeight = 104f;
         private const int MinPasswordLength = 6;
 
+        // The screen is one top-anchored stack: logo, subtitle, then the
+        // controls. Each position is derived from the one above it, so the
+        // relationship holds instead of relying on three separate numbers
+        // agreeing.
+        //
+        // Everything here anchors to the TOP for the same reason. The canvas
+        // matches on WIDTH, so its height changes with the device aspect — a
+        // centre-anchored column rides up on a shorter screen and lands on the
+        // subtitle, which is exactly what it did.
+        //
         // The logo is the hero: square art, sat high on the screen with the
         // scene behind it doing the rest of the work.
         private const float LogoSize = 470f;
@@ -36,6 +46,16 @@ namespace Pose.Game
         // Round icon badge on the left of each button.
         private const float IconBadgeSize = 62f;
         private const float IconBadgeInset = 22f;
+
+        private const float SubtitleGap = 12f;
+        private const float SubtitleHeight = 100f;
+        private const float SubtitleWidth = 560f;
+        private static float SubtitleTop => LogoTopMargin + LogoSize + SubtitleGap;
+
+        // Controls start a clear gap below the subtitle.
+        private const float LegalLinkWidth = 210f;
+        private const float ControlsGap = 30f;
+        private static float ControlsTop => SubtitleTop + SubtitleHeight + ControlsGap;
 
         // Gap between the three chooser buttons. Three 104-tall buttons plus
         // two of these is 384, inside the column's 400.
@@ -57,6 +77,7 @@ namespace Pose.Game
         private Sprite? _backgroundSprite;
 
         private GameObject _chooser = null!;
+        private GameObject _legal = null!;
         private GameObject _emailForm = null!;
         private TMP_InputField _emailField = null!;
         private TMP_InputField _passwordField = null!;
@@ -149,8 +170,8 @@ namespace Pose.Game
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.anchoredPosition = new Vector2(
-                0f, _logoSprite == null ? -LogoTopMargin : -(LogoTopMargin + LogoSize + 12f));
-            rt.sizeDelta = new Vector2(560f, 100f);
+                0f, _logoSprite == null ? -LogoTopMargin : -SubtitleTop);
+            rt.sizeDelta = new Vector2(SubtitleWidth, SubtitleHeight);
         }
 
         private void BuildChooser(RectTransform root)
@@ -158,8 +179,8 @@ namespace Pose.Game
             // Sits below the subtitle, not through it: at the old +90 the column
             // ran 575-975 while the subtitle occupies 632-732, so the text drew
             // straight over the first button. -97 puts the column at 762-1162.
-            _chooser = AddCenterColumn(
-                root, "Chooser", new Vector2(ButtonWidth, 400f), new Vector2(0f, -97f), ChooserSpacing);
+            _chooser = AddTopColumn(
+                root, "Chooser", new Vector2(ButtonWidth, 400f), ControlsTop, ChooserSpacing);
 
             // Facebook keeps its own blue and a white mark — it is a brand
             // people recognise by colour before they read it.
@@ -213,6 +234,7 @@ namespace Pose.Game
         private void BuildLegalFooter(RectTransform root)
         {
             GameObject row = AddChild(root, "Legal");
+            _legal = row;
             RectTransform rt = (RectTransform)row.transform;
             rt.anchorMin = new Vector2(0.5f, 0f);
             rt.anchorMax = new Vector2(0.5f, 0f);
@@ -230,7 +252,8 @@ namespace Pose.Game
 
             TextMeshProUGUI intro = AddText(
                 row.transform, L10n.Get("login_legal_intro"), 22f, MutedText, TextAlignmentOptions.Center);
-            intro.GetComponent<LayoutElement>().preferredHeight = 30f;
+            // AddText does not attach a LayoutElement, so this has to add one.
+            intro.gameObject.AddComponent<LayoutElement>().preferredHeight = 30f;
 
             GameObject links = AddChild(row.transform, "Links");
             links.AddComponent<LayoutElement>().preferredHeight = 34f;
@@ -242,9 +265,11 @@ namespace Pose.Game
             h.childForceExpandWidth = false;
             h.childForceExpandHeight = false;
 
-            MakeLink(links.transform, L10n.Get("login_terms"), OnTermsClicked);
-            AddText(links.transform, L10n.Get("login_legal_and"), 22f, MutedText, TextAlignmentOptions.Center);
-            MakeLink(links.transform, L10n.Get("login_privacy"), OnPrivacyClicked);
+            MakeLink(links.transform, L10n.Get("login_terms"), OnTermsClicked, LegalLinkWidth);
+            TextMeshProUGUI and = AddText(
+                links.transform, L10n.Get("login_legal_and"), 22f, MutedText, TextAlignmentOptions.Center);
+            and.gameObject.AddComponent<LayoutElement>().preferredWidth = 40f;
+            MakeLink(links.transform, L10n.Get("login_privacy"), OnPrivacyClicked, LegalLinkWidth);
         }
 
         private void OnTermsClicked() => Application.OpenURL(TermsUrl);
@@ -253,7 +278,10 @@ namespace Pose.Game
 
         private void BuildEmailForm(RectTransform card)
         {
-            _emailForm = AddCenterColumn(card, "EmailForm", new Vector2(520f, 470f), new Vector2(0f, -30f), 16f);
+            // Sits exactly where the chooser was: same anchor, same top edge, so
+            // choosing Email swaps the panel rather than shifting the screen.
+            _emailForm = AddTopColumn(
+                root, "EmailForm", new Vector2(ButtonWidth, 470f), ControlsTop, 16f);
 
             _emailField = MakeInput(_emailForm.transform, L10n.Get("login_email_placeholder"), password: false);
             _passwordField = MakeInput(_emailForm.transform, L10n.Get("login_password_placeholder"), password: true);
@@ -285,6 +313,11 @@ namespace Pose.Game
         {
             _chooser.SetActive(!show);
             _emailForm.SetActive(show);
+            // The terms line belongs to the choice of how to sign in, and it is
+            // agreed on the way in. Dropping it here keeps the email screen to
+            // one job, and gives the taller form the room it needs on a short
+            // display.
+            _legal.SetActive(!show);
             SetStatus(string.Empty, isError: false);
         }
 
@@ -501,11 +534,14 @@ namespace Pose.Game
             gi.raycastTarget = false;
         }
 
-        private TextMeshProUGUI MakeLink(Transform parent, string label, Action onClick)
+        private TextMeshProUGUI MakeLink(
+            Transform parent, string label, Action onClick, float width = FieldWidth)
         {
             GameObject go = AddChild(parent, "Link");
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = FieldWidth;
+            // The default is a full-width row link. The legal line puts two side
+            // by side, so those pass their own width or the row blows out.
+            le.preferredWidth = width;
             le.preferredHeight = 44f;
             Image hit = go.AddComponent<Image>();
             hit.color = new Color(0f, 0f, 0f, 0f);
@@ -553,17 +589,23 @@ namespace Pose.Game
             return field;
         }
 
-        private GameObject AddCenterColumn(RectTransform parent, string name, Vector2 size, Vector2 pos, float spacing)
+        /// <summary>
+        /// A column pinned to the top of the screen at <paramref name="topY"/>
+        /// canvas units down. Top-anchored so the stack keeps its shape on any
+        /// aspect; the canvas matches on width, so its height is not fixed.
+        /// </summary>
+        private GameObject AddTopColumn(
+            RectTransform parent, string name, Vector2 size, float topY, float spacing)
         {
             GameObject go = AddChild(parent, name);
             RectTransform rt = (RectTransform)go.transform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos;
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, -topY);
             rt.sizeDelta = size;
             VerticalLayoutGroup vlg = go.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.MiddleCenter;
+            vlg.childAlignment = TextAnchor.UpperCenter;
             vlg.spacing = spacing;
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
