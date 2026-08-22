@@ -455,6 +455,22 @@ MonoBehaviour:
     m_Key: invite_sending
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000100
+    m_Key: login_legal_intro
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000101
+    m_Key: login_terms
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000102
+    m_Key: login_legal_and
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000103
+    m_Key: login_privacy
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

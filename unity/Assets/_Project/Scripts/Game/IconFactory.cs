@@ -114,6 +114,18 @@ namespace Pose.Game
         });
 
         /// <summary>A speech bubble (chat).</summary>
+        /// <summary>A hollow circle, used as a badge behind another glyph.</summary>
+        public static Sprite Ring() => Make(b => Ring(b, S / 2f, S / 2f, (S / 2f) - 2f, (S / 2f) - 7f));
+
+        /// <summary>Envelope — the email sign-in route.</summary>
+        public static Sprite Envelope() => Make(b =>
+        {
+            RoundRect(b, 10, 20, 74, 64, 6);          // body
+            ClearRect(b, 15, 25, 69, 59);             // hollow it out
+            ThickLine(b, 15, 59, 42, 40, 2.4f);       // flap, left half
+            ThickLine(b, 69, 59, 42, 40, 2.4f);       // flap, right half
+        });
+
         public static Sprite Chat() => Make(b =>
         {
             RoundRect(b, 12, 24, 60, 58, 9);          // bubble

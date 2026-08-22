@@ -462,6 +462,22 @@ MonoBehaviour:
     m_Localized: "Opening…"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000100
+    m_Localized: "By continuing, you agree to our"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000101
+    m_Localized: "Terms of Service"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000102
+    m_Localized: "and"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000103
+    m_Localized: "Privacy Policy"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
