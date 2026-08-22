@@ -39,6 +39,9 @@ namespace Pose.Net
         /// <summary>The current uid, or null if signed out.</summary>
         public string? Uid => _auth?.CurrentUser?.UserId;
 
+        /// <summary>The signed-in user's photo URL (Facebook profile picture), or null.</summary>
+        public string? PhotoUrl => _auth?.CurrentUser?.PhotoUrl?.ToString();
+
         /// <summary>True when someone (guest or otherwise) is signed in.</summary>
         public bool IsSignedIn => _auth?.CurrentUser != null;
 

@@ -96,6 +96,8 @@ namespace Pose.Game
         private TextMeshProUGUI? _statGames;
         private TextMeshProUGUI? _statWins;
         private TextMeshProUGUI? _statWinRate;
+        private Image? _profileAvatar;
+        private Image? _headerAvatar;
 
         private Transform _contentArea = null!;
         private Image? _comingSoonHeader;
@@ -280,6 +282,7 @@ namespace Pose.Game
             RefreshSizeButtons();
             RefreshCreateModeButtons();
             ShowTab(Tab.Yard, _yardPanel);
+            RefreshOwnAvatars();
         }
 
         private void BuildContentArea()
@@ -328,6 +331,19 @@ namespace Pose.Game
             picBtn.targetGraphic = picBg;
             picBtn.onClick.AddListener(() => ShowTab(Tab.Profile, _profilePanel));
             AddIcon(pic.transform, IconFactory.Person(), 80f, ButtonTextColor);
+
+            // Facebook profile picture overlay — hidden until it downloads, so the
+            // person icon shows for guests / while loading.
+            GameObject headerAv = CreateChild(pic.transform, "Avatar");
+            RectTransform havRt = (RectTransform)headerAv.transform;
+            havRt.anchorMin = Vector2.zero;
+            havRt.anchorMax = Vector2.one;
+            havRt.offsetMin = new Vector2(10f, 10f);
+            havRt.offsetMax = new Vector2(-10f, -10f);
+            _headerAvatar = headerAv.AddComponent<Image>();
+            _headerAvatar.color = new Color(1f, 1f, 1f, 0f);
+            _headerAvatar.preserveAspect = true;
+            _headerAvatar.raycastTarget = false;
 
             // Coin value (center).
             GameObject coin = CreateChild(header.transform, "Coins");
@@ -1023,6 +1039,15 @@ namespace Pose.Game
         {
             GameObject screen = CreateContentPanel("ProfilePanel");
             CreateTitle(screen.transform, "Profile", -30f, 56f);
+
+            _profileAvatar = MakeAvatar(screen.transform, 150f, string.Empty);
+            RectTransform art = (RectTransform)_profileAvatar.transform;
+            art.anchorMin = new Vector2(0.5f, 1f);
+            art.anchorMax = new Vector2(0.5f, 1f);
+            art.pivot = new Vector2(0.5f, 1f);
+            art.anchoredPosition = new Vector2(0f, -100f);
+            art.sizeDelta = new Vector2(150f, 150f);
+
             GameObject col = CreateColumn(screen.transform);
             _statCoins = StatRow(col.transform, "Coins", "—");
             _statGames = StatRow(col.transform, "Games played", "—");
@@ -1117,11 +1142,31 @@ namespace Pose.Game
             LoggedOut?.Invoke();
         }
 
+        // Loads the signed-in player's own Facebook picture into the header + the
+        // profile card (the friends/leaderboard rows use their own server URLs).
+        private void RefreshOwnAvatars()
+        {
+            string? url = AuthService.Instance?.PhotoUrl;
+            if (string.IsNullOrEmpty(url))
+            {
+                return;
+            }
+            if (_headerAvatar != null)
+            {
+                LoadAvatarInto(_headerAvatar, url);
+            }
+            if (_profileAvatar != null)
+            {
+                LoadAvatarInto(_profileAvatar, url);
+            }
+        }
+
         private async void LoadProfileStats()
         {
             try
             {
                 SocialService.ProfileCard card = await SocialService.GetProfileAsync();
+                RefreshOwnAvatars();
                 if (_statCoins != null)
                 {
                     _statCoins.text = card.Coins.ToString("N0");
@@ -1260,7 +1305,7 @@ namespace Pose.Game
                 _leaderboardStatus.gameObject.SetActive(false);
                 foreach (SocialService.LeaderRow r in rows)
                 {
-                    AddLeaderRow(_leaderboardContent, r.Rank, r.Name, L10n.Get("lb_wins_fmt", r.Wins), r.IsSelf);
+                    AddLeaderRow(_leaderboardContent, r.Rank, r.Name, r.PhotoURL, L10n.Get("lb_wins_fmt", r.Wins), r.IsSelf);
                 }
             }
             catch (Exception ex)
@@ -1305,7 +1350,7 @@ namespace Pose.Game
                 int rank = 1;
                 foreach (SocialService.Friend f in friends)
                 {
-                    AddLeaderRow(_friendsContent, rank, f.Name, L10n.Get("lb_wins_fmt", f.Wins), false);
+                    AddLeaderRow(_friendsContent, rank, f.Name, f.PhotoURL, L10n.Get("lb_wins_fmt", f.Wins), false);
                     rank++;
                 }
             }
@@ -1452,12 +1497,12 @@ namespace Pose.Game
             return (content.transform, status);
         }
 
-        private void AddLeaderRow(Transform parent, int rank, string name, string detail, bool isSelf)
+        private void AddLeaderRow(Transform parent, int rank, string name, string photoURL, string detail, bool isSelf)
         {
             GameObject row = CreateChild(parent, "LbRow");
             LayoutElement le = row.AddComponent<LayoutElement>();
             le.preferredWidth = 640f;
-            le.preferredHeight = 76f;
+            le.preferredHeight = 84f;
             Image bg = row.AddComponent<Image>();
             bg.sprite = GradientSprite.RoundedDiagonal(
                 0.25f,
@@ -1466,16 +1511,48 @@ namespace Pose.Game
             bg.color = Color.white;
             HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
             hlg.childAlignment = TextAnchor.MiddleLeft;
-            hlg.padding = new RectOffset(22, 22, 0, 0);
-            hlg.spacing = 14f;
+            hlg.padding = new RectOffset(20, 20, 0, 0);
+            hlg.spacing = 12f;
             hlg.childControlWidth = true;
             hlg.childControlHeight = true;
             hlg.childForceExpandWidth = false;
             hlg.childForceExpandHeight = false;
 
-            AddCell(row.transform, rank.ToString(), 30f, CodeTextColor, 64f, TextAlignmentOptions.Center);
-            AddCell(row.transform, name, 28f, BodyTextColor, 380f, TextAlignmentOptions.Left);
-            AddCell(row.transform, detail, 26f, CodeTextColor, 150f, TextAlignmentOptions.Right);
+            AddCell(row.transform, rank.ToString(), 28f, CodeTextColor, 44f, TextAlignmentOptions.Center);
+            MakeAvatar(row.transform, 60f, photoURL);
+            AddCell(row.transform, name, 28f, BodyTextColor, 300f, TextAlignmentOptions.Left);
+            AddCell(row.transform, detail, 24f, CodeTextColor, 140f, TextAlignmentOptions.Right);
+        }
+
+        // A round-ish avatar image that starts as a person placeholder and swaps
+        // to the downloaded profile picture when it arrives (M7).
+        private Image MakeAvatar(Transform parent, float size, string photoURL)
+        {
+            GameObject go = CreateChild(parent, "Avatar");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = size;
+            le.preferredHeight = size;
+            RectTransform rt = (RectTransform)go.transform;
+            rt.sizeDelta = new Vector2(size, size);
+            Image img = go.AddComponent<Image>();
+            img.sprite = IconFactory.Person();
+            img.color = new Color(1f, 1f, 1f, 0.7f);
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            LoadAvatarInto(img, photoURL);
+            return img;
+        }
+
+        private static async void LoadAvatarInto(Image target, string url)
+        {
+            Sprite? sprite = await AvatarLoader.LoadAsync(url);
+            // Unity's overloaded null check catches a target destroyed while the
+            // image was downloading (panel rebuilt, tab switched).
+            if (sprite != null && target != null)
+            {
+                target.sprite = sprite;
+                target.color = Color.white;
+            }
         }
 
         private void AddCell(Transform parent, string text, float size, Color color, float width, TextAlignmentOptions align)

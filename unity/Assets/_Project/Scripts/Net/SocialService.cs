@@ -23,13 +23,15 @@ namespace Pose.Net
         {
             public string Uid { get; }
             public string Name { get; }
+            public string PhotoURL { get; }
             public int Wins { get; }
             public int MatchesPlayed { get; }
 
-            public Friend(string uid, string name, int wins, int matchesPlayed)
+            public Friend(string uid, string name, string photoURL, int wins, int matchesPlayed)
             {
                 Uid = uid;
                 Name = name;
+                PhotoURL = photoURL;
                 Wins = wins;
                 MatchesPlayed = matchesPlayed;
             }
@@ -40,16 +42,18 @@ namespace Pose.Net
         {
             public string Uid { get; }
             public string Name { get; }
+            public string PhotoURL { get; }
             public int Wins { get; }
             public int Points { get; }
             public int MatchesPlayed { get; }
             public int Rank { get; }
             public bool IsSelf { get; }
 
-            public LeaderRow(string uid, string name, int wins, int points, int matchesPlayed, int rank, bool isSelf)
+            public LeaderRow(string uid, string name, string photoURL, int wins, int points, int matchesPlayed, int rank, bool isSelf)
             {
                 Uid = uid;
                 Name = name;
+                PhotoURL = photoURL;
                 Wins = wins;
                 Points = points;
                 MatchesPlayed = matchesPlayed;
@@ -136,6 +140,7 @@ namespace Pose.Net
         public readonly struct ProfileCard
         {
             public string Name { get; }
+            public string PhotoURL { get; }
             public int Coins { get; }
             public int MatchesPlayed { get; }
             public int Wins { get; }
@@ -143,9 +148,10 @@ namespace Pose.Net
             public int Draws { get; }
             public float WinRate { get; }
 
-            public ProfileCard(string name, int coins, int matchesPlayed, int wins, int losses, int draws, float winRate)
+            public ProfileCard(string name, string photoURL, int coins, int matchesPlayed, int wins, int losses, int draws, float winRate)
             {
                 Name = name;
+                PhotoURL = photoURL;
                 Coins = coins;
                 MatchesPlayed = matchesPlayed;
                 Wins = wins;
@@ -168,6 +174,7 @@ namespace Pose.Net
             {
                 return new ProfileCard(
                     AsString(d["name"]),
+                    AsString(d["photoURL"]),
                     AsInt(d["coins"]),
                     AsInt(d["matchesPlayed"]),
                     AsInt(d["wins"]),
@@ -255,6 +262,7 @@ namespace Pose.Net
                         friends.Add(new Friend(
                             AsString(f["uid"]),
                             AsString(f["name"]),
+                            AsString(f["photoURL"]),
                             AsInt(f["wins"]),
                             AsInt(f["matchesPlayed"])));
                     }
@@ -297,6 +305,7 @@ namespace Pose.Net
                         rows.Add(new LeaderRow(
                             AsString(r["uid"]),
                             AsString(r["name"]),
+                            AsString(r["photoURL"]),
                             AsInt(r["wins"]),
                             AsInt(r["points"]),
                             AsInt(r["matchesPlayed"]),
