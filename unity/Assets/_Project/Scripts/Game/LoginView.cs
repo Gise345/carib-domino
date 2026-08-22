@@ -37,6 +37,10 @@ namespace Pose.Game
         private const float IconBadgeSize = 62f;
         private const float IconBadgeInset = 22f;
 
+        // Gap between the three chooser buttons. Three 104-tall buttons plus
+        // two of these is 384, inside the column's 400.
+        private const float ChooserSpacing = 36f;
+
         // Placeholders until the marketing site is live; the buttons are real
         // so the flow can be tested, and these are the single place to change.
         private const string TermsUrl = "https://posedominoes.com/terms";
@@ -151,7 +155,11 @@ namespace Pose.Game
 
         private void BuildChooser(RectTransform root)
         {
-            _chooser = AddCenterColumn(root, "Chooser", new Vector2(ButtonWidth, 400f), new Vector2(0f, 90f), 26f);
+            // Sits below the subtitle, not through it: at the old +90 the column
+            // ran 575-975 while the subtitle occupies 632-732, so the text drew
+            // straight over the first button. -97 puts the column at 762-1162.
+            _chooser = AddCenterColumn(
+                root, "Chooser", new Vector2(ButtonWidth, 400f), new Vector2(0f, -97f), ChooserSpacing);
 
             // Facebook keeps its own blue and a white mark — it is a brand
             // people recognise by colour before they read it.

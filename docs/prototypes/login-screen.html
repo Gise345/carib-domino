@@ -168,7 +168,10 @@
     width: 65%;              /* 520 / 800  */
     display: flex;
     flex-direction: column;
-    gap: 4.2%;
+    /* 36 canvas units of 800. In cqw against the frame, so it scales with the
+       screen — a percentage row-gap here resolves against an indefinite
+       height and silently collapses to nothing. */
+    gap: 4.5cqw;
   }
 
   .btn {
@@ -233,7 +236,7 @@
     width: 65%;
     display: none;
     flex-direction: column;
-    gap: 3.4%;
+    gap: 3.4cqw;
   }
   .email-form.is-on { display: flex; }
   .chooser.is-off { display: none; }
@@ -462,7 +465,7 @@
             </tr>
             <tr>
               <td>Buttons</td>
-              <td class="num">520 &times; 104<br>gap 26</td>
+              <td class="num">520 &times; 104<br>gap 36</td>
               <td>65% of the width. Thumb-sized, and wide enough that the badge doesn't crowd the label.</td>
             </tr>
             <tr>
