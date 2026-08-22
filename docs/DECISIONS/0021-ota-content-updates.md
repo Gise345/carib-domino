@@ -37,6 +37,33 @@ any plan makes sense.
 
 **Therefore: anything that is C# today requires a store release, permanently.**
 
+### How we got here
+
+Layers 1–3 below are not new architecture. [ADR 0001](0001-tech-stack.md) specified
+all three on day one — "Remote configuration & rule definitions: Firebase Remote
+Config + Firestore-backed `rulesets` collection", "Asset delivery: Unity
+Addressables", "Localization: ... + Firestore-backed remote string tables" — and the
+stack was chosen partly to get them cheaply.
+
+None were implemented. Addressables is configured with zero runtime call sites,
+Remote Config was never imported, and `L10n.cs` has no fetch path. This ADR is
+therefore mostly a plan to finish ADR 0001, not to extend it.
+
+ADR 0001 also considered and rejected React Native + Skia, on the grounds that its
+"polish ceiling is meaningfully lower for animation-heavy casual-game UI". That
+holds — and Photon Fusion has no React Native SDK, so it would have meant the custom
+WebSocket netcode the same ADR rejected. But the comparison priced React Native's
+advantage as "faster developer iteration" and never mentioned over-the-air updates,
+which is the larger difference and the one being felt now. Had it been priced, it
+would probably not have flipped the engine choice — but it would have made Layers 1–3
+a day-one requirement rather than an aspiration.
+
+The procedural UI described below is different: it has **no decision record at all**.
+It accreted across feature commits, and it sits at odds with ADR 0001's own rationale,
+which cites Unity's "prefab/UI tooling" as part of why the engine was worth choosing.
+It should have been raised as an architectural decision when the first view file
+passed a few hundred lines, and was not.
+
 ### Why that hurts more here than it would in a typical Unity project
 
 The view layer is built procedurally in C#, not from prefabs or data:
