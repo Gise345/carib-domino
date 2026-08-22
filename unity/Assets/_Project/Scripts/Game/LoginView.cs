@@ -88,7 +88,7 @@ namespace Pose.Game
         private bool _signUpMode;
         private bool _busy;
 
-        /// <summary>Logo shown at the top of the card. Call before <see cref="Start"/>.</summary>
+        /// <summary>Logo shown at the top of the screen. Call before <see cref="Start"/>.</summary>
         public void SetLogoSprite(Sprite? sprite) => _logoSprite = sprite;
 
         /// <summary>Full-screen backdrop. Call before <see cref="Start"/>.</summary>
@@ -161,9 +161,9 @@ namespace Pose.Game
             img.raycastTarget = false;
         }
 
-        private void BuildSubtitle(RectTransform card)
+        private void BuildSubtitle(RectTransform root)
         {
-            TextMeshProUGUI sub = AddText(card, L10n.Get("login_subtitle"), 26f, BodyText, TextAlignmentOptions.Center);
+            TextMeshProUGUI sub = AddText(root, L10n.Get("login_subtitle"), 26f, BodyText, TextAlignmentOptions.Center);
             sub.textWrappingMode = TextWrappingModes.Normal;
             RectTransform rt = (RectTransform)sub.transform;
             rt.anchorMin = new Vector2(0.5f, 1f);
@@ -276,7 +276,7 @@ namespace Pose.Game
 
         private void OnPrivacyClicked() => Application.OpenURL(PrivacyUrl);
 
-        private void BuildEmailForm(RectTransform card)
+        private void BuildEmailForm(RectTransform root)
         {
             // Sits exactly where the chooser was: same anchor, same top edge, so
             // choosing Email swaps the panel rather than shifting the screen.
@@ -295,9 +295,9 @@ namespace Pose.Game
             MakeLink(_emailForm.transform, L10n.Get("login_back"), () => ShowEmailForm(false));
         }
 
-        private void BuildStatus(RectTransform card)
+        private void BuildStatus(RectTransform root)
         {
-            _status = AddText(card, string.Empty, 24f, ErrorText, TextAlignmentOptions.Center);
+            _status = AddText(root, string.Empty, 24f, ErrorText, TextAlignmentOptions.Center);
             _status.textWrappingMode = TextWrappingModes.Normal;
             RectTransform rt = (RectTransform)_status.transform;
             rt.anchorMin = new Vector2(0.5f, 0f);
