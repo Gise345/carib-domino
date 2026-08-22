@@ -72,6 +72,12 @@ namespace Pose.Net
                 EnsureAuthService();
                 AuthService auth = AuthService.Instance!;
 
+                // Fetch Remote Config in the background; getters fall back to in-app
+                // defaults until it activates. Await it (with a timeout) once launch
+                // decisions depend on it — kill-switch / force-update gating (ADR 0021).
+                EnsureRemoteConfig();
+                _ = RemoteConfigService.Instance!.InitAsync();
+
                 // Wait for Firebase to restore any persisted session before we
                 // decide login-vs-lobby — its StateChanged fires once with the
                 // initial (restored) state. Bounded by a short timeout so a
@@ -100,6 +106,16 @@ namespace Pose.Net
             }
             GameObject go = new("AuthService");
             go.AddComponent<AuthService>();
+        }
+
+        private static void EnsureRemoteConfig()
+        {
+            if (RemoteConfigService.Instance != null)
+            {
+                return;
+            }
+            GameObject go = new("RemoteConfigService");
+            go.AddComponent<RemoteConfigService>();
         }
 
         private void Fail(string message)
