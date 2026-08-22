@@ -17,6 +17,7 @@ const ResolveSchema = z.object({
 interface Friend {
   uid: string;
   name: string;
+  photoURL: string;
   wins: number;
   matchesPlayed: number;
 }
@@ -24,6 +25,11 @@ interface Friend {
 function nameOf(data: DocumentData | undefined): string {
   const dn: unknown = data?.['displayName'];
   return typeof dn === 'string' && dn.length > 0 ? dn : 'Player';
+}
+
+function photoOf(data: DocumentData | undefined): string {
+  const photo: unknown = data?.['photoURL'];
+  return typeof photo === 'string' ? photo : '';
 }
 
 function num(data: DocumentData | undefined, field: string): number {
@@ -90,6 +96,7 @@ export const resolveFacebookFriends = onCall(
       return {
         uid,
         name: nameOf(userData),
+        photoURL: photoOf(userData),
         wins: num(statData, 'wins'),
         matchesPlayed: num(statData, 'matchesPlayed'),
       };

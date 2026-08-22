@@ -19,6 +19,7 @@ const LeaderboardSchema = z.object({
 interface LeaderRow {
   uid: string;
   name: string;
+  photoURL: string;
   wins: number;
   points: number;
   matchesPlayed: number;
@@ -74,19 +75,24 @@ export const getLeaderboard = onCall(
     entries.sort((a, b) => num(b.data, field) - num(a.data, field));
     const top = entries.slice(0, limit);
 
-    // Join display names.
+    // Join display names + avatars.
     const names = new Map<string, string>();
+    const photos = new Map<string, string>();
     if (top.length > 0) {
       const userSnaps = await db.getAll(...top.map((e) => db.collection('users').doc(e.uid)));
       for (const s of userSnaps) {
-        const dn: unknown = s.data()?.['displayName'];
+        const data = s.data();
+        const dn: unknown = data?.['displayName'];
+        const photo: unknown = data?.['photoURL'];
         names.set(s.id, typeof dn === 'string' && dn.length > 0 ? dn : 'Player');
+        photos.set(s.id, typeof photo === 'string' ? photo : '');
       }
     }
 
     const rows: LeaderRow[] = top.map((e, i) => ({
       uid: e.uid,
       name: names.get(e.uid) ?? 'Player',
+      photoURL: photos.get(e.uid) ?? '',
       wins: num(e.data, 'wins'),
       points: num(e.data, 'totalScore'),
       matchesPlayed: num(e.data, 'matchesPlayed'),

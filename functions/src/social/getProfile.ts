@@ -33,6 +33,7 @@ export const getProfile = onCall(async (request: CallableRequest<unknown>) => {
   const user = snaps[0]?.data();
   const stats = snaps[1]?.data();
   const displayName: unknown = user?.['displayName'];
+  const photoURL: unknown = user?.['photoURL'];
   const wins = num(stats, 'wins');
   const losses = num(stats, 'losses');
   const draws = num(stats, 'draws');
@@ -41,6 +42,7 @@ export const getProfile = onCall(async (request: CallableRequest<unknown>) => {
   return {
     uid,
     name: typeof displayName === 'string' && displayName.length > 0 ? displayName : 'Player',
+    photoURL: typeof photoURL === 'string' ? photoURL : '',
     coins,
     matchesPlayed: played,
     wins,
