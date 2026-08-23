@@ -1,4 +1,5 @@
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { assertNotBanned } from '../admin/bans';
 import { logger } from 'firebase-functions/v2';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Transaction } from 'firebase-admin/firestore';
@@ -41,6 +42,7 @@ export const joinSeries = onCall(
     }
     const { seriesId, seat } = parsed.data;
     const uid = request.auth.uid;
+    await assertNotBanned(uid);
 
     const db = getFirestore();
     const seriesRef = db.collection('series').doc(seriesId);

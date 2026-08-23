@@ -162,10 +162,42 @@ async function loadUserDetail(uid) {
       ['Win rate', `${Math.round((u.winRate || 0) * 100)}%`],
       ['Status', u.banned ? `<span class="error">Banned${u.banReason ? ` — ${escape(u.banReason)}` : ''}</span>` : 'Active'],
     ];
+    const action = u.banned
+      ? '<button class="btn btn--small" id="unbanBtn">Unban</button>'
+      : '<button class="btn btn--small btn--danger" id="banBtn">Ban…</button>';
     panel.innerHTML =
       `<h3>${escape(u.name)}</h3>` +
       rows.map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('') +
-      `<p class="muted">Ban / unban controls arrive in Phase D.</p>`;
+      `<div class="detail-actions">${action}</div>`;
+
+    const banBtn = document.getElementById('banBtn');
+    if (banBtn) {
+      banBtn.addEventListener('click', async () => {
+        const reason = window.prompt('Ban reason (optional):', '');
+        if (reason === null) return; // cancelled
+        banBtn.disabled = true;
+        try {
+          await call('banUser', { uid: u.uid, reason });
+          await loadUserDetail(u.uid);
+        } catch (e) {
+          window.alert(e && e.message ? e.message : 'Ban failed.');
+          banBtn.disabled = false;
+        }
+      });
+    }
+    const unbanBtn = document.getElementById('unbanBtn');
+    if (unbanBtn) {
+      unbanBtn.addEventListener('click', async () => {
+        unbanBtn.disabled = true;
+        try {
+          await call('unbanUser', { uid: u.uid });
+          await loadUserDetail(u.uid);
+        } catch (e) {
+          window.alert(e && e.message ? e.message : 'Unban failed.');
+          unbanBtn.disabled = false;
+        }
+      });
+    }
   } catch (e) {
     panel.innerHTML = `<p class="error">${escape(e && e.message ? e.message : 'Failed to load user.')}</p>`;
   }

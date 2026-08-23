@@ -1,4 +1,5 @@
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { assertNotBanned } from '../admin/bans';
 import { logger } from 'firebase-functions/v2';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -50,6 +51,7 @@ export const startMatch = onCall(
     }
 
     const uid = request.auth.uid;
+    await assertNotBanned(uid);
     const seed = generateSeed();
 
     const db = getFirestore();

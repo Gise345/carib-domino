@@ -50,6 +50,11 @@ export { getAdminStats } from './admin/getAdminStats';
 export { searchUsers } from './admin/searchUsers';
 export { getUserDetail } from './admin/getUserDetail';
 
+// Admin (phase D): ban/unban. Bans write the authoritative /bans/{uid} record
+// that gameplay entrypoints check via assertNotBanned. See ADR 0022.
+export { banUser } from './admin/banUser';
+export { unbanUser } from './admin/unbanUser';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

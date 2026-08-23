@@ -1,4 +1,5 @@
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { assertNotBanned } from '../admin/bans';
 import { logger } from 'firebase-functions/v2';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -36,6 +37,7 @@ export const openSeries = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError('unauthenticated', 'Sign-in required to open a series.');
     }
+    await assertNotBanned(request.auth.uid);
 
     const parsed = OpenSeriesSchema.safeParse(request.data);
     if (!parsed.success) {

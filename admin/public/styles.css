@@ -150,3 +150,6 @@ body {
 .detail .row:last-of-type { border-bottom: none; }
 .detail .k { width: 120px; color: var(--muted); flex-shrink: 0; }
 .detail .v { flex: 1; }
+.detail-actions { margin-top: 18px; }
+.btn--danger { background: #6b1f1f; border-color: #8a2a2a; color: #ffe3dd; }
+.btn--danger:hover { background: #832626; border-color: var(--error); }
