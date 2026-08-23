@@ -40,6 +40,11 @@ export { syncFacebookIdentity } from './social/syncFacebookIdentity';
 // the uids feed getLeaderboard(scope:'friends'). See ADR 0019.
 export { resolveFacebookFriends } from './social/resolveFacebookFriends';
 
+// Admin (phase A): syncAdminClaim grants/revokes the caller's own `admin` custom
+// claim from the server-side allowlist (verified email only). The claim + an
+// allowlist re-check gate every admin action. See ADR 0022.
+export { syncAdminClaim } from './admin/syncAdminClaim';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

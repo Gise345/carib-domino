@@ -122,6 +122,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // Admin subsystem (ADR 0022) — all server-only. Admin powers run through
+    // admin Cloud Functions (Admin SDK) that verify the `admin` custom claim AND
+    // re-check the server-side email allowlist; nothing here is client-writable,
+    // and admin reads also go through callables so every access is controlled and
+    // audited. Denying the client entirely keeps the moderation/economy surface
+    // off the device.
+    //   /adminAudit    — immutable who/what/when log of every admin action
+    //   /bans          — banned uids + reason (enforced by gameplay functions)
+    //   /promotions    — promo definitions (applied server-side)
+    //   /adminStats    — precomputed analytics aggregates
+    // -----------------------------------------------------------------------
+    match /adminAudit/{entryId} {
+      allow read, write: if false;
+    }
+    match /bans/{userId} {
+      allow read, write: if false;
+    }
+    match /promotions/{promoId} {
+      allow read, write: if false;
+    }
+    match /adminStats/{docId} {
+      allow read, write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.
