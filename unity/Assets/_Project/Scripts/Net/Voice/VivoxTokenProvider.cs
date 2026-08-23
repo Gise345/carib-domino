@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Unity.Services.Vivox;
 using UnityEngine;
 
-namespace Pose.Net
+namespace Pose.Net.Voice
 {
     /// <summary>
     /// Supplies Vivox with server-minted access tokens (ADR 0024 §4).

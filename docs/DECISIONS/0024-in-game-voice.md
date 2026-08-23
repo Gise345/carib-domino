@@ -140,6 +140,31 @@ retention policy, GDPR disclosure, and storage. It buys stronger evidence and we
 want it later, so the report document shape leaves room for an optional `audioRef`
 without a migration. It is not v1.
 
+### 8. Vivox code is quarantined in its own assembly
+
+All Vivox-touching code lives in `Pose.Net.Voice`, an assembly definition with
+`autoReferenced: false`. Nothing outside it names a Vivox type. The game reaches
+voice only through `Pose.Core.Voice.IVoiceSession`, published at startup via
+`VoiceRuntime.Register` and read back as a nullable `VoiceRuntime.Session`.
+
+This is not tidiness. The first time the Vivox package failed to resolve — an
+EPERM on extraction, nothing to do with our code — a single file that named
+`IVivoxTokenProvider` took **the entire game's compilation** down with it,
+because it sat in `Assembly-CSharp` alongside everything else. A feature that is
+off by default and wired to nothing should not be able to do that.
+
+With the quarantine, a package that will not resolve, or an SDK upgrade that
+moves an API, fails only `Pose.Net.Voice`. It then never registers, `Session`
+stays null, and the game runs without voice. So a null `Session` is a **normal**
+state — unbuilt, unprovisioned, or not yet started — and every caller null-checks
+rather than assuming.
+
+The cost is real and accepted: `Assembly-CSharp` cannot reference a
+non-auto-referenced assembly, so the board and the bootstrap cannot construct the
+voice controller directly and must go through the interface. That indirection is
+the price of the isolation, and it is worth paying for a third-party realtime SDK
+that the whole game would otherwise be hostage to.
+
 ## Data model
 
 No new collections. Voice reuses:

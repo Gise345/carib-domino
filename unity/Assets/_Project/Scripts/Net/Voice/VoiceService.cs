@@ -6,7 +6,7 @@ using Firebase.Functions;
 using Pose.Core.Voice;
 using UnityEngine;
 
-namespace Pose.Net
+namespace Pose.Net.Voice
 {
     /// <summary>
     /// Client data layer for in-match voice (ADR 0024). Everything privileged goes
@@ -22,7 +22,7 @@ namespace Pose.Net
     /// only, so it compiles and is reviewable independently of the SDK. The
     /// adapter that drives Vivox is <c>VivoxTokenProvider</c> / <c>VoiceController</c>.
     ///
-    /// Static, like <see cref="ChatService"/>: it needs the initialised Firebase
+    /// Static, like <c>ChatService</c>: it needs the initialised Firebase
     /// SDKs and nothing else.
     /// </summary>
     public static class VoiceService
