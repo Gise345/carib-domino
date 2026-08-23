@@ -1,0 +1,818 @@
+<title>Pose Screen Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap">
+
+<style>
+  /* ------------------------------------------------------------------
+     Pose — the tabs and mode screens.
+     One chrome for every screen: carved header with a brass back ring,
+     lacquered cards on the wood ground, bottom nav. Tokens from
+     docs/DESIGN_SYSTEM.md §2. Single-theme by intent — the app is one
+     fixed world, painted explicitly.
+     ------------------------------------------------------------------ */
+  :root {
+    --wood: url('data:image/jpeg;base64,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');
+    --night-deep: #0C201D;
+    --night:      #14322E;
+    --panel:      #12261F;
+    --panel-hi:   #1B3A30;
+    --bone:       #F2EADA;
+    --lamplight:  #E8D5A8;
+    --brass:      #CA8A04;
+    --brass-hi:   #F0C24A;
+    --cta:        #EE7F5F;
+    --success:    #7BB661;
+    --warning:    #E9A23B;
+    --danger:     #F2705A;
+    --muted:      #A89F8E;
+
+    --display: "Baloo 2", ui-rounded, "Segoe UI", system-ui, sans-serif;
+    --body:    "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+
+    --screen-w: 320px;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: radial-gradient(120% 70% at 50% 0%, #163F37 0%, var(--night-deep) 60%);
+    color: var(--bone);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1240px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---- Masthead ---------------------------------------------------- */
+
+  header.masthead { display: flex; flex-direction: column; gap: 10px; padding: 52px 0 30px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--brass);
+  }
+  .masthead h1 {
+    font-family: var(--display);
+    font-size: clamp(34px, 5.4vw, 52px);
+    font-weight: 800; line-height: 1.04; margin: 0;
+    text-wrap: balance; color: var(--bone);
+  }
+  .standfirst { max-width: 66ch; margin: 0; color: var(--muted); }
+  .standfirst strong { color: var(--lamplight); font-weight: 700; }
+
+  section.block { padding-top: 58px; }
+  h2.sec {
+    font-family: var(--display); font-size: 28px; font-weight: 800;
+    margin: 0 0 6px; color: var(--bone);
+  }
+  .sec-intro { max-width: 66ch; margin: 0 0 26px; color: var(--muted); }
+  code {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 0.88em; color: var(--lamplight);
+  }
+
+  /* ---- Back button, the shared component --------------------------- */
+
+  .swatchbar {
+    display: flex; flex-wrap: wrap; gap: 34px; align-items: flex-start;
+    padding: 26px 28px;
+    background: var(--panel);
+    border: 1px solid rgba(202, 138, 4, 0.28);
+    border-radius: 16px;
+  }
+  .swatch { display: grid; justify-items: center; gap: 12px; }
+  .swatch .cap {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* The back control: a brass ring with a chevron — the same brass node
+     that sits on the domino's centre divider. */
+  .back {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px solid var(--brass);
+    background: rgba(9, 26, 21, 0.85);
+    display: grid; place-items: center;
+    cursor: pointer; padding: 0;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(240,194,74,0.35);
+    transition: transform 140ms cubic-bezier(0.33,1,0.68,1), background-color 140ms linear;
+  }
+  .back svg { width: 22px; height: 22px; stroke: var(--brass-hi); }
+  .back:hover { background: rgba(202,138,4,0.18); }
+  .back:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.5); }
+  .back:focus-visible { outline: 3px solid var(--lamplight); outline-offset: 3px; }
+  .back.wide {
+    width: auto; height: 52px; border-radius: 26px; gap: 8px;
+    grid-auto-flow: column; padding: 0 20px 0 14px;
+    font-family: var(--body); font-weight: 700; font-size: 15px; color: var(--brass-hi);
+  }
+  .back.ghost { border-color: rgba(232,213,168,0.35); }
+  .back.ghost svg { stroke: var(--lamplight); }
+
+  /* ---- Phone frames ------------------------------------------------ */
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(var(--screen-w), 1fr));
+    gap: 40px 30px;
+    align-items: start;
+  }
+  .shot { display: grid; gap: 14px; justify-items: center; }
+  .shot h3 {
+    font-family: var(--display); font-size: 20px; font-weight: 800;
+    margin: 0; color: var(--bone); text-align: center;
+  }
+  .shot p.why { margin: 0; font-size: 14px; color: var(--muted); text-align: center; max-width: 34ch; }
+
+  .frame {
+    width: var(--screen-w);
+    aspect-ratio: 800 / 1730;
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    border: 1px solid rgba(232,213,168,0.2);
+    box-shadow: 0 0 0 7px #17171A, 0 22px 46px rgba(0,0,0,0.55);
+    background-image: var(--wood);
+    background-size: 62% auto;
+    container-type: inline-size;
+    display: flex; flex-direction: column;
+    font-size: 3.1cqw;
+  }
+  .frame::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(6,20,16,0.55) 0%, rgba(6,20,16,0.78) 100%);
+  }
+  .frame > * { position: relative; }
+
+  /* ---- Screen chrome ----------------------------------------------- */
+
+  .topbar {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 3%;
+    padding: 5% 4.5% 3.5%;
+  }
+  .topbar .back { width: 11.5%; aspect-ratio: 1; height: auto; border-width: 1.5px; }
+  .topbar .back svg { width: 42%; height: 42%; }
+  .topbar h4 {
+    flex: 1; margin: 0; text-align: center;
+    font-family: var(--display); font-weight: 800;
+    font-size: 1.45em; letter-spacing: 0.01em; color: var(--bone);
+  }
+  .topbar .spacer { width: 11.5%; }
+
+  /* Brass hairline under the header — the app's one repeated rule. */
+  .rule {
+    height: 2px; margin: 0 4.5%;
+    background: linear-gradient(90deg, transparent, var(--brass) 18%, var(--brass) 82%, transparent);
+    opacity: 0.65;
+    flex: 0 0 auto;
+  }
+
+  .body {
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding: 4% 4.5%;
+    display: flex; flex-direction: column; gap: 3.4%;
+  }
+
+  .card {
+    background: rgba(9, 26, 21, 0.86);
+    border: 1px solid rgba(202,138,4,0.24);
+    border-radius: 3.6%/1.8%;
+    padding: 4% 4.5%;
+    display: flex; flex-direction: column; gap: 3%;
+  }
+  .card > .head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--display); font-weight: 700; font-size: 1.05em;
+    color: var(--brass); letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 4%; }
+  .row .lbl { color: var(--lamplight); }
+  .row .val { color: var(--bone); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .navbar {
+    flex: 0 0 auto;
+    display: flex; align-items: stretch;
+    background: rgba(6, 18, 14, 0.94);
+    border-top: 1px solid rgba(202,138,4,0.3);
+    padding: 2% 1%;
+  }
+  .navbar .tab {
+    flex: 1; display: grid; justify-items: center; gap: 2px;
+    font-size: 0.72em; color: var(--muted); padding: 3% 0 2%;
+  }
+  .navbar .tab .ico {
+    width: 1.9em; height: 1.9em; border-radius: 50%;
+    border: 1.5px solid currentColor; display: grid; place-items: center;
+  }
+  .navbar .tab.on { color: var(--brass-hi); }
+  .navbar .tab.on .ico { background: rgba(202,138,4,0.2); }
+
+  /* ---- Shared bits -------------------------------------------------- */
+
+  .avatar {
+    width: 22%; aspect-ratio: 1; border-radius: 50%;
+    background: linear-gradient(160deg, #E8B96A, #B07C2E);
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800; font-size: 1.7em; color: #17140A;
+    box-shadow: 0 0 0 3px rgba(202,138,4,0.55);
+    flex: 0 0 auto;
+  }
+  .tag { color: var(--brass-hi); font-weight: 700; font-size: 0.92em; }
+  .name { font-family: var(--display); font-weight: 800; font-size: 1.3em; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3%; }
+  .stat {
+    background: rgba(20, 50, 42, 0.7);
+    border: 1px solid rgba(232,213,168,0.12);
+    border-radius: 8%/16%;
+    padding: 5% 6%;
+    display: grid; gap: 1px;
+  }
+  .stat .k { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .stat .v { font-family: var(--display); font-weight: 800; font-size: 1.5em; color: var(--bone); font-variant-numeric: tabular-nums; }
+
+  .cta, .ghostbtn {
+    border: 0; border-radius: 3.4%/22%;
+    padding: 4.4% 0;
+    font-family: var(--display); font-weight: 800; font-size: 1.15em;
+    text-align: center; cursor: pointer; color: #1B0F08;
+    background: linear-gradient(160deg, #F49A79, var(--cta));
+    box-shadow: 0 4px 0 #A8462C;
+  }
+  .ghostbtn {
+    background: rgba(232,213,168,0.09);
+    border: 1px solid rgba(232,213,168,0.3);
+    color: var(--bone); box-shadow: none; font-size: 1.02em;
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.4em;
+    padding: 0.25em 0.7em; border-radius: 999px;
+    font-size: 0.78em; font-weight: 700;
+  }
+  .pill.on { background: rgba(123,182,97,0.2); color: var(--success); }
+  .pill.off { background: rgba(168,159,142,0.16); color: var(--muted); }
+  .pill.hot { background: rgba(242,112,90,0.18); color: var(--danger); }
+
+  .seg { display: flex; gap: 2.5%; }
+  .seg .opt {
+    flex: 1; text-align: center; padding: 3.4% 0;
+    border-radius: 6%/26%;
+    border: 1px solid rgba(232,213,168,0.22);
+    color: var(--lamplight); font-weight: 700; font-size: 0.94em;
+  }
+  .seg .opt.on { background: var(--brass); border-color: var(--brass); color: #17140A; }
+
+  .slider { display: grid; gap: 1.6%; }
+  .slider .track {
+    height: 0.55em; border-radius: 999px;
+    background: rgba(232,213,168,0.18); position: relative;
+  }
+  .slider .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--brass); }
+  .slider .knob {
+    position: absolute; top: 50%; width: 1.15em; aspect-ratio: 1;
+    transform: translate(-50%, -50%); border-radius: 50%;
+    background: var(--bone); box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  }
+
+  .switch {
+    width: 3em; height: 1.6em; border-radius: 999px;
+    background: rgba(232,213,168,0.2); position: relative; flex: 0 0 auto;
+  }
+  .switch.on { background: var(--success); }
+  .switch i {
+    position: absolute; top: 50%; left: 0.2em; width: 1.2em; aspect-ratio: 1;
+    transform: translateY(-50%); border-radius: 50%; background: var(--bone);
+  }
+  .switch.on i { left: auto; right: 0.2em; }
+
+  .friend { display: flex; align-items: center; gap: 3.5%; }
+  .friend .av {
+    width: 13%; aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 800; color: #17140A;
+    font-family: var(--display); font-size: 0.95em; flex: 0 0 auto;
+  }
+  .friend .who { flex: 1; display: grid; gap: 0; line-height: 1.25; }
+  .friend .who b { font-size: 0.98em; }
+  .friend .who span { font-size: 0.78em; color: var(--muted); }
+  .friend .act {
+    padding: 0.35em 0.9em; border-radius: 999px;
+    background: rgba(238,127,95,0.18); border: 1px solid rgba(238,127,95,0.5);
+    color: var(--cta); font-weight: 700; font-size: 0.8em; white-space: nowrap;
+  }
+
+  .search {
+    display: flex; align-items: center; gap: 3%;
+    background: rgba(4, 16, 12, 0.8);
+    border: 1px solid rgba(232,213,168,0.24);
+    border-radius: 3.4%/26%;
+    padding: 3.6% 4.5%;
+    color: var(--muted); font-size: 0.95em;
+  }
+
+  .coin {
+    background: rgba(20, 50, 42, 0.72);
+    border: 1px solid rgba(202,138,4,0.3);
+    border-radius: 7%/12%;
+    padding: 6% 4%;
+    display: grid; justify-items: center; gap: 3%;
+    text-align: center;
+  }
+  .coin .amt { font-family: var(--display); font-weight: 800; font-size: 1.25em; color: var(--brass-hi); }
+  .coin .price {
+    background: var(--success); color: #0A2011; font-weight: 800;
+    border-radius: 999px; padding: 0.2em 0.85em; font-size: 0.86em;
+  }
+  .coin .disc {
+    position: absolute; top: -0.5em; right: -0.5em;
+    background: var(--danger); color: #fff; font-size: 0.68em; font-weight: 800;
+    border-radius: 999px; padding: 0.15em 0.6em;
+  }
+  .coin.best { position: relative; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset; }
+
+  .seatmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%; place-items: center; }
+  .seatmap .s {
+    width: 100%; aspect-ratio: 1; border-radius: 50%;
+    border: 1.5px dashed rgba(232,213,168,0.35);
+    display: grid; place-items: center; font-size: 0.8em; color: var(--muted);
+  }
+  .seatmap .s.you { border-style: solid; border-color: var(--brass); color: var(--brass-hi); font-weight: 800; }
+  .seatmap .s.mate { border-style: solid; border-color: var(--success); color: var(--success); font-weight: 800; }
+  .seatmap .s.foe { border-style: solid; border-color: var(--danger); color: var(--danger); font-weight: 800; }
+  .seatmap .mid { border: 0; font-size: 0.72em; color: var(--muted); }
+
+  .code {
+    font-family: var(--display); font-weight: 800;
+    font-size: 2em; letter-spacing: 0.22em; color: var(--brass-hi);
+    text-align: center; padding: 2% 0;
+  }
+
+  .note {
+    border-left: 3px solid var(--brass);
+    padding: 4px 0 4px 16px; margin: 26px 0 0;
+    color: var(--muted); max-width: 66ch;
+  }
+  .note strong { color: var(--lamplight); font-weight: 700; }
+
+  footer.foot { padding-top: 54px; color: var(--muted); font-size: 13px; max-width: 66ch; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 1ms !important; } }
+  @media (max-width: 560px) { :root { --screen-w: 280px; } }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <span class="eyebrow">Pose · Caribbean Dominoes</span>
+    <h1>Screen Kit</h1>
+    <p class="standfirst">
+      Every tab and mode screen on one chrome: a carved header with a brass back
+      ring, lacquered cards on the wood, and the nav along the bottom. The accent
+      is <strong>the brass node from the tile's centre divider</strong> — the
+      same detail that sits on every domino, reused as the app's one piece of
+      metal so the interface belongs to the board rather than floating over it.
+    </p>
+  </header>
+
+  <section class="block">
+    <h2 class="sec">The back control</h2>
+    <p class="sec-intro">
+      One control, used everywhere a screen can be left. A brass ring with a
+      chevron — round like the divider node, and the only circular thing in the
+      chrome, so it never competes with a card or a button for attention.
+    </p>
+    <div class="swatchbar">
+      <div class="swatch">
+        <button class="back" type="button" aria-label="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+        </button>
+        <span class="cap">Default</span>
+      </div>
+      <div class="swatch">
+        <button class="back wide" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+          Back
+        </button>
+        <span class="cap">With label</span>
+      </div>
+      <div class="swatch">
+        <button class="back ghost" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <span class="cap">Dismiss</span>
+      </div>
+    </div>
+    <p class="note">
+      <strong>Why a ring and not an arrow on its own.</strong> A bare chevron on
+      artwork disappears — it has no edge of its own and the wood behind it keeps
+      changing. The ring gives it a constant silhouette wherever it lands, and
+      makes the tap target obvious at the size a thumb actually needs.
+    </p>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">The tabs</h2>
+    <p class="sec-intro">
+      Each one currently renders as text on a transparent panel. These give them
+      a subject: what the screen is <em>for</em> decides its shape, rather than
+      every tab being the same stack of rows.
+    </p>
+
+    <div class="gallery">
+
+      <!-- ============ PROFILE ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Profile</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card">
+              <div class="row" style="justify-content:flex-start; gap:4%">
+                <div class="avatar">GJ</div>
+                <div style="display:grid; gap:2px">
+                  <span class="name">Giselle</span>
+                  <span class="tag">@yardboss</span>
+                  <span class="pill on">Rank 12 · Cayman</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid2">
+              <div class="stat"><span class="k">Coins</span><span class="v">10,000</span></div>
+              <div class="stat"><span class="k">Win rate</span><span class="v">64%</span></div>
+              <div class="stat"><span class="k">Played</span><span class="v">148</span></div>
+              <div class="stat"><span class="k">Keys</span><span class="v">7</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Trophies</span><span style="color:var(--muted); font-size:0.8em">3 of 24</span></div>
+              <div class="row" style="justify-content:flex-start; gap:4%">
+                <span class="avatar" style="width:15%; font-size:1.1em; background:linear-gradient(160deg,#F0C24A,#B07C2E)">🏆</span>
+                <span class="avatar" style="width:15%; font-size:1.1em; background:linear-gradient(160deg,#C7D2D8,#7E8B93)">🥈</span>
+                <span class="avatar" style="width:15%; font-size:1.1em; background:linear-gradient(160deg,#E0A06A,#8A5A2E)">🔑</span>
+                <span style="color:var(--muted); font-size:0.85em">+21 locked</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Account</span></div>
+              <div class="row"><span class="lbl">Email</span><span class="pill on">Linked</span></div>
+              <div class="row"><span class="lbl">Facebook</span><span class="pill off">Not linked</span></div>
+            </div>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab"><span class="ico">◆</span>Yard</span>
+            <span class="tab on"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Profile</h3>
+        <p class="why">Identity first, then the four numbers a player checks. Trophies get a shelf, not a list.</p>
+      </div>
+
+      <!-- ============ FRIENDS ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Friends</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="search"><span>🔍</span><span>Find a player by @tagname</span></div>
+
+            <div class="card">
+              <div class="head"><span>Requests</span><span class="pill hot">2</span></div>
+              <div class="friend">
+                <span class="av" style="background:#89B4FF">DK</span>
+                <span class="who"><b>Dionne</b><span>@dksix</span></span>
+                <span class="act">Accept</span>
+              </div>
+              <div class="friend">
+                <span class="av" style="background:#F6A87C">MR</span>
+                <span class="who"><b>Marlon</b><span>@marlon6</span></span>
+                <span class="act">Accept</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Online now</span><span class="pill on">3</span></div>
+              <div class="friend">
+                <span class="av" style="background:#7BB661">JU</span>
+                <span class="who"><b>Junior</b><span>In a match · Cut Throat</span></span>
+                <span class="act">Watch</span>
+              </div>
+              <div class="friend">
+                <span class="av" style="background:#C99BF5">AL</span>
+                <span class="who"><b>Alicia</b><span>In the Yard</span></span>
+                <span class="act">Challenge</span>
+              </div>
+              <div class="friend">
+                <span class="av" style="background:#F0C24A">BO</span>
+                <span class="who"><b>Bobby</b><span>In the Yard</span></span>
+                <span class="act">Challenge</span>
+              </div>
+            </div>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab on"><span class="ico">◆</span>Friends</span>
+            <span class="tab"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Friends</h3>
+        <p class="why">Search on top because that is how you add anyone. Then who wants you, then who you can play right now.</p>
+      </div>
+
+      <!-- ============ SHOP ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Shop</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card" style="border-color:var(--brass)">
+              <div class="head"><span>Pose VIP</span><span class="pill on">Best value</span></div>
+              <div class="row"><span class="lbl">No ads · 2× daily bonus · VIP table</span></div>
+              <button class="cta" type="button">$4.99 / month</button>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Coins</span></div>
+              <div class="grid2">
+                <div class="coin"><span class="amt">5,000</span><span class="price">$0.99</span></div>
+                <div class="coin"><span class="amt">15,000</span><span class="price">$2.99</span></div>
+                <div class="coin best"><span class="disc">+40%</span><span class="amt">50,000</span><span class="price">$7.99</span></div>
+                <div class="coin"><span class="amt">150,000</span><span class="price">$19.99</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Extras</span></div>
+              <div class="row"><span class="lbl">Remove ads</span><span class="price" style="background:var(--success); color:#0A2011; border-radius:999px; padding:0.2em 0.85em; font-weight:800; font-size:0.86em">$0.99/mo</span></div>
+              <div class="row"><span class="lbl">Slam pack · 10</span><span class="pill off">Watch an ad</span></div>
+            </div>
+          </div>
+          <div class="navbar">
+            <span class="tab on"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Shop</h3>
+        <p class="why">The subscription leads because it is the one decision worth making once. Coins are a grid you scan, not a list you read.</p>
+      </div>
+
+      <!-- ============ SETTINGS ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Settings</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card">
+              <div class="head"><span>Sound</span></div>
+              <div class="slider">
+                <div class="row"><span class="lbl">Effects</span><span class="val">80</span></div>
+                <div class="track"><span class="fill" style="width:80%"></span><span class="knob" style="left:80%"></span></div>
+              </div>
+              <div class="slider">
+                <div class="row"><span class="lbl">Music</span><span class="val">45</span></div>
+                <div class="track"><span class="fill" style="width:45%"></span><span class="knob" style="left:45%"></span></div>
+              </div>
+              <div class="slider">
+                <div class="row"><span class="lbl">Notifications</span><span class="val">60</span></div>
+                <div class="track"><span class="fill" style="width:60%"></span><span class="knob" style="left:60%"></span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Feel</span></div>
+              <div class="row"><span class="lbl">Vibration</span><span class="switch on"><i></i></span></div>
+              <div class="row"><span class="lbl" style="font-size:0.82em; color:var(--muted)">Turn nudges stay on — the table is waiting on you.</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Language</span></div>
+              <div class="seg">
+                <span class="opt on">English</span>
+                <span class="opt">Español</span>
+                <span class="opt">Français</span>
+              </div>
+            </div>
+
+            <button class="ghostbtn" type="button">How to Play</button>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab on"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Settings</h3>
+        <p class="why">Volumes are sliders, not On/Off — the reason to open this screen is usually "quieter", not "off".</p>
+      </div>
+    </div>
+
+    <p class="note">
+      <strong>The vibration row says what it cannot do.</strong> Turn nudges
+      ignore this toggle by design, so the screen admits it in a line rather than
+      letting a player switch it off and wonder why their phone still buzzes.
+    </p>
+  </section>
+
+  <section class="block">
+    <h2 class="sec">The mode screens</h2>
+    <p class="sec-intro">
+      All three ask the same three questions — who is at the table, what the
+      format is, what it costs — so they share one shape. What differs is the
+      seat map, because that is the actual difference between the modes.
+    </p>
+
+    <div class="gallery">
+
+      <!-- ============ CUT THROAT ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Cut Throat</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card">
+              <div class="head"><span>Table</span></div>
+              <div class="seatmap">
+                <span class="s">2</span><span class="s foe">3</span><span class="s">4</span>
+              </div>
+              <div class="row"><span class="lbl" style="font-size:0.84em">Every player for themselves.</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Format</span></div>
+              <div class="seg">
+                <span class="opt on">6-Love</span>
+                <span class="opt">Quick</span>
+              </div>
+              <div class="row"><span class="lbl">Rounds to win</span><span class="val">6</span></div>
+              <div class="row"><span class="lbl">Turn clock</span><span class="val">30s</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Stake</span></div>
+              <div class="row"><span class="lbl">Entry</span><span class="val">1,000</span></div>
+              <div class="row"><span class="lbl">Winner takes</span><span class="val" style="color:var(--brass-hi)">3,000</span></div>
+              <div class="row"><span class="lbl">Key bonus</span><span class="val" style="color:var(--brass-hi)">+2,000</span></div>
+            </div>
+
+            <button class="cta" type="button">Find a table</button>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab on"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Cut Throat</h3>
+        <p class="why">Table size is the first choice, because it changes the stake and the odds.</p>
+      </div>
+
+      <!-- ============ PARTNER ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>Partner</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card">
+              <div class="head"><span>Your team</span><span class="pill on">Always 4</span></div>
+              <div class="seatmap">
+                <span class="s mid"></span><span class="s foe">Foe</span><span class="s mid"></span>
+                <span class="s foe">Foe</span><span class="s mid">table</span><span class="s mate">Mate</span>
+                <span class="s mid"></span><span class="s you">You</span><span class="s mid"></span>
+              </div>
+              <div class="row"><span class="lbl" style="font-size:0.84em">Your partner sits opposite. Score together.</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Format</span></div>
+              <div class="seg">
+                <span class="opt on">6-Love</span>
+                <span class="opt">Quick</span>
+              </div>
+              <div class="row"><span class="lbl">Rounds to win</span><span class="val">6</span></div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Stake</span></div>
+              <div class="row"><span class="lbl">Entry, each</span><span class="val">1,000</span></div>
+              <div class="row"><span class="lbl">Team takes</span><span class="val" style="color:var(--brass-hi)">4,000</span></div>
+            </div>
+
+            <button class="cta" type="button">Find a table</button>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab on"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>Partner</h3>
+        <p class="why">The seat map does the explaining — that partners sit opposite is the whole rule, and a diagram says it faster than a sentence.</p>
+      </div>
+
+      <!-- ============ ONE-LOVE ============ -->
+      <div class="shot">
+        <div class="frame">
+          <div class="topbar">
+            <button class="back" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg></button>
+            <h4>One-Love</h4>
+            <span class="spacer"></span>
+          </div>
+          <div class="rule"></div>
+          <div class="body">
+            <div class="card" style="border-color:var(--brass)">
+              <div class="head"><span>Your room</span></div>
+              <div class="code">7K4Q</div>
+              <div class="row"><span class="lbl" style="font-size:0.84em">Share the code. Friends join this table only.</span></div>
+              <button class="ghostbtn" type="button">Share code</button>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Waiting</span><span class="pill off">1 of 4</span></div>
+              <div class="friend">
+                <span class="av" style="background:#E8B96A">GJ</span>
+                <span class="who"><b>You</b><span>Host</span></span>
+                <span class="pill on">Ready</span>
+              </div>
+              <div class="friend" style="opacity:0.5">
+                <span class="av" style="background:rgba(232,213,168,0.2)">?</span>
+                <span class="who"><b>Empty seat</b><span>Waiting…</span></span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="head"><span>Join instead</span></div>
+              <div class="search"><span>#</span><span>Enter a 4-letter code</span></div>
+            </div>
+
+            <button class="cta" type="button">Start when ready</button>
+          </div>
+          <div class="navbar">
+            <span class="tab"><span class="ico">◆</span>Shop</span>
+            <span class="tab"><span class="ico">◆</span>Friends</span>
+            <span class="tab on"><span class="ico">◆</span>Yard</span>
+            <span class="tab"><span class="ico">◆</span>Profile</span>
+            <span class="tab"><span class="ico">◆</span>Settings</span>
+          </div>
+        </div>
+        <h3>One-Love w/ Friends</h3>
+        <p class="why">The code is the screen. Everything else is secondary to getting it to the people you want at the table.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Screens are drawn at the real <code>800 × 1730</code> canvas ratio. Type is
+    Baloo 2 and Nunito, the pair <code>DESIGN_SYSTEM.md</code> §3 specifies.
+    Colours are §2 tokens throughout; the wood is <code>board.png</code> from the
+    project. Numbers shown are the real ones — 1,000 entry and the 2,000 key
+    bonus come from ADR 0016, the 30-second clock from the turn timer.
+  </footer>
+
+</div>
