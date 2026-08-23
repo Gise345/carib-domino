@@ -31,15 +31,16 @@ namespace Pose.Core
         /// <summary>Jamaican Partner is always a 4-seat, 2-v-2 table.</summary>
         public const int PartnerSize = 4;
 
-        /// <summary>Property key carrying the Cut-Throat series format ("classic"/"quick").</summary>
+        /// <summary>Property key carrying the series format ("classic"/"quick").</summary>
         public const string PropFormat = "fmt";
 
         /// <summary>
         /// The matchmaking property set for a random online table. Two players
         /// calling this with the same mode and size produce identical
         /// dictionaries, so Photon groups them into one table — and different
-        /// modes/sizes never cross-match. Partner ignores <paramref name="size"/>:
-        /// it is always <see cref="PartnerSize"/> (2 v 2).
+        /// modes, sizes or formats never cross-match. Partner ignores
+        /// <paramref name="size"/>: it is always <see cref="PartnerSize"/>
+        /// (2 v 2), but it does honour <paramref name="format"/>.
         /// </summary>
         /// <param name="mode">The ruleset to matchmake for.</param>
         /// <param name="size">Table size, 2–4 (Cut-Throat only).</param>
@@ -49,10 +50,15 @@ namespace Pose.Core
         {
             if (mode == GameMode.Partner)
             {
+                // Partner splits by format too. Without this a Classic Partner
+                // seeker and a Quick Partner seeker group into one table and
+                // only the host's series length applies — the other player
+                // silently gets a match they did not pick.
                 return new Dictionary<string, string>
                 {
                     [PropMode] = ModePartner,
                     [PropSize] = PartnerSize.ToString(CultureInfo.InvariantCulture),
+                    [PropFormat] = MatchFormatRules.ToWire(format),
                 };
             }
 
@@ -62,8 +68,6 @@ namespace Pose.Core
                     nameof(size), size, "Cut-Throat online table size must be 2, 3, or 4.");
             }
 
-            // Cut-Throat also splits pools by series format so a Classic seeker
-            // never lands on a Quick table.
             return new Dictionary<string, string>
             {
                 [PropMode] = ModeCutThroat,

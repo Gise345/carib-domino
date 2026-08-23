@@ -8,7 +8,7 @@ namespace Pose.Core.Tests
     /// <summary>
     /// The random-matchmaking property set is what Photon groups strangers by:
     /// a creator and a joiner that build different keys or values silently never
-    /// match. These tests pin the keys ("mode"/"size"), the Cut-Throat value,
+    /// match. These tests pin the keys ("mode"/"size"/"fmt"), the wire values,
     /// the stringified size, and the range so a drift breaks the build, not a
     /// player's session.
     /// </summary>
@@ -24,11 +24,50 @@ namespace Pose.Core.Tests
         }
 
         [Test]
-        public void CutThroatProperties_KeysAreExactlyModeAndSize()
+        public void CutThroatProperties_KeysAreExactlyModeSizeAndFormat()
         {
             IReadOnlyDictionary<string, string> props = Matchmaking.CutThroatProperties(4);
 
-            Assert.That(props.Keys, Is.EquivalentTo(new[] { "mode", "size" }));
+            Assert.That(props.Keys, Is.EquivalentTo(new[] { "mode", "size", "fmt" }));
+        }
+
+        [Test]
+        public void PartnerProperties_CarryTheFormat()
+        {
+            // Partner is always four seats, so format is the only thing that
+            // separates one Partner pool from another.
+            IReadOnlyDictionary<string, string> props =
+                Matchmaking.Properties(GameMode.Partner, Matchmaking.PartnerSize, MatchFormat.QuickLove);
+
+            Assert.That(props.Keys, Is.EquivalentTo(new[] { "mode", "size", "fmt" }));
+            Assert.That(props[Matchmaking.PropMode], Is.EqualTo(Matchmaking.ModePartner));
+            Assert.That(props[Matchmaking.PropFormat], Is.EqualTo("quick"));
+        }
+
+        [Test]
+        public void PartnerProperties_ClassicAndQuickDoNotCrossMatch()
+        {
+            // The bug this prevents: a Classic Partner seeker and a Quick
+            // Partner seeker grouped into one table, where only the host's
+            // series length applies and the other player silently gets a match
+            // they did not choose.
+            IReadOnlyDictionary<string, string> classic =
+                Matchmaking.Properties(GameMode.Partner, 4, MatchFormat.ClassicSixLove);
+            IReadOnlyDictionary<string, string> quick =
+                Matchmaking.Properties(GameMode.Partner, 4, MatchFormat.QuickLove);
+
+            Assert.That(classic[Matchmaking.PropFormat], Is.Not.EqualTo(quick[Matchmaking.PropFormat]));
+        }
+
+        [Test]
+        public void PartnerProperties_SameFormatProducesEqualSets()
+        {
+            IReadOnlyDictionary<string, string> a =
+                Matchmaking.Properties(GameMode.Partner, 4, MatchFormat.ClassicSixLove);
+            IReadOnlyDictionary<string, string> b =
+                Matchmaking.Properties(GameMode.Partner, 2, MatchFormat.ClassicSixLove);
+
+            Assert.That(a, Is.EquivalentTo(b), "Partner ignores the requested size");
         }
 
         [Test]
