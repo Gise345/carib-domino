@@ -66,7 +66,17 @@ namespace Pose.Game
         private const float PlankRight = 0.25f;
         private const float PlankTop = 0.34f;
         private const float PlankBottom = 0.17f;
-        private const float PlankCaptionTop = 0.09f;
+        private const float PlankCaptionTop = 0.16f;
+
+        /// <summary>
+        /// The sign's own name is centred on the whole board, not on the text
+        /// area. The numbers are pushed left to clear the treasure chest; the
+        /// caption is short enough to sit dead centre and look deliberate.
+        /// </summary>
+        private const float CaptionInset = 0.06f;
+
+        /// <summary>How tall a slot the caption gets, as a fraction of the board.</summary>
+        private const float CaptionHeight = 0.17f;
 
         // The drawn stand-in has no painted furniture to avoid, so its numbers
         // use honest padding instead.
@@ -567,8 +577,8 @@ namespace Pose.Game
             cap.characterSpacing = 8f;
             cap.raycastTarget = false;
             RectTransform crt = (RectTransform)cap.transform;
-            crt.anchorMin = new Vector2(FallbackInset, 1f - PlankCaptionTop - 0.17f);
-            crt.anchorMax = new Vector2(1f - FallbackInset, 1f - PlankCaptionTop);
+            crt.anchorMin = new Vector2(CaptionInset, 1f - PlankCaptionTop - CaptionHeight);
+            crt.anchorMax = new Vector2(1f - CaptionInset, 1f - PlankCaptionTop);
             crt.offsetMin = Vector2.zero;
             crt.offsetMax = Vector2.zero;
 
@@ -639,10 +649,8 @@ namespace Pose.Game
             if (cap != null)
             {
                 RectTransform crt = (RectTransform)cap;
-                float left = painted ? PlankLeft : FallbackInset;
-                float right = painted ? PlankRight : FallbackInset;
-                crt.anchorMin = new Vector2(left, 1f - PlankCaptionTop - 0.17f);
-                crt.anchorMax = new Vector2(1f - right, 1f - PlankCaptionTop);
+                crt.anchorMin = new Vector2(CaptionInset, 1f - PlankCaptionTop - CaptionHeight);
+                crt.anchorMax = new Vector2(1f - CaptionInset, 1f - PlankCaptionTop);
                 crt.offsetMin = Vector2.zero;
                 crt.offsetMax = Vector2.zero;
             }
