@@ -1,5 +1,21 @@
 {
   "projects": {
     "default": "carib-domino"
-  }
+  },
+  "targets": {
+    "carib-domino": {
+      "hosting": {
+        "web": [
+          "1:650525007766:web:c428e1101152fc46d2c7b7"
+        ],
+        "content": [
+          "pose-content"
+        ],
+        "admin": [
+          "pose-admin"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
