@@ -183,7 +183,8 @@ cd functions
 npm install
 npm run build              # tsc
 npm run lint               # eslint
-npm test                   # vitest
+npm test                   # vitest (unit; no emulator needed)
+npm run test:rules         # firestore.rules behaviour, via the emulator (needs Java)
 npm run serve              # firebase emulators:start --only functions
 npm run deploy             # firebase deploy --only functions (single project: carib-domino)
 

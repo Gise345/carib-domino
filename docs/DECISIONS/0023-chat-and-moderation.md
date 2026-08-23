@@ -114,6 +114,11 @@ with tests asserting the same three codes.
   and ~150 ms send latency versus a direct write. A profanity list is maintenance
   that will always trail slang; reports are the backstop, which is why they freeze
   evidence rather than depend on the filter.
+- **Tested at the boundary:** `functions/test/security/firestore.rules.test.ts` runs the
+  real `firestore.rules` against the Firestore emulator (`npm run test:rules`) and
+  asserts what a client that skips the callables can do: read its own room, and
+  nothing else — no writing a message, no reading a room it is not in, no reaching
+  the verbatim text behind a mask, no touching reports, mutes or rate limits.
 - **Infra:** the TTL policies on `expiresAt` (`chatRooms`, `messages`, `originals`)
   are declared as `fieldOverrides` in `firestore.indexes.json`, so they deploy with
   `firebase deploy --only firestore:indexes` rather than being a console click.

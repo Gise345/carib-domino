@@ -1,7 +1,7 @@
 {
   "name": "@invovibe/dominoes-functions",
   "version": "0.1.0",
-  "description": "Firebase Cloud Functions for Pose: Caribbean Dominoes — the trust boundary for wallets, ELO, match settlement, and webhook handling.",
+  "description": "Firebase Cloud Functions for Pose: Caribbean Dominoes \u2014 the trust boundary for wallets, ELO, match settlement, and webhook handling.",
   "private": true,
   "main": "lib/index.js",
   "engines": {
@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
@@ -29,6 +30,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/node": "^20.17.10",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
@@ -36,6 +38,7 @@
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
+    "firebase": "^12.18.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
