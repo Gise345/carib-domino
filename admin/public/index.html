@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Pose Admin</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main id="app">
+  <section id="loading" class="view">
+    <p class="muted">Loading…</p>
+  </section>
+
+  <section id="signedOut" class="view hidden">
+    <div class="card">
+      <h1>Pose Admin</h1>
+      <p class="muted">Sign in with an authorised admin Google account.</p>
+      <button id="signInBtn" class="btn btn--primary">Sign in with Google</button>
+      <p id="signInError" class="error hidden"></p>
+    </div>
+  </section>
+
+  <section id="denied" class="view hidden">
+    <div class="card">
+      <h1>Not authorised</h1>
+      <p class="muted">This account isn't an admin. Ask an existing admin to add your
+        email to the allowlist (a code change + functions deploy), then sign in again.</p>
+      <p id="deniedEmail" class="muted"></p>
+      <button id="signOutBtn2" class="btn">Sign out</button>
+    </div>
+  </section>
+
+  <section id="dashboard" class="view hidden">
+    <header class="topbar">
+      <span class="brand">Pose Admin</span>
+      <span class="spacer"></span>
+      <span id="whoami" class="muted"></span>
+      <button id="signOutBtn" class="btn btn--small">Sign out</button>
+    </header>
+    <nav class="tabs">
+      <button class="tab is-active" data-panel="analytics">Analytics</button>
+      <button class="tab" data-panel="users">Users</button>
+      <button class="tab" data-panel="promotions">Promotions</button>
+      <button class="tab" data-panel="audit">Audit log</button>
+    </nav>
+    <div class="content">
+      <div id="analytics" class="panel">
+        <h2>Analytics</h2>
+        <p class="muted">User counts, active players, matches and coins in circulation — Phase C.</p>
+      </div>
+      <div id="users" class="panel hidden">
+        <h2>Users</h2>
+        <p class="muted">Search by name / uid / email, view a player, and ban — Phase C/D.</p>
+      </div>
+      <div id="promotions" class="panel hidden">
+        <h2>Promotions</h2>
+        <p class="muted">Create bonus-coin events and promo codes — Phase E.</p>
+      </div>
+      <div id="audit" class="panel hidden">
+        <h2>Audit log</h2>
+        <p class="muted">Every admin action, newest first — Phase C.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
