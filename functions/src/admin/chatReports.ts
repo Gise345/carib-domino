@@ -4,6 +4,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { assertAdmin } from './requireAdmin';
 import { writeAudit } from './audit';
+import { isValidDocId, isValidRoomId } from '../chat/model';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -12,6 +13,23 @@ if (getApps().length === 0) {
 /** ISO string for a Firestore timestamp, or null. */
 function iso(value: unknown): string | null {
   return value instanceof Timestamp ? value.toDate().toISOString() : null;
+}
+
+/**
+ * A report id is `{roomId}_{messageId}_{reporterUid}` — three safe segments
+ * joined, so it uses the same character class as a document id but a length that
+ * fits all three (a 64-char session name plus an auto-id plus a uid).
+ */
+const REPORT_ID_PATTERN = /^[A-Za-z0-9_-]{1,400}$/;
+
+/**
+ * Whether a client-supplied report id is safe to address.
+ *
+ * @param id - the report id from the dashboard
+ * @returns true when it is a single safe path segment
+ */
+function isValidReportId(id: string): boolean {
+  return REPORT_ID_PATTERN.test(id);
 }
 
 const ListSchema = z.object({
@@ -106,6 +124,10 @@ export const getChatReport = onCall(
       throw new HttpsError('invalid-argument', 'Invalid getChatReport payload.');
     }
 
+    if (!isValidReportId(parsed.data.reportId)) {
+      throw new HttpsError('invalid-argument', 'Invalid report id.');
+    }
+
     const db = getFirestore();
     const snap = await db.collection('chatReports').doc(parsed.data.reportId).get();
     if (!snap.exists) {
@@ -175,6 +197,9 @@ export const resolveChatReport = onCall(
       throw new HttpsError('invalid-argument', 'Invalid resolveChatReport payload.');
     }
     const { reportId, resolution, note } = parsed.data;
+    if (!isValidReportId(reportId)) {
+      throw new HttpsError('invalid-argument', 'Invalid report id.');
+    }
 
     const ref = getFirestore().collection('chatReports').doc(reportId);
     if (!(await ref.get()).exists) {
@@ -214,6 +239,9 @@ export const redactChatMessage = onCall(
       throw new HttpsError('invalid-argument', 'Invalid redactChatMessage payload.');
     }
     const { roomId, messageId } = parsed.data;
+    if (!isValidRoomId(roomId) || !isValidDocId(messageId)) {
+      throw new HttpsError('invalid-argument', 'Invalid room or message id.');
+    }
 
     const ref = getFirestore()
       .collection('chatRooms')

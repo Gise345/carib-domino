@@ -69,6 +69,21 @@ export function isValidRoomId(roomId: string): boolean {
   return ROOM_ID_PATTERN.test(roomId);
 }
 
+/** Firestore auto-ids, and anything else safe to concatenate into a path. */
+const DOC_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * Whether a client-supplied document id is safe to use in a path. Without this a
+ * value like `"a/b"` would silently address a different collection, or be
+ * concatenated into a compound id that does.
+ *
+ * @param id - the candidate id
+ * @returns true when the id is a single safe path segment
+ */
+export function isValidDocId(id: string): boolean {
+  return DOC_ID_PATTERN.test(id);
+}
+
 /**
  * Normalises a submitted message: strips control characters, collapses runs of
  * whitespace (including the newline padding used to shout), and trims.

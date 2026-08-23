@@ -7,9 +7,11 @@ import {
   ChatMember,
   REPORT_REASONS,
   REPORT_TRANSCRIPT_LIMIT,
+  isValidDocId,
   isValidRoomId,
   normalizeMessageText,
 } from './model';
+import { evaluateRateLimit } from './rateLimit';
 
 if (getApps().length === 0) {
   initializeApp();
@@ -64,11 +66,26 @@ export const reportChatMessage = onCall(
       throw new HttpsError('invalid-argument', 'Invalid report payload.');
     }
     const { roomId, messageId, reason, note } = parsed.data;
-    if (!isValidRoomId(roomId)) {
-      throw new HttpsError('invalid-argument', 'Invalid room id.');
+    if (!isValidRoomId(roomId) || !isValidDocId(messageId)) {
+      throw new HttpsError('invalid-argument', 'Invalid room or message id.');
     }
 
     const db = getFirestore();
+
+    // Each report freezes a hundred-message transcript, so filing them is not
+    // free: hold reporters to the same sliding window as senders. A genuine
+    // reporter never notices; a flooder stops at five.
+    const limitRef = db.collection('chatRateLimits').doc(`${uid}__reports`);
+    const now = Date.now();
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(limitRef);
+      const recent = (snap.data()?.['window'] ?? []) as number[];
+      const decision = evaluateRateLimit(recent, now);
+      if (!decision.allowed) {
+        throw new HttpsError('resource-exhausted', 'Too many reports at once.');
+      }
+      tx.set(limitRef, { window: decision.window, updatedAt: new Date(now) });
+    });
     const roomRef = db.collection('chatRooms').doc(roomId);
     const roomSnap = await roomRef.get();
     if (!roomSnap.exists) {

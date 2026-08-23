@@ -117,6 +117,13 @@ with tests asserting the same three codes.
 - **Infra:** the TTL policies on `expiresAt` (`chatRooms`, `messages`, `originals`)
   are declared as `fieldOverrides` in `firestore.indexes.json`, so they deploy with
   `firebase deploy --only firestore:indexes` rather than being a console click.
+- **Known residual risk:** a room is joinable by anyone who knows its id (the Photon
+  session name). For a friend table that is a 6-character code from a 32-character
+  alphabet — ~1.07 billion combinations, each guess costing a callable round trip —
+  and the room still caps at four members who are listed by name in the panel, so a
+  lurker would have to take a seat before the players do and would be visible in the
+  roster. Accepted rather than adding a capability check; revisit if room codes ever
+  get shorter or rooms ever outlive their match.
 - **Deliberately deferred:** message edit/delete by the sender, DMs outside a match,
   image/sticker messages, and automated ML classification. Each widens the abuse
   surface and needs its own decision.

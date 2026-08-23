@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_MESSAGE_LENGTH,
   ROOM_RETENTION_DAYS,
+  isValidDocId,
   isValidRoomId,
   normalizeMessageText,
   retentionExpiry,
@@ -24,6 +25,23 @@ describe('isValidRoomId', () => {
     expect(isValidRoomId('abc')).toBe(false);
     expect(isValidRoomId('a'.repeat(65))).toBe(false);
     expect(isValidRoomId('')).toBe(false);
+  });
+});
+
+describe('isValidDocId', () => {
+  it('accepts Firestore auto-ids', () => {
+    expect(isValidDocId('mA7xQ2pLd9RzT0vB1nKe')).toBe(true);
+    expect(isValidDocId('a_b-c')).toBe(true);
+  });
+
+  it('rejects anything that could address a different path', () => {
+    // A message id reaches a document path directly, and "a/b" would silently
+    // point at a subcollection instead of a document.
+    expect(isValidDocId('a/b')).toBe(false);
+    expect(isValidDocId('../adminAudit/x')).toBe(false);
+    expect(isValidDocId('id with spaces')).toBe(false);
+    expect(isValidDocId('')).toBe(false);
+    expect(isValidDocId('a'.repeat(129))).toBe(false);
   });
 });
 
