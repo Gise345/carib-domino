@@ -84,6 +84,16 @@ New tab in the ADR 0022 dashboard: report queue → full transcript → act. Act
 `banUser`, and `redactChatMessage`. Every action is `assertAdmin`-gated and written
 to `/adminAudit`, reusing the phase-A spine unchanged.
 
+### 8. Refusal codes ride on the message, not in `details`
+
+Unity's `FunctionsException` exposes only `ErrorCode` and `Message` — a callable's
+structured `details` payload never reaches the game client. A client that must tell
+a mute from a rate limit from a guest lock therefore reads a **stable code prefix**
+off the message (`"muted: You are muted in chat."`). Matching the human sentence
+instead would break the first time someone reworded it. The two halves of the
+contract are `functions/src/chat/refusals.ts` and `Pose.Core.Chat.ChatRefusal`, each
+with tests asserting the same three codes.
+
 ## Data model
 
 | Path | Client access | Notes |

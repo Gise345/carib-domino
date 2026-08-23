@@ -7,6 +7,7 @@ import { assertNotGuest } from './entitlement';
 import { assertNotMuted } from './mutes';
 import { evaluateRateLimit } from './rateLimit';
 import { filterProfanity } from './profanity';
+import { REFUSAL_RATE_LIMITED, refusal } from './refusals';
 import {
   ChatMember,
   MAX_MESSAGE_LENGTH,
@@ -83,10 +84,11 @@ export const sendChatMessage = onCall(
       const recent = (snap.data()?.['window'] ?? []) as number[];
       const decision = evaluateRateLimit(recent, now);
       if (!decision.allowed) {
-        throw new HttpsError('resource-exhausted', 'Slow down a moment.', {
-          code: 'rate-limited',
-          retryAfterMs: decision.retryAfterMs,
-        });
+        throw new HttpsError(
+          'resource-exhausted',
+          refusal(REFUSAL_RATE_LIMITED, 'Slow down a moment.'),
+          { code: REFUSAL_RATE_LIMITED, retryAfterMs: decision.retryAfterMs },
+        );
       }
       tx.set(limitRef, { window: decision.window, updatedAt: new Date(now) });
     });

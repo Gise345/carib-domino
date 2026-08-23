@@ -6,6 +6,7 @@
 
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { REFUSAL_MUTED, refusal } from './refusals';
 
 /** Stored `/chatMutes/{uid}` document. */
 export interface ChatMute {
@@ -52,8 +53,8 @@ export async function assertNotMuted(uid: string): Promise<void> {
   if (isMuteActive(mute, new Date())) {
     const until = mute?.until;
     const untilDate = until instanceof Date ? until : until?.toDate();
-    throw new HttpsError('permission-denied', 'You are muted in chat.', {
-      code: 'muted',
+    throw new HttpsError('permission-denied', refusal(REFUSAL_MUTED, 'You are muted in chat.'), {
+      code: REFUSAL_MUTED,
       until: untilDate?.toISOString() ?? null,
     });
   }

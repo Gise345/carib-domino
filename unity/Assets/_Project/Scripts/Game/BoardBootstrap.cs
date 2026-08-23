@@ -2596,18 +2596,18 @@ namespace Pose.Game
             ChatService.SendResult result = await ChatService.SendAsync(_chatRoomId, text);
             switch (result.Outcome)
             {
-                case ChatService.SendOutcome.Ok:
+                case ChatSendOutcome.Ok:
                     _chatPanel.ClearDraft();
                     // Say so, rather than leaving the player to wonder why their
                     // message came back with asterisks in it.
                     _chatPanel.SetStatus(result.Filtered ? L10n.Get("chat_filtered_notice") : string.Empty);
                     break;
 
-                case ChatService.SendOutcome.GuestRestricted:
+                case ChatSendOutcome.GuestRestricted:
                     RefreshChatEntitlement();
                     break;
 
-                case ChatService.SendOutcome.Muted:
+                case ChatSendOutcome.Muted:
                     // The server is the authority on mutes; reflect it locally so
                     // the composer stops offering what will only be refused.
                     _chatMuted = true;
@@ -2615,7 +2615,7 @@ namespace Pose.Game
                     _chatPanel.SetStatus(L10n.Get("chat_locked_muted"), isError: true);
                     break;
 
-                case ChatService.SendOutcome.RateLimited:
+                case ChatSendOutcome.RateLimited:
                     _chatPanel.SetStatus(L10n.Get("chat_rate_limited"), isError: true);
                     break;
 

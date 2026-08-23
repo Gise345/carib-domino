@@ -46,29 +46,10 @@ namespace Pose.Net
             }
         }
 
-        /// <summary>Why a send failed, in a form the panel can show.</summary>
-        public enum SendOutcome
-        {
-            /// <summary>Delivered.</summary>
-            Ok = 0,
-
-            /// <summary>The account is a guest — offer the sign-up CTA.</summary>
-            GuestRestricted = 1,
-
-            /// <summary>A moderator mute is in force.</summary>
-            Muted = 2,
-
-            /// <summary>Sending too fast; try again shortly.</summary>
-            RateLimited = 3,
-
-            /// <summary>Anything else — network, validation, or a server refusal.</summary>
-            Failed = 4,
-        }
-
         /// <summary>Result of one send attempt.</summary>
         public readonly struct SendResult
         {
-            public SendOutcome Outcome { get; }
+            public ChatSendOutcome Outcome { get; }
 
             /// <summary>True when the server masked part of the delivered text.</summary>
             public bool Filtered { get; }
@@ -76,14 +57,14 @@ namespace Pose.Net
             /// <summary>Server-supplied detail, already localised where it can be.</summary>
             public string Message { get; }
 
-            public SendResult(SendOutcome outcome, bool filtered, string message)
+            public SendResult(ChatSendOutcome outcome, bool filtered, string message)
             {
                 Outcome = outcome;
                 Filtered = filtered;
                 Message = message;
             }
 
-            public bool IsOk => Outcome == SendOutcome.Ok;
+            public bool IsOk => Outcome == ChatSendOutcome.Ok;
         }
 
         private static FirebaseFunctions Functions => FirebaseFunctions.DefaultInstance;
@@ -164,7 +145,7 @@ namespace Pose.Net
                     await Functions.GetHttpsCallable("sendChatMessage").CallAsync(payload);
                 bool filtered = call.Data is Dictionary<object, object> data
                                 && ReadBool(data, "filtered", false);
-                return new SendResult(SendOutcome.Ok, filtered, string.Empty);
+                return new SendResult(ChatSendOutcome.Ok, filtered, string.Empty);
             }
             catch (FunctionsException e)
             {
@@ -173,7 +154,7 @@ namespace Pose.Net
             catch (Exception e)
             {
                 Debug.LogWarning($"[ChatService] sendChatMessage failed: {e.Message}");
-                return new SendResult(SendOutcome.Failed, false, e.Message);
+                return new SendResult(ChatSendOutcome.Failed, false, e.Message);
             }
         }
 
@@ -271,27 +252,17 @@ namespace Pose.Net
             d.TryGetValue(key, out object? value) && value is bool b && b;
 
         /// <summary>
-        /// Maps the server's refusal onto something the panel can act on. The
-        /// codes come from the callables' error details, not from message text.
+        /// Maps the server's refusal onto something the panel can act on.
+        ///
+        /// Unity's <see cref="FunctionsException"/> carries only an error code and
+        /// a message — a callable's structured `details` payload does not survive
+        /// the trip — so the machine-readable code rides on the message prefix.
+        /// See <see cref="ChatRefusal"/>.
         /// </summary>
-        private static SendOutcome ClassifyFailure(FunctionsException e)
-        {
-            string code = string.Empty;
-            if (e.Data is Dictionary<object, object> details
-                && details.TryGetValue("code", out object? value)
-                && value is string s)
-            {
-                code = s;
-            }
-
-            return code switch
-            {
-                "guest-restricted" => SendOutcome.GuestRestricted,
-                "muted" => SendOutcome.Muted,
-                "rate-limited" => SendOutcome.RateLimited,
-                _ => SendOutcome.Failed,
-            };
-        }
+        private static ChatSendOutcome ClassifyFailure(FunctionsException e) =>
+            ChatRefusal.Parse(
+                e.Message,
+                resourceExhausted: e.ErrorCode == FunctionsErrorCode.ResourceExhausted);
 
         private static string ReadString(
             IReadOnlyDictionary<object, object> d, string key, string fallback) =>

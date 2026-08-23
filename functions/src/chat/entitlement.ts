@@ -9,6 +9,7 @@
  */
 
 import { CallableRequest, HttpsError } from 'firebase-functions/v2/https';
+import { REFUSAL_GUEST, refusal } from './refusals';
 
 /** Minimal shape of the decoded token bits we depend on. */
 export interface SignInInfo {
@@ -38,9 +39,11 @@ export function assertNotGuest(request: CallableRequest<unknown>): string {
     throw new HttpsError('unauthenticated', 'Sign-in required.');
   }
   if (isGuestToken(request.auth?.token)) {
-    throw new HttpsError('permission-denied', 'Create a free account to use chat and voice.', {
-      code: 'guest-restricted',
-    });
+    throw new HttpsError(
+      'permission-denied',
+      refusal(REFUSAL_GUEST, 'Create a free account to use chat and voice.'),
+      { code: REFUSAL_GUEST },
+    );
   }
   return uid;
 }
