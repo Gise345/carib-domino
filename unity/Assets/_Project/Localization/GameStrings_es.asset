@@ -266,6 +266,10 @@ MonoBehaviour:
     m_Localized: ¿Otra?
     m_Metadata:
       m_Items: []
+  - m_Id: 50427654561792
+    m_Localized: "Iniciando sesión…"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
