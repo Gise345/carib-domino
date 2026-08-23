@@ -47,12 +47,21 @@
     </nav>
     <div class="content">
       <div id="analytics" class="panel">
-        <h2>Analytics</h2>
-        <p class="muted">User counts, active players, matches and coins in circulation — Phase C.</p>
+        <div class="panel-head">
+          <h2>Analytics</h2>
+          <button id="refreshStats" class="btn btn--small">Refresh</button>
+        </div>
+        <div id="statsGrid" class="stats-grid"><p class="muted">Loading…</p></div>
       </div>
       <div id="users" class="panel hidden">
         <h2>Users</h2>
-        <p class="muted">Search by name / uid / email, view a player, and ban — Phase C/D.</p>
+        <form id="searchForm" class="search">
+          <input id="searchInput" type="text" placeholder="Search name, uid, or email…" autocomplete="off">
+          <button class="btn btn--primary" type="submit">Search</button>
+        </form>
+        <p id="searchStatus" class="muted"></p>
+        <div id="searchResults" class="results"></div>
+        <div id="userDetail" class="detail hidden"></div>
       </div>
       <div id="promotions" class="panel hidden">
         <h2>Promotions</h2>
