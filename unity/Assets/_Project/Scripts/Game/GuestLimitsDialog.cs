@@ -78,7 +78,7 @@ namespace Pose.Game
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
-            rt.sizeDelta = new Vector2(760f, 620f);
+            rt.sizeDelta = new Vector2(920f, 880f);
             Image cbg = card.AddComponent<Image>();
             cbg.sprite = GradientSprite.RoundedDiagonal(0.08f, Card, Card);
             cbg.color = Color.white;
@@ -87,8 +87,8 @@ namespace Pose.Game
             shadow.effectDistance = new Vector2(0f, -10f);
 
             VerticalLayoutGroup vl = card.AddComponent<VerticalLayoutGroup>();
-            vl.padding = new RectOffset(40, 40, 36, 32);
-            vl.spacing = 14f;
+            vl.padding = new RectOffset(48, 48, 46, 40);
+            vl.spacing = 18f;
             vl.childControlWidth = true;
             vl.childControlHeight = true;
             vl.childForceExpandWidth = true;
@@ -106,44 +106,47 @@ namespace Pose.Game
         {
             GameObject badge = Child(parent, "Badge");
             LayoutElement ble = badge.AddComponent<LayoutElement>();
-            ble.preferredHeight = 72f;
+            ble.preferredHeight = 104f;
             Image icon = badge.AddComponent<Image>();
             icon.sprite = IconFactory.Person();
             icon.color = Gold;
             icon.preserveAspect = true;
             icon.raycastTarget = false;
 
-            Label(parent, L10n.Get("guest_limits_title"), 34f, TextCol, TextAlignmentOptions.Center, FontStyles.Bold)
-                .GetComponent<LayoutElement>().preferredHeight = 52f;
+            Label(parent, L10n.Get("guest_limits_title"), 48f, TextCol, TextAlignmentOptions.Center, FontStyles.Bold)
+                .GetComponent<LayoutElement>().preferredHeight = 72f;
 
             TextMeshProUGUI body = Label(
-                parent, L10n.Get("guest_limits_body"), 22f, Muted, TextAlignmentOptions.Center);
+                parent, L10n.Get("guest_limits_body"), 30f, Muted, TextAlignmentOptions.Center);
             body.textWrappingMode = TextWrappingModes.Normal;
-            body.GetComponent<LayoutElement>().preferredHeight = 68f;
+            body.GetComponent<LayoutElement>().preferredHeight = 96f;
         }
 
         private void BuildLimitRow(Transform parent, string key)
         {
             GameObject row = Child(parent, "Limit");
-            row.AddComponent<LayoutElement>().preferredHeight = 52f;
+            row.AddComponent<LayoutElement>().preferredHeight = 76f;
             HorizontalLayoutGroup hl = row.AddComponent<HorizontalLayoutGroup>();
-            hl.spacing = 14f;
-            hl.padding = new RectOffset(10, 10, 0, 0);
+            hl.spacing = 18f;
+            hl.padding = new RectOffset(12, 12, 0, 0);
             hl.childAlignment = TextAnchor.MiddleLeft;
             hl.childControlWidth = true;
             hl.childControlHeight = true;
             hl.childForceExpandWidth = false;
+            hl.childForceExpandHeight = false;
 
             GameObject icon = Child(row.transform, "Icon");
             LayoutElement ile = icon.AddComponent<LayoutElement>();
-            ile.preferredWidth = 30f;
-            ile.preferredHeight = 30f;
+            ile.preferredWidth = 40f;
+            ile.preferredHeight = 40f;
+            ile.minWidth = 40f;
             Image img = icon.AddComponent<Image>();
             img.sprite = IconFactory.Lock();
             img.color = Faint;
+            img.preserveAspect = true;
             img.raycastTarget = false;
 
-            Label(row.transform, L10n.Get(key), 22f, TextCol, TextAlignmentOptions.Left)
+            Label(row.transform, L10n.Get(key), 30f, TextCol, TextAlignmentOptions.Left)
                 .GetComponent<LayoutElement>().flexibleWidth = 1f;
         }
 
@@ -151,7 +154,7 @@ namespace Pose.Game
         {
             GameObject create = Child(parent, "Create");
             LayoutElement gle = create.AddComponent<LayoutElement>();
-            gle.preferredHeight = 88f;
+            gle.preferredHeight = 116f;
             Image gbg = create.AddComponent<Image>();
             gbg.sprite = GradientSprite.RoundedDiagonal(0.3f, Gold, new Color(0.831f, 0.612f, 0.196f));
             gbg.color = Color.white;
@@ -161,19 +164,19 @@ namespace Pose.Game
             StretchedLabel(
                 create.transform,
                 L10n.Get("guest_limits_create"),
-                24f,
+                34f,
                 new Color(0.07f, 0.06f, 0.05f),
                 FontStyles.Bold);
 
             GameObject stay = Child(parent, "Continue");
             LayoutElement sle = stay.AddComponent<LayoutElement>();
-            sle.preferredHeight = 72f;
+            sle.preferredHeight = 92f;
             Image sbg = stay.AddComponent<Image>();
             sbg.color = new Color(0f, 0f, 0f, 0f);
             Button sbtn = stay.AddComponent<Button>();
             sbtn.targetGraphic = sbg;
             sbtn.onClick.AddListener(() => Choose(_onContinue));
-            StretchedLabel(stay.transform, L10n.Get("guest_limits_continue"), 22f, Muted, FontStyles.Normal);
+            StretchedLabel(stay.transform, L10n.Get("guest_limits_continue"), 28f, Muted, FontStyles.Normal);
         }
 
         private void Choose(Action? action)

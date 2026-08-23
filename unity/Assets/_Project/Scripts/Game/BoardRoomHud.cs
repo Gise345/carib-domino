@@ -79,6 +79,7 @@ namespace Pose.Game
         private static readonly Color ActionPurple = new(0.486f, 0.227f, 0.929f);
         private static readonly Color ActionDim = new(0.227f, 0.200f, 0.251f);
         private static readonly Color Online = new(0.247f, 0.733f, 0.349f);
+        private static readonly Color UnreadRed = new(0.949f, 0.439f, 0.353f);
 
         // ---- live widget refs ---------------------------------------------
         private sealed class SeatWidgets
@@ -103,6 +104,8 @@ namespace Pose.Game
         private GameObject _scorePanel = null!;
         private ContentSizeFitter _scoreFitter = null!;
         private GameObject _scoreBody = null!;
+        private GameObject? _unreadBadge;
+        private TextMeshProUGUI _unreadLabel = null!;
         private TextMeshProUGUI _scoreChev = null!;
         private bool _scoreCollapsed;
 
@@ -522,6 +525,45 @@ namespace Pose.Game
             Button cbtn = chat.AddComponent<Button>();
             cbtn.onClick.AddListener(() => ChatClicked?.Invoke());
             AddIcon(chat.transform, IconFactory.Chat(), 42f, Gold, Vector2.zero, TextAnchor.MiddleCenter);
+            BuildUnreadBadge(chat.transform);
+        }
+
+        /// <summary>
+        /// The unread count on the chat button. Without it there is no way to
+        /// know you missed anything, so the panel gets left open over the board —
+        /// the badge is what makes closing chat safe.
+        /// </summary>
+        private void BuildUnreadBadge(Transform parent)
+        {
+            GameObject badge = Child(parent, "Unread");
+            RectTransform rt = (RectTransform)badge.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(-4f, -4f);
+            rt.sizeDelta = new Vector2(44f, 44f);
+            Image bg = badge.AddComponent<Image>();
+            bg.sprite = GradientSprite.RoundedDiagonal(0.5f, UnreadRed, UnreadRed);
+            bg.color = Color.white;
+            bg.raycastTarget = false;
+
+            _unreadLabel = AddChildLabel(badge.transform, string.Empty, 26f, Color.white,
+                TextAlignmentOptions.Center, FontStyles.Bold);
+            _unreadBadge = badge;
+            badge.SetActive(false);
+        }
+
+        /// <summary>
+        /// Sets the unread badge. Empty text hides it.
+        /// </summary>
+        /// <param name="text">From <c>ChatUnread.Badge</c> — "", "3" or "9+".</param>
+        public void SetUnread(string text)
+        {
+            if (_unreadBadge == null)
+            {
+                return;
+            }
+            _unreadBadge.SetActive(!string.IsNullOrEmpty(text));
+            _unreadLabel.text = text;
         }
 
         // ---- action bar ---------------------------------------------------

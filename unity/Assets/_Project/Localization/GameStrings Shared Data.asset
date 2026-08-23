@@ -883,6 +883,86 @@ MonoBehaviour:
     m_Key: promo_redeem_fail
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000300
+    m_Key: chat_subtitle_table
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000301
+    m_Key: chat_empty_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000302
+    m_Key: chat_empty_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000303
+    m_Key: chat_locked_guest_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000304
+    m_Key: chat_locked_guest_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000305
+    m_Key: chat_locked_muted_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000306
+    m_Key: chat_locked_muted_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000307
+    m_Key: chat_muted_until
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000308
+    m_Key: chat_locked_no_room_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000309
+    m_Key: chat_locked_no_room_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000310
+    m_Key: chat_locked_signed_out_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000311
+    m_Key: chat_locked_signed_out_body
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000312
+    m_Key: chat_retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000313
+    m_Key: chat_reconnecting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000314
+    m_Key: quick_phrase_luck
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000315
+    m_Key: quick_phrase_nice_play
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000316
+    m_Key: quick_phrase_your_turn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000317
+    m_Key: quick_phrase_close_one
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000318
+    m_Key: quick_phrase_good_game
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000319
+    m_Key: quick_phrase_rematch
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

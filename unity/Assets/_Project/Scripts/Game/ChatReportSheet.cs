@@ -12,10 +12,15 @@ namespace Pose.Game
     /// The "report this message" sheet inside <see cref="ChatPanelView"/>: the
     /// quoted message, a reason to pick, an optional note, and submit.
     ///
-    /// It quotes the message being reported because a report filed against the
-    /// wrong line wastes a moderator's time and, worse, an innocent player's
-    /// record. Presentational — it raises <see cref="Submitted"/> and the host
-    /// calls the server.
+    /// It rises from the bottom rather than sitting in the middle, because the
+    /// hand that tapped the flag is at the bottom of the phone and the reasons
+    /// are what it has to reach next. It quotes the message being reported
+    /// because a report filed against the wrong line wastes a moderator's time
+    /// and, worse, marks an innocent player's record.
+    ///
+    /// Sizes are ship pixels: the canvas is Constant Pixel Size at scale 1.
+    /// Presentational — it raises <see cref="Submitted"/> and the host calls the
+    /// server.
     /// </summary>
     public sealed class ChatReportSheet : MonoBehaviour
     {
@@ -33,17 +38,25 @@ namespace Pose.Game
             ChatReportReason.Other,
         };
 
-        private static readonly Color Scrim = new(0f, 0f, 0f, 0.82f);
-        private static readonly Color Card = new(0.098f, 0.078f, 0.063f, 0.99f);
-        private static readonly Color Gold = new(0.961f, 0.769f, 0.318f);
-        private static readonly Color TextCol = new(0.957f, 0.929f, 0.882f);
-        private static readonly Color Muted = new(0.702f, 0.643f, 0.533f);
+        private static readonly Color Scrim = new(0f, 0f, 0f, 0.72f);
+        private static readonly Color Card = new(0.090f, 0.071f, 0.051f, 0.995f);
+        private static readonly Color Brass = new(0.941f, 0.761f, 0.290f);
+        private static readonly Color Bone = new(0.949f, 0.918f, 0.855f);
+        private static readonly Color BoneWorn = new(0.863f, 0.824f, 0.737f);
+        private static readonly Color Ink = new(0.063f, 0.122f, 0.110f);
+        private static readonly Color Muted = new(0.659f, 0.624f, 0.557f);
         private static readonly Color Faint = new(0.490f, 0.443f, 0.361f);
-        private static readonly Color Danger = new(0.949f, 0.439f, 0.353f);
-        private static readonly Color Chip = new(0.157f, 0.129f, 0.102f);
+        private static readonly Color Danger = new(0.910f, 0.361f, 0.282f);
+        private static readonly Color DangerDeep = new(0.659f, 0.227f, 0.173f);
+        private static readonly Color Chip = new(1f, 1f, 1f, 0.05f);
+
+        private const float SheetHeight = 940f;
+        private const float ChipHeight = 68f;
+        private const float ActionHeight = 92f;
 
         private GameObject _root = null!;
-        private TextMeshProUGUI _quote = null!;
+        private TextMeshProUGUI _quoteWho = null!;
+        private TextMeshProUGUI _quoteText = null!;
         private TMP_InputField _note = null!;
         private Button _submit = null!;
         private Image _submitBg = null!;
@@ -70,21 +83,16 @@ namespace Pose.Game
 
             GameObject card = Child(_root.transform, "Card");
             RectTransform rt = (RectTransform)card.transform;
-            rt.anchorMin = new Vector2(0.14f, 0.14f);
-            rt.anchorMax = new Vector2(0.86f, 0.86f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.offsetMin = new Vector2(0f, 0f);
+            rt.offsetMax = new Vector2(0f, SheetHeight);
             Image cbg = card.AddComponent<Image>();
-            cbg.sprite = GradientSprite.RoundedDiagonal(0.08f, Card, Card);
+            cbg.sprite = GradientSprite.RoundedDiagonal(0.06f, Card, Card);
             cbg.color = Color.white;
 
-            VerticalLayoutGroup vl = card.AddComponent<VerticalLayoutGroup>();
-            vl.padding = new RectOffset(28, 28, 24, 22);
-            vl.spacing = 12f;
-            vl.childControlWidth = true;
-            vl.childControlHeight = true;
-            vl.childForceExpandWidth = true;
-            vl.childForceExpandHeight = false;
+            VerticalLayout(card, new RectOffset(28, 28, 30, 30), 18f);
 
             BuildHead(card.transform);
             BuildQuote(card.transform);
@@ -102,10 +110,14 @@ namespace Pose.Game
             _messageId = message.Id;
             _selected = -1;
             _note.SetTextWithoutNotify(string.Empty);
-            _quote.text = $"{message.SenderName}: “{message.Text}”";
+            _quoteWho.text = message.CreatedAt == DateTime.MinValue
+                ? message.SenderName
+                : $"{message.SenderName} · {message.CreatedAt.ToLocalTime():t}";
+            _quoteText.text = message.Text;
             RefreshChips();
             RefreshSubmit();
             _root.SetActive(true);
+            _root.transform.SetAsLastSibling();
         }
 
         /// <summary>Closes the sheet without filing anything.</summary>
@@ -114,54 +126,56 @@ namespace Pose.Game
         private void BuildHead(Transform parent)
         {
             GameObject head = Child(parent, "Head");
-            head.AddComponent<LayoutElement>().preferredHeight = 44f;
-            HorizontalLayoutGroup hl = head.AddComponent<HorizontalLayoutGroup>();
-            hl.spacing = 10f;
-            hl.childAlignment = TextAnchor.MiddleLeft;
-            hl.childControlWidth = true;
-            hl.childControlHeight = true;
-            hl.childForceExpandWidth = false;
+            head.AddComponent<LayoutElement>().preferredHeight = 56f;
+            HorizontalLayout(head, new RectOffset(0, 0, 0, 0), 16f);
 
-            GameObject icon = Child(head.transform, "Icon");
-            LayoutElement ile = icon.AddComponent<LayoutElement>();
-            ile.preferredWidth = 32f;
-            ile.preferredHeight = 32f;
-            Image img = icon.AddComponent<Image>();
-            img.sprite = IconFactory.Flag();
-            img.color = Danger;
-            img.raycastTarget = false;
-
-            TextMeshProUGUI title = Label(head.transform, L10n.Get("chat_report_title"), 28f, TextCol, TextAlignmentOptions.Left, FontStyles.Bold);
+            AddIcon(head.transform, IconFactory.Flag(), 48f, Danger);
+            TextMeshProUGUI title = Label(head.transform, L10n.Get("chat_report_title"), 38f, Bone,
+                TextAlignmentOptions.Left, FontStyles.Bold);
             title.GetComponent<LayoutElement>().flexibleWidth = 1f;
         }
 
         private void BuildQuote(Transform parent)
         {
             GameObject box = Child(parent, "Quote");
-            box.AddComponent<LayoutElement>().preferredHeight = 86f;
+            box.AddComponent<LayoutElement>().preferredHeight = 150f;
             Image bg = box.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.2f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.4f));
+            bg.sprite = GradientSprite.RoundedDiagonal(0.16f, new Color(0f, 0f, 0f, 0.4f),
+                                                             new Color(0f, 0f, 0f, 0.4f));
             bg.color = Color.white;
+            HorizontalLayout(box, new RectOffset(0, 0, 0, 0), 18f, TextAnchor.UpperLeft);
 
-            GameObject inner = Child(box.transform, "Text");
-            Stretch((RectTransform)inner.transform, 14f);
-            _quote = inner.AddComponent<TextMeshProUGUI>();
-            _quote.fontSize = 20f;
-            _quote.color = Muted;
-            _quote.alignment = TextAlignmentOptions.TopLeft;
-            _quote.textWrappingMode = TextWrappingModes.Normal;
-            _quote.raycastTarget = false;
+            // A danger-coloured spine, so the quoted line reads as the thing
+            // under review rather than as more chat.
+            GameObject spine = Child(box.transform, "Spine");
+            LayoutElement sle = spine.AddComponent<LayoutElement>();
+            sle.preferredWidth = 8f;
+            sle.flexibleHeight = 1f;
+            Image sbg = spine.AddComponent<Image>();
+            sbg.sprite = GradientSprite.RoundedDiagonal(0.5f, Danger, Danger);
+            sbg.color = Color.white;
+
+            GameObject copy = Child(box.transform, "Copy");
+            LayoutElement cle = copy.AddComponent<LayoutElement>();
+            cle.flexibleWidth = 1f;
+            cle.minWidth = 0f;
+            VerticalLayout(copy, new RectOffset(0, 20, 18, 18), 4f);
+
+            _quoteWho = Label(copy.transform, string.Empty, 22f, Faint, TextAlignmentOptions.Left);
+            _quoteText = Label(copy.transform, string.Empty, 28f, BoneWorn, TextAlignmentOptions.Left);
+            _quoteText.textWrappingMode = TextWrappingModes.Normal;
+            _quoteText.GetComponent<LayoutElement>().flexibleHeight = 1f;
         }
 
         private void BuildReasons(Transform parent)
         {
-            Label(parent, L10n.Get("chat_report_reason_prompt"), 20f, Faint, TextAlignmentOptions.Left);
+            Label(parent, L10n.Get("chat_report_reason_prompt"), 24f, Faint, TextAlignmentOptions.Left);
 
             GameObject grid = Child(parent, "Reasons");
-            grid.AddComponent<LayoutElement>().flexibleHeight = 1f;
+            grid.AddComponent<LayoutElement>().preferredHeight = ChipHeight * 3f + 24f;
             GridLayoutGroup gl = grid.AddComponent<GridLayoutGroup>();
-            gl.cellSize = new Vector2(230f, 58f);
-            gl.spacing = new Vector2(10f, 10f);
+            gl.cellSize = new Vector2(288f, ChipHeight);
+            gl.spacing = new Vector2(12f, 12f);
             gl.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gl.constraintCount = 3;
 
@@ -170,21 +184,15 @@ namespace Pose.Game
                 int index = i;
                 GameObject chip = Child(grid.transform, "Reason");
                 Image bg = chip.AddComponent<Image>();
-                bg.sprite = GradientSprite.RoundedDiagonal(0.3f, Chip, Chip);
-                bg.color = Color.white;
+                bg.sprite = GradientSprite.RoundedDiagonal(0.4f, Color.white, Color.white);
+                bg.color = Chip;
                 Button btn = chip.AddComponent<Button>();
                 btn.targetGraphic = bg;
                 btn.onClick.AddListener(() => Select(index));
 
-                GameObject labelGo = Child(chip.transform, "Label");
-                Stretch((RectTransform)labelGo.transform);
-                TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
-                label.text = L10n.Get(Reasons[index].LocalizationKey());
-                label.fontSize = 19f;
-                label.color = Muted;
-                label.alignment = TextAlignmentOptions.Center;
-                label.raycastTarget = false;
-
+                TextMeshProUGUI label = StretchedLabel(chip.transform,
+                    L10n.Get(Reasons[index].LocalizationKey()), 26f, BoneWorn,
+                    TextAlignmentOptions.Center, FontStyles.Bold);
                 _chips.Add((bg, label));
             }
         }
@@ -192,17 +200,21 @@ namespace Pose.Game
         private void BuildNote(Transform parent)
         {
             GameObject field = Child(parent, "Note");
-            field.AddComponent<LayoutElement>().preferredHeight = 64f;
+            field.AddComponent<LayoutElement>().preferredHeight = 96f;
             Image bg = field.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.3f, new Color(0f, 0f, 0f, 0.42f), new Color(0f, 0f, 0f, 0.42f));
+            bg.sprite = GradientSprite.RoundedDiagonal(0.28f, new Color(0f, 0f, 0f, 0.42f),
+                                                             new Color(0f, 0f, 0f, 0.42f));
             bg.color = Color.white;
 
             GameObject area = Child(field.transform, "TextArea");
-            Stretch((RectTransform)area.transform, 14f);
+            Stretch((RectTransform)area.transform, 24f);
             area.AddComponent<RectMask2D>();
 
-            TextMeshProUGUI placeholder = StretchedLabel(area.transform, L10n.Get("chat_report_note_placeholder"), 19f, Faint);
-            TextMeshProUGUI text = StretchedLabel(area.transform, string.Empty, 19f, TextCol);
+            TextMeshProUGUI placeholder = StretchedLabel(area.transform,
+                L10n.Get("chat_report_note_placeholder"), 26f, new Color(0.659f, 0.624f, 0.557f, 0.7f),
+                TextAlignmentOptions.Left);
+            TextMeshProUGUI text = StretchedLabel(area.transform, string.Empty, 26f, Bone,
+                TextAlignmentOptions.Left);
 
             _note = field.AddComponent<TMP_InputField>();
             _note.textViewport = (RectTransform)area.transform;
@@ -215,37 +227,34 @@ namespace Pose.Game
         private void BuildActions(Transform parent)
         {
             GameObject row = Child(parent, "Actions");
-            row.AddComponent<LayoutElement>().preferredHeight = 68f;
-            HorizontalLayoutGroup hl = row.AddComponent<HorizontalLayoutGroup>();
-            hl.spacing = 12f;
-            hl.childAlignment = TextAnchor.MiddleRight;
-            hl.childControlWidth = true;
-            hl.childControlHeight = true;
-            hl.childForceExpandWidth = false;
+            row.AddComponent<LayoutElement>().preferredHeight = ActionHeight;
+            HorizontalLayout(row, new RectOffset(0, 0, 0, 0), 14f);
 
             GameObject cancel = Child(row.transform, "Cancel");
             LayoutElement cle = cancel.AddComponent<LayoutElement>();
-            cle.preferredWidth = 190f;
-            cle.preferredHeight = 60f;
+            cle.flexibleWidth = 1f;
+            cle.preferredHeight = ActionHeight;
             Image cbg = cancel.AddComponent<Image>();
-            cbg.sprite = GradientSprite.RoundedDiagonal(0.3f, Chip, Chip);
-            cbg.color = Color.white;
+            cbg.sprite = GradientSprite.RoundedDiagonal(0.28f, Color.white, Color.white);
+            cbg.color = Chip;
             Button cbtn = cancel.AddComponent<Button>();
             cbtn.targetGraphic = cbg;
             cbtn.onClick.AddListener(Hide);
-            StretchedLabel(cancel.transform, L10n.Get("chat_report_cancel"), 21f, Muted, TextAlignmentOptions.Center);
+            StretchedLabel(cancel.transform, L10n.Get("chat_report_cancel"), 30f, BoneWorn,
+                TextAlignmentOptions.Center, FontStyles.Bold);
 
             GameObject submit = Child(row.transform, "Submit");
             LayoutElement sle = submit.AddComponent<LayoutElement>();
-            sle.preferredWidth = 230f;
-            sle.preferredHeight = 60f;
+            sle.flexibleWidth = 1f;
+            sle.preferredHeight = ActionHeight;
             _submitBg = submit.AddComponent<Image>();
-            _submitBg.sprite = GradientSprite.RoundedDiagonal(0.3f, Danger, new Color(0.729f, 0.290f, 0.220f));
+            _submitBg.sprite = GradientSprite.RoundedDiagonal(0.28f, Danger, DangerDeep);
             _submitBg.color = Color.white;
             _submit = submit.AddComponent<Button>();
             _submit.targetGraphic = _submitBg;
             _submit.onClick.AddListener(SubmitReport);
-            StretchedLabel(submit.transform, L10n.Get("chat_report_submit"), 21f, Color.white, TextAlignmentOptions.Center, FontStyles.Bold);
+            StretchedLabel(submit.transform, L10n.Get("chat_report_submit"), 30f, Color.white,
+                TextAlignmentOptions.Center, FontStyles.Bold);
         }
 
         private void Select(int index)
@@ -261,8 +270,8 @@ namespace Pose.Game
             {
                 bool on = i == _selected;
                 (Image bg, TextMeshProUGUI label) = _chips[i];
-                bg.color = on ? Gold : Color.white;
-                label.color = on ? new Color(0.07f, 0.06f, 0.05f) : Muted;
+                bg.color = on ? Brass : Chip;
+                label.color = on ? Ink : BoneWorn;
             }
         }
 
@@ -300,16 +309,53 @@ namespace Pose.Game
             rt.offsetMax = new Vector2(-inset, -inset);
         }
 
+        /// <summary>Both expand flags stated — see the note in ChatPanelView.</summary>
+        private static void HorizontalLayout(
+            GameObject go, RectOffset padding, float spacing,
+            TextAnchor alignment = TextAnchor.MiddleLeft)
+        {
+            HorizontalLayoutGroup hl = go.AddComponent<HorizontalLayoutGroup>();
+            hl.padding = padding;
+            hl.spacing = spacing;
+            hl.childAlignment = alignment;
+            hl.childControlWidth = true;
+            hl.childControlHeight = true;
+            hl.childForceExpandWidth = false;
+            hl.childForceExpandHeight = false;
+        }
+
+        private static void VerticalLayout(GameObject go, RectOffset padding, float spacing)
+        {
+            VerticalLayoutGroup vl = go.AddComponent<VerticalLayoutGroup>();
+            vl.padding = padding;
+            vl.spacing = spacing;
+            vl.childAlignment = TextAnchor.UpperLeft;
+            vl.childControlWidth = true;
+            vl.childControlHeight = true;
+            vl.childForceExpandWidth = true;
+            vl.childForceExpandHeight = false;
+        }
+
+        private static void AddIcon(Transform parent, Sprite sprite, float size, Color tint)
+        {
+            GameObject go = Child(parent, "Icon");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredWidth = size;
+            le.preferredHeight = size;
+            le.minWidth = size;
+            Image img = go.AddComponent<Image>();
+            img.sprite = sprite;
+            img.color = tint;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+        }
+
         private static TextMeshProUGUI Label(
-            Transform parent,
-            string text,
-            float size,
-            Color color,
-            TextAlignmentOptions align,
-            FontStyles style = FontStyles.Normal)
+            Transform parent, string text, float size, Color color,
+            TextAlignmentOptions align, FontStyles style = FontStyles.Normal)
         {
             GameObject go = Child(parent, "Label");
-            go.AddComponent<LayoutElement>().preferredHeight = size + 10f;
+            go.AddComponent<LayoutElement>().preferredHeight = size + 12f;
             TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
             t.text = text;
             t.fontSize = size;
@@ -321,12 +367,8 @@ namespace Pose.Game
         }
 
         private static TextMeshProUGUI StretchedLabel(
-            Transform parent,
-            string text,
-            float size,
-            Color color,
-            TextAlignmentOptions align = TextAlignmentOptions.Left,
-            FontStyles style = FontStyles.Normal)
+            Transform parent, string text, float size, Color color,
+            TextAlignmentOptions align, FontStyles style = FontStyles.Normal)
         {
             GameObject go = Child(parent, "Label");
             Stretch((RectTransform)go.transform);

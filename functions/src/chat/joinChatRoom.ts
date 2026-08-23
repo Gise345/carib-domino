@@ -38,7 +38,7 @@ const JoinSchema = z.object({
  * muted player their lock the moment they open chat rather than after a message
  * they have already typed comes back refused.
  *
- * @returns `{ roomId, memberCount, canSend, muted }`
+ * @returns `{ roomId, memberCount, canSend, muted, mutedUntil }`
  */
 export const joinChatRoom = onCall(
   async (
@@ -48,6 +48,8 @@ export const joinChatRoom = onCall(
     memberCount: number;
     canSend: boolean;
     muted: boolean;
+    /** ISO expiry, so the panel can say when the mute lifts. */
+    mutedUntil: string | null;
   }> => {
     const uid = request.auth?.uid;
     if (uid === undefined) {
@@ -69,6 +71,8 @@ export const joinChatRoom = onCall(
 
     const muteSnap = await db.collection('chatMutes').doc(uid).get();
     const muted = isMuteActive(muteSnap.data(), new Date());
+    const until = muteSnap.data()?.['until'] as { toDate(): Date } | undefined;
+    const mutedUntil = muted && until ? until.toDate().toISOString() : null;
     const roomRef = db.collection('chatRooms').doc(roomId);
     const member: ChatMember = { name: displayName, seat };
 
@@ -109,6 +113,6 @@ export const joinChatRoom = onCall(
     });
 
     logger.info('joinChatRoom', { roomId, uid, memberCount, isGuest, muted });
-    return { roomId, memberCount, canSend: !isGuest && !muted, muted };
+    return { roomId, memberCount, canSend: !isGuest && !muted, muted, mutedUntil };
   },
 );

@@ -158,6 +158,17 @@ namespace Pose.Game
             Tri(b, 18, 18, 18, 54, 58, 36);
         });
 
+        /// <summary>A struck-through microphone — muted, or voice unavailable.</summary>
+        public static Sprite MicOff() => Make(b =>
+        {
+            RoundRect(b, 30, 30, 42, 60, 6);          // capsule head
+            Ring(b, 36, 34, 17, 13);                  // pickup arc
+            ClearRect(b, 12, 34, 60, 60);             // keep only lower arc
+            Rect(b, 34, 12, 38, 24);                  // stem
+            Rect(b, 27, 10, 45, 14);                  // base
+            ThickLine(b, 14, 58, 58, 14, 3.2f);       // the strike
+        });
+
         /// <summary>An X — dismisses a modal.</summary>
         public static Sprite Close() => Make(b =>
         {

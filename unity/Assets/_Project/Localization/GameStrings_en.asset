@@ -890,6 +890,86 @@ MonoBehaviour:
     m_Localized: "Couldn't redeem that code."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000300
+    m_Localized: "{0} · {1} players"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000301
+    m_Localized: Quiet table
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000302
+    m_Localized: Say hello — everyone at the table sees it.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000303
+    m_Localized: Guests can read chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000304
+    m_Localized: A free account lets you talk
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000305
+    m_Localized: "You're muted in chat"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000306
+    m_Localized: A moderator paused your chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000307
+    m_Localized: "Until {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000308
+    m_Localized: Not connected
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000309
+    m_Localized: Chat works at online tables
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000310
+    m_Localized: Sign in to use chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000311
+    m_Localized: Chat needs an account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000312
+    m_Localized: Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000313
+    m_Localized: Reconnecting…
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000314
+    m_Localized: "Good luck!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000315
+    m_Localized: "Nice play!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000316
+    m_Localized: Your turn
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000317
+    m_Localized: "Close one!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000318
+    m_Localized: "Good game!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000319
+    m_Localized: One more?
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

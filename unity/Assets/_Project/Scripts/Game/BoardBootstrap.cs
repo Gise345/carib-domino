@@ -2489,6 +2489,9 @@ namespace Pose.Game
         private string? _chatRoomId;
         private bool _chatJoinInFlight;
         private bool _chatMuted;
+        private DateTime? _chatMutedUntil;
+        private string? _chatLastSeenMessageId;
+        private IReadOnlyList<ChatMessage> _chatMessages = Array.Empty<ChatMessage>();
 
         private void CreateChatPanel()
         {
@@ -2499,6 +2502,8 @@ namespace Pose.Game
             _chatPanel.SendRequested += OnChatSendRequested;
             _chatPanel.ReportRequested += OnChatReportRequested;
             _chatPanel.CreateAccountRequested += OnChatCreateAccountRequested;
+            _chatPanel.RetryRequested += OnChatRetryRequested;
+            _chatPanel.Closed += OnChatClosed;
         }
 
         private async void OnChatPressed()
@@ -2514,9 +2519,10 @@ namespace Pose.Game
             }
 
             _chatPanel.SetLocalUid(AuthService.Instance?.Uid);
-            _chatPanel.SetSubtitle(ChatSubtitle());
+            ApplyChatHeader();
             RefreshChatEntitlement();
             _chatPanel.Open();
+            MarkChatRead();
 
             // Join lazily, on first open: most matches never open chat, and a
             // room nobody looks at is a listener and a document for nothing.
@@ -2557,6 +2563,7 @@ namespace Pose.Game
                 if (joined == null)
                 {
                     _chatPanel.SetStatus(L10n.Get("chat_error_join"), isError: true);
+                    RefreshChatEntitlement(); // no room → the bar offers Retry
                     return;
                 }
 
@@ -2565,9 +2572,11 @@ namespace Pose.Game
                 // their lock on opening chat rather than after typing a message
                 // that comes back refused.
                 _chatMuted = joined.Value.Muted;
+                _chatMutedUntil = joined.Value.MutedUntil;
                 _chatSubscription = ChatService.Subscribe(_chatRoomId, OnChatMessages);
-                _chatPanel.SetSubtitle(ChatSubtitle());
+                ApplyChatHeader();
                 RefreshChatEntitlement();
+                _chatPanel.SetStatus(string.Empty);
             }
             finally
             {
@@ -2577,17 +2586,71 @@ namespace Pose.Game
 
         private void OnChatMessages(IReadOnlyList<ChatMessage> messages)
         {
+            _chatMessages = messages;
             _chatPanel?.SetMessages(messages);
+
+            // An open panel is being read, so nothing in it is unread.
+            if (_chatPanel != null && _chatPanel.IsOpen)
+            {
+                MarkChatRead();
+                return;
+            }
+            RefreshUnreadBadge();
         }
+
+        /// <summary>
+        /// Everything on screen has been seen. Called on open and on every
+        /// message that lands while the panel is open.
+        /// </summary>
+        private void MarkChatRead()
+        {
+            _chatLastSeenMessageId = _chatPanel?.LastRenderedMessageId ?? _chatLastSeenMessageId;
+            RefreshUnreadBadge();
+        }
+
+        private void OnChatClosed() => RefreshUnreadBadge();
+
+        private void RefreshUnreadBadge()
+        {
+            int unread = ChatUnread.Count(_chatMessages, _chatLastSeenMessageId, AuthService.Instance?.Uid);
+            _hud?.SetUnread(ChatUnread.Badge(unread));
+        }
+
+        /// <summary>
+        /// Names the table in the chat header: ruleset, seats, and the join code
+        /// when there is one worth showing. A matchmade session id is not — it is
+        /// unjoinable and means nothing to a player.
+        /// </summary>
+        private void ApplyChatHeader()
+        {
+            if (_chatPanel == null)
+            {
+                return;
+            }
+            string? room = PhotonBootstrap.Instance?.CurrentRoomCode;
+            if (!_isOnline || string.IsNullOrEmpty(room))
+            {
+                _chatPanel.SetHeader(L10n.Get("chat_subtitle_offline"), 0, null);
+                return;
+            }
+            _chatPanel.SetHeader(ChatModeLabel(), _state?.Players.Count ?? 0, room);
+        }
+
+        private string ChatModeLabel() =>
+            L10n.Get(_onlineMatchController?.Mode == GameMode.Partner
+                ? "mode_partner"
+                : "mode_cutthroat");
 
         private void RefreshChatEntitlement()
         {
             AuthService? auth = AuthService.Instance;
-            _chatPanel?.SetEntitlement(ChatEntitlement.For(
-                isSignedIn: auth?.IsSignedIn ?? false,
-                isGuest: auth?.IsGuest ?? true,
-                isMuted: _chatMuted,
-                hasRoom: _chatRoomId != null));
+            _chatPanel?.SetEntitlement(
+                ChatEntitlement.For(
+                    isSignedIn: auth?.IsSignedIn ?? false,
+                    isGuest: auth?.IsGuest ?? true,
+                    isMuted: _chatMuted,
+                    hasRoom: _chatRoomId != null),
+                _chatMutedUntil);
         }
 
         private async void OnChatSendRequested(string text)
@@ -2680,12 +2743,18 @@ namespace Pose.Game
             }
         }
 
-        private string ChatSubtitle()
+        /// <summary>
+        /// The retry on the "couldn't connect" bar. A join that failed on a flaky
+        /// connection is worth one tap rather than closing and reopening the panel.
+        /// </summary>
+        private async void OnChatRetryRequested()
         {
-            string room = PhotonBootstrap.Instance?.CurrentRoomCode ?? string.Empty;
-            return string.IsNullOrEmpty(room)
-                ? L10n.Get("chat_subtitle_offline")
-                : L10n.Get("chat_subtitle", room);
+            if (_chatPanel == null)
+            {
+                return;
+            }
+            _chatPanel.SetStatus(L10n.Get("chat_reconnecting"));
+            await EnsureChatRoomAsync();
         }
 
         private void LeaveChatRoom()
@@ -2694,6 +2763,10 @@ namespace Pose.Game
             _chatSubscription = null;
             _chatRoomId = null;
             _chatMuted = false;
+            _chatMutedUntil = null;
+            _chatLastSeenMessageId = null;
+            _chatMessages = Array.Empty<ChatMessage>();
+            _hud?.SetUnread(string.Empty);
             _chatPanel?.Close();
         }
 

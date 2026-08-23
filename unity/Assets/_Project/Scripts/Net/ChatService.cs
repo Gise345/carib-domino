@@ -44,12 +44,16 @@ namespace Pose.Net
             /// <summary>True when a moderator mute is currently in force.</summary>
             public bool Muted { get; }
 
-            public JoinResult(string roomId, int memberCount, bool canSend, bool muted)
+            /// <summary>When the mute lifts, or null when there is none.</summary>
+            public DateTime? MutedUntil { get; }
+
+            public JoinResult(string roomId, int memberCount, bool canSend, bool muted, DateTime? mutedUntil)
             {
                 RoomId = roomId;
                 MemberCount = memberCount;
                 CanSend = canSend;
                 Muted = muted;
+                MutedUntil = mutedUntil;
             }
         }
 
@@ -122,7 +126,8 @@ namespace Pose.Net
                     ReadString(data, "roomId", roomId),
                     (int)ReadLong(data, "memberCount", 0L),
                     ReadBool(data, "canSend", false),
-                    ReadBool(data, "muted", false));
+                    ReadBool(data, "muted", false),
+                    ReadDate(data, "mutedUntil"));
             }
             catch (Exception e)
             {
@@ -279,6 +284,22 @@ namespace Pose.Net
         private static long ReadLong(
             IReadOnlyDictionary<object, object> d, string key, long fallback) =>
             d.TryGetValue(key, out object? value) && value is long l ? l : fallback;
+
+        /// <summary>Reads an ISO date the server sent as a string.</summary>
+        private static DateTime? ReadDate(IReadOnlyDictionary<object, object> d, string key)
+        {
+            if (d.TryGetValue(key, out object? value) && value is string s
+                && DateTime.TryParse(
+                    s,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal
+                        | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out DateTime parsed))
+            {
+                return parsed;
+            }
+            return null;
+        }
 
         private static bool ReadBool(
             IReadOnlyDictionary<object, object> d, string key, bool fallback) =>
