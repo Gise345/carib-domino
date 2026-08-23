@@ -36,6 +36,47 @@ namespace Pose.Game
             }
         }
 
+        // ---- Volumes -------------------------------------------------------
+        //
+        // Stored 0..1. Sliders rather than on/off because the reason to open
+        // Settings is almost always "quieter", rarely "silent" — and a player
+        // who can only mute tends to mute and never come back.
+
+        private const string EffectsKey = "Pose.Volume.Effects";
+        private const string MusicKey = "Pose.Volume.Music";
+        private const string NotificationsKey = "Pose.Volume.Notifications";
+
+        /// <summary>Tile taps, slams, round stings. 0..1.</summary>
+        public static float EffectsVolume
+        {
+            get => PlayerPrefs.GetFloat(EffectsKey, 0.8f);
+            set => SetVolume(EffectsKey, value);
+        }
+
+        /// <summary>Background music. 0..1. Quieter by default than effects.</summary>
+        public static float MusicVolume
+        {
+            get => PlayerPrefs.GetFloat(MusicKey, 0.45f);
+            set => SetVolume(MusicKey, value);
+        }
+
+        /// <summary>
+        /// Push alerts and in-app chimes. 0..1. Does NOT govern the turn-timer
+        /// nudge, which is a haptic and deliberately not mutable — see
+        /// <see cref="Haptics.Nudge"/>.
+        /// </summary>
+        public static float NotificationVolume
+        {
+            get => PlayerPrefs.GetFloat(NotificationsKey, 0.6f);
+            set => SetVolume(NotificationsKey, value);
+        }
+
+        private static void SetVolume(string key, float value01)
+        {
+            PlayerPrefs.SetFloat(key, Mathf.Clamp01(value01));
+            PlayerPrefs.Save();
+        }
+
         /// <summary>
         /// Read PlayerPrefs and push the value into <see cref="TileView"/>'s
         /// static slot. Called once at boot from <see cref="BoardBootstrap.Start"/>

@@ -97,6 +97,9 @@ namespace Pose.Game
         private TextMeshProUGUI? _statWins;
         private TextMeshProUGUI? _statWinRate;
         private Image? _profileAvatar;
+        private TextMeshProUGUI? _profileName;
+        private TextMeshProUGUI? _profileTag;
+        private int _selectedLanguage;
         private Image? _headerAvatar;
 
         private Transform _contentArea = null!;
@@ -1038,31 +1041,57 @@ namespace Pose.Game
         private GameObject BuildProfilePanel()
         {
             GameObject screen = CreateContentPanel("ProfilePanel");
-            CreateTitle(screen.transform, "Profile", -30f, 56f);
+            RectTransform body = UiKit.Screen(
+                (RectTransform)screen.transform, "Profile", () => ShowTab(Tab.Yard, _yardPanel));
 
-            _profileAvatar = MakeAvatar(screen.transform, 150f, string.Empty);
-            RectTransform art = (RectTransform)_profileAvatar.transform;
-            art.anchorMin = new Vector2(0.5f, 1f);
-            art.anchorMax = new Vector2(0.5f, 1f);
-            art.pivot = new Vector2(0.5f, 1f);
-            art.anchoredPosition = new Vector2(0f, -100f);
-            art.sizeDelta = new Vector2(150f, 150f);
+            // Identity first, then how you have been doing.
+            RectTransform who = UiKit.Card(body);
+            GameObject idRow = UiKit.Child(who, "Identity");
+            idRow.AddComponent<LayoutElement>().preferredHeight = 140f;
+            HorizontalLayoutGroup idLayout = idRow.AddComponent<HorizontalLayoutGroup>();
+            idLayout.spacing = 22f;
+            idLayout.childAlignment = TextAnchor.MiddleLeft;
+            idLayout.childControlWidth = true;
+            idLayout.childControlHeight = true;
+            idLayout.childForceExpandWidth = false;
+            idLayout.childForceExpandHeight = false;
 
-            GameObject col = CreateColumn(screen.transform);
-            _statCoins = StatRow(col.transform, "Coins", "—");
-            _statGames = StatRow(col.transform, "Games played", "—");
-            _statWins = StatRow(col.transform, "Wins", "—");
-            _statWinRate = StatRow(col.transform, "Win rate", "—");
+            _profileAvatar = MakeAvatar(idRow.transform, 128f, string.Empty);
+            LayoutElement avatarSize = _profileAvatar.gameObject.AddComponent<LayoutElement>();
+            avatarSize.preferredWidth = 128f;
+            avatarSize.preferredHeight = 128f;
 
-            CreateSectionLabel(col.transform, L10n.Get("account_section"));
-            _accountStatusLabel = AddColumnLabel(col.transform, string.Empty);
+            GameObject names = UiKit.Child(idRow.transform, "Names");
+            names.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            VerticalLayoutGroup nameStack = names.AddComponent<VerticalLayoutGroup>();
+            nameStack.spacing = 2f;
+            nameStack.childAlignment = TextAnchor.MiddleLeft;
+            nameStack.childControlWidth = true;
+            nameStack.childControlHeight = true;
+            nameStack.childForceExpandWidth = true;
+            nameStack.childForceExpandHeight = false;
 
-            GameObject action = CreateButton(string.Empty, OnAccountActionClicked);
-            action.transform.SetParent(col.transform, worldPositionStays: false);
+            _profileName = UiKit.Label(
+                names.transform, "—", 34f, UiKit.Bone, TextAlignmentOptions.MidlineLeft);
+            _profileName.fontStyle = FontStyles.Bold;
+            _profileTag = UiKit.Label(
+                names.transform, string.Empty, 23f, UiKit.BrassLit, TextAlignmentOptions.MidlineLeft);
+
+            // Tiles rather than a list: these are glanced at, not read.
+            RectTransform grid = UiKit.Grid2(body, cellHeight: 104f);
+            _statCoins = UiKit.StatTile(grid, "Coins", "—");
+            _statWinRate = UiKit.StatTile(grid, "Win rate", "—");
+            _statGames = UiKit.StatTile(grid, "Played", "—");
+            _statWins = UiKit.StatTile(grid, "Wins", "—");
+
+            RectTransform account = UiKit.Card(body, L10n.Get("account_section"));
+            _accountStatusLabel = UiKit.Row(account, "Status", string.Empty);
+
+            GameObject action = UiKit.GhostButton(account, string.Empty, OnAccountActionClicked);
             _accountActionLabel = action.GetComponentInChildren<TextMeshProUGUI>();
 
-            GameObject logout = CreateButton(L10n.Get("account_logout"), OnLogoutClicked);
-            logout.transform.SetParent(col.transform, worldPositionStays: false);
+            UiKit.Spring(body);
+            UiKit.GhostButton(body, L10n.Get("account_logout"), OnLogoutClicked);
 
             RefreshAccountSection();
             return screen;
@@ -1184,6 +1213,19 @@ namespace Pose.Game
                     _statWinRate.text = card.MatchesPlayed > 0
                         ? $"{Mathf.RoundToInt(card.WinRate * 100f)}%"
                         : "—";
+                }
+                if (_profileName != null)
+                {
+                    _profileName.text = string.IsNullOrEmpty(card.Name)
+                        ? ProfileService.Instance?.Profile?.DisplayName ?? "—"
+                        : card.Name;
+                }
+                if (_profileTag != null)
+                {
+                    // The tagname slice is not built yet, so fall back to the
+                    // display name rather than showing an empty line.
+                    _profileTag.text = $"@{(_profileName != null ? _profileName.text : string.Empty)}"
+                        .Replace(" ", string.Empty).ToLowerInvariant();
                 }
             }
             catch (Exception ex)
@@ -1610,13 +1652,43 @@ namespace Pose.Game
         private GameObject BuildSettingsPanel()
         {
             GameObject screen = CreateContentPanel("SettingsPanel");
-            CreateTitle(screen.transform, "Settings", -30f, 56f);
-            GameObject col = CreateColumn(screen.transform);
-            StatRow(col.transform, "Sound", "On");
-            StatRow(col.transform, "Music", "On");
-            GameObject rules = CreateButton("How to Play", () => ShowOverlay(_rulesScreen));
-            rules.transform.SetParent(col.transform, worldPositionStays: false);
+            RectTransform body = UiKit.Screen(
+                (RectTransform)screen.transform, "Settings", () => ShowTab(Tab.Yard, _yardPanel));
+
+            // Volumes are sliders, not on/off: the reason to open this screen is
+            // almost always "quieter", rarely "silent".
+            RectTransform sound = UiKit.Card(body, "Sound");
+            UiKit.VolumeRow(sound, "Effects", GameSettings.EffectsVolume,
+                v => GameSettings.EffectsVolume = v);
+            UiKit.VolumeRow(sound, "Music", GameSettings.MusicVolume,
+                v => GameSettings.MusicVolume = v);
+            UiKit.VolumeRow(sound, "Notifications", GameSettings.NotificationVolume,
+                v => GameSettings.NotificationVolume = v);
+
+            RectTransform feel = UiKit.Card(body, "Feel");
+            UiKit.SwitchRow(feel, "Vibration", Haptics.VibrationEnabled,
+                v => Haptics.VibrationEnabled = v);
+            // Says what it cannot do, rather than letting someone switch it off
+            // and then wonder why their phone still buzzes on their turn.
+            UiKit.Label(feel, "Turn nudges stay on \u2014 the table is waiting on you.",
+                20f, UiKit.Muted, TextAlignmentOptions.MidlineLeft)
+                .textWrappingMode = TextWrappingModes.Normal;
+
+            RectTransform language = UiKit.Card(body, "Language");
+            UiKit.Segment(language, LanguageNames, _selectedLanguage, OnLanguageSelected);
+
+            UiKit.Spring(body);
+            UiKit.GhostButton(body, "How to Play", () => ShowOverlay(_rulesScreen));
             return screen;
+        }
+
+        /// <summary>The locales shipped today; see Assets/_Project/Localization.</summary>
+        private static readonly string[] LanguageNames = { "English", "Espa\u00f1ol", "Fran\u00e7ais" };
+
+        private void OnLanguageSelected(int index)
+        {
+            _selectedLanguage = index;
+            Debug.Log($"[LobbyView] language -> {LanguageNames[index]}");
         }
 
         private GameObject BuildRulesScreen()

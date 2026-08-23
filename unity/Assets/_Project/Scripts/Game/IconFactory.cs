@@ -114,6 +114,13 @@ namespace Pose.Game
         });
 
         /// <summary>A speech bubble (chat).</summary>
+        /// <summary>Chevron pointing left — the back control.</summary>
+        public static Sprite ChevronLeft() => Make(b =>
+        {
+            ThickLine(b, 46, 12, 28, 36, 5f);
+            ThickLine(b, 46, 60, 28, 36, 5f);
+        });
+
         /// <summary>A hollow circle, used as a badge behind another glyph.</summary>
         public static Sprite Ring() => Make(b => Ring(b, S / 2f, S / 2f, (S / 2f) - 2f, (S / 2f) - 7f));
 
