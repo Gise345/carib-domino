@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Pose.Core.Config;
+using Pose.Core.Voice;
 
 namespace Pose.Core.Tests.Config
 {
@@ -11,6 +12,8 @@ namespace Pose.Core.Tests.Config
             RemoteConfigKeys.MinSupportedBuild,
             RemoteConfigKeys.FeatureFacebookEnabled,
             RemoteConfigKeys.FeatureInvitesEnabled,
+            RemoteConfigKeys.FeatureVoiceEnabled,
+            RemoteConfigKeys.VoiceAllowedModes,
             RemoteConfigKeys.TermsUrl,
             RemoteConfigKeys.PrivacyUrl,
             RemoteConfigKeys.DataDeletionUrl,
@@ -43,6 +46,22 @@ namespace Pose.Core.Tests.Config
                 "kill switch must default OFF so a failed fetch never bricks the app");
             Assert.IsTrue((bool)RemoteConfigKeys.Defaults[RemoteConfigKeys.FeatureFacebookEnabled]);
             Assert.IsTrue((bool)RemoteConfigKeys.Defaults[RemoteConfigKeys.FeatureInvitesEnabled]);
+
+            Assert.IsFalse(
+                (bool)RemoteConfigKeys.Defaults[RemoteConfigKeys.FeatureVoiceEnabled],
+                "voice must default OFF so a failed fetch never opens an unexpected microphone");
+        }
+
+        [Test]
+        public void VoiceScopeDefaultsToFriendsOnly()
+        {
+            // ADR 0024 §5 — strangers stay text-only until moderation is proven,
+            // so neither "partner" nor "random" may be in the shipped default.
+            string scopes = (string)RemoteConfigKeys.Defaults[RemoteConfigKeys.VoiceAllowedModes];
+
+            Assert.IsTrue(VoiceRoomPolicy.HasScope(scopes, VoiceRoomPolicy.ScopePrivate));
+            Assert.IsFalse(VoiceRoomPolicy.HasScope(scopes, VoiceRoomPolicy.ScopePartner));
+            Assert.IsFalse(VoiceRoomPolicy.HasScope(scopes, VoiceRoomPolicy.ScopeRandom));
         }
 
         [Test]

@@ -25,6 +25,16 @@ namespace Pose.Core.Config
         /// <summary>Toggle for the invite-a-friend reward flow.</summary>
         public const string FeatureInvitesEnabled = "feature_invites_enabled";
 
+        /// <summary>Master switch for in-match voice chat (ADR 0024). Fails closed.</summary>
+        public const string FeatureVoiceEnabled = "feature_voice_enabled";
+
+        /// <summary>
+        /// Comma-separated tables voice is switched on for — see
+        /// <c>Pose.Core.Voice.VoiceRoomPolicy</c> for the tokens. The lever that
+        /// widens voice past friends-only without a store build (ADR 0024 §5).
+        /// </summary>
+        public const string VoiceAllowedModes = "voice_allowed_modes";
+
         /// <summary>Terms of Service URL opened from the client.</summary>
         public const string TermsUrl = "terms_url";
 
@@ -45,6 +55,12 @@ namespace Pose.Core.Config
                 [MinSupportedBuild] = 0L,
                 [FeatureFacebookEnabled] = true,
                 [FeatureInvitesEnabled] = true,
+                // Voice defaults OFF: a failed fetch must never open a
+                // microphone the player did not expect. Scope defaults to
+                // code-joined rooms only — strangers stay text-only until
+                // moderation is proven (ADR 0024 §5).
+                [FeatureVoiceEnabled] = false,
+                [VoiceAllowedModes] = "private",
                 [TermsUrl] = "https://caribbeandominos.com/terms",
                 [PrivacyUrl] = "https://caribbeandominos.com/privacy",
                 [DataDeletionUrl] = "https://caribbeandominos.com/data-deletion",
