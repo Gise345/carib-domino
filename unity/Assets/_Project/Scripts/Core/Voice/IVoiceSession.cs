@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Pose.Core.Voice
@@ -30,10 +31,34 @@ namespace Pose.Core.Voice
         VoiceJoinOutcome LastOutcome { get; }
 
         /// <summary>
+        /// What the OS says about the microphone. Exposed here because the
+        /// permission API lives in this assembly — the HUD cannot reach it
+        /// directly and should not need to know that.
+        /// </summary>
+        MicPermissionState MicPermission { get; }
+
+        /// <summary>
+        /// Raised whenever anything the mic control renders has changed —
+        /// connection, entitlement, mute or permission. The HUD redraws on this
+        /// rather than polling every frame.
+        /// </summary>
+        event Action? StateChanged;
+
+        /// <summary>
         /// Raised when a seat starts or stops speaking, so the HUD can light a
         /// ring. The int is the seat index, the bool whether they are speaking.
         /// </summary>
         event Action<int, bool>? SeatSpeakingChanged;
+
+        /// <summary>
+        /// Supplies the uid-to-seat mapping used to attribute speech to a seat.
+        ///
+        /// Needed because Vivox identifies a participant by their uid and knows
+        /// nothing about the table. Until this is set, speech is still detected
+        /// but cannot be attributed, so no seat lights up.
+        /// </summary>
+        /// <param name="uidToSeat">Room roster, uid to seat index.</param>
+        void SetSeatMap(IReadOnlyDictionary<string, int> uidToSeat);
 
         /// <summary>
         /// Joins the voice channel for a match, if the player is entitled to it.
