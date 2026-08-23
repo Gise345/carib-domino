@@ -141,7 +141,11 @@
     background-size: 62% auto;
     container-type: inline-size;
     display: flex; flex-direction: column;
-    font-size: 3.1cqw;
+    /* Derived from the frame width, NOT cqw. An element cannot query the
+       container it establishes: cq units here resolve against the nearest
+       ANCESTOR container, or the viewport when there is none, which made the
+       base font 3% of the page rather than 3% of the phone. */
+    font-size: calc(var(--screen-w) * 0.040);
   }
   .frame::before {
     content: ""; position: absolute; inset: 0;
@@ -176,16 +180,19 @@
   .body {
     flex: 1 1 auto;
     overflow: hidden;
-    padding: 4% 4.5%;
-    display: flex; flex-direction: column; gap: 3.4%;
+    padding: 3.4% 4.5% 2.6%;
+    display: flex; flex-direction: column; gap: 2.5%;
   }
+  /* A screen whose content is shorter than the phone should breathe into the
+     space rather than stack at the top and leave a third of it empty. */
+  .body > .spring { flex: 1 1 auto; min-height: 0; }
 
   .card {
     background: rgba(9, 26, 21, 0.86);
     border: 1px solid rgba(202,138,4,0.24);
     border-radius: 3.6%/1.8%;
-    padding: 4% 4.5%;
-    display: flex; flex-direction: column; gap: 3%;
+    padding: 3.4% 4.2%;
+    display: flex; flex-direction: column; gap: 2.6%;
   }
   .card > .head {
     display: flex; align-items: center; justify-content: space-between;
@@ -336,6 +343,20 @@
     background: var(--danger); color: #fff; font-size: 0.68em; font-weight: 800;
     border-radius: 999px; padding: 0.15em 0.6em;
   }
+  .form { display: flex; gap: 2.5%; }
+  .form span {
+    flex: 1; aspect-ratio: 1; border-radius: 22%;
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800; font-size: 0.95em;
+  }
+  .form .w { background: rgba(123,182,97,0.22); color: var(--success); border: 1px solid rgba(123,182,97,0.5); }
+  .form .l { background: rgba(242,112,90,0.16); color: var(--danger); border: 1px solid rgba(242,112,90,0.45); }
+
+  .tagprice {
+    background: var(--success); color: #0A2011; font-weight: 800;
+    border-radius: 999px; padding: 0.25em 0.9em; font-size: 0.84em;
+    white-space: nowrap; flex: 0 0 auto;
+  }
   .coin.best { position: relative; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset; }
 
   .seatmap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4%; place-items: center; }
@@ -467,10 +488,21 @@
             </div>
 
             <div class="card">
+              <div class="head"><span>Recent form</span><span style="color:var(--muted); font-size:0.8em">last 6</span></div>
+              <div class="form">
+                <span class="w">W</span><span class="w">W</span><span class="l">L</span>
+                <span class="w">W</span><span class="w">W</span><span class="l">L</span>
+              </div>
+            </div>
+
+            <div class="card">
               <div class="head"><span>Account</span></div>
               <div class="row"><span class="lbl">Email</span><span class="pill on">Linked</span></div>
               <div class="row"><span class="lbl">Facebook</span><span class="pill off">Not linked</span></div>
             </div>
+
+            <span class="spring"></span>
+            <button class="ghostbtn" type="button">Sign out</button>
           </div>
           <div class="navbar">
             <span class="tab"><span class="ico">◆</span>Shop</span>
@@ -528,6 +560,20 @@
                 <span class="act">Challenge</span>
               </div>
             </div>
+
+            <div class="card">
+              <div class="head"><span>All friends</span><span style="color:var(--muted); font-size:0.8em">18</span></div>
+              <div class="friend" style="opacity:0.68">
+                <span class="av" style="background:#7E8B93">KE</span>
+                <span class="who"><b>Kemar</b><span>Last seen 2h ago</span></span>
+              </div>
+              <div class="friend" style="opacity:0.68">
+                <span class="av" style="background:#7E8B93">SH</span>
+                <span class="who"><b>Shanice</b><span>Last seen yesterday</span></span>
+              </div>
+            </div>
+
+            <span class="spring"></span>
           </div>
           <div class="navbar">
             <span class="tab"><span class="ico">◆</span>Shop</span>
@@ -569,9 +615,11 @@
 
             <div class="card">
               <div class="head"><span>Extras</span></div>
-              <div class="row"><span class="lbl">Remove ads</span><span class="price" style="background:var(--success); color:#0A2011; border-radius:999px; padding:0.2em 0.85em; font-weight:800; font-size:0.86em">$0.99/mo</span></div>
+              <div class="row"><span class="lbl">Remove ads</span><span class="tagprice">$0.99 / mo</span></div>
               <div class="row"><span class="lbl">Slam pack · 10</span><span class="pill off">Watch an ad</span></div>
             </div>
+
+            <span class="spring"></span>
           </div>
           <div class="navbar">
             <span class="tab on"><span class="ico">◆</span>Shop</span>
@@ -626,6 +674,7 @@
               </div>
             </div>
 
+            <span class="spring"></span>
             <button class="ghostbtn" type="button">How to Play</button>
           </div>
           <div class="navbar">
@@ -693,6 +742,7 @@
               <div class="row"><span class="lbl">Key bonus</span><span class="val" style="color:var(--brass-hi)">+2,000</span></div>
             </div>
 
+            <span class="spring"></span>
             <button class="cta" type="button">Find a table</button>
           </div>
           <div class="navbar">
@@ -742,6 +792,7 @@
               <div class="row"><span class="lbl">Team takes</span><span class="val" style="color:var(--brass-hi)">4,000</span></div>
             </div>
 
+            <span class="spring"></span>
             <button class="cta" type="button">Find a table</button>
           </div>
           <div class="navbar">
@@ -791,6 +842,7 @@
               <div class="search"><span>#</span><span>Enter a 4-letter code</span></div>
             </div>
 
+            <span class="spring"></span>
             <button class="cta" type="button">Start when ready</button>
           </div>
           <div class="navbar">
