@@ -165,6 +165,8 @@ namespace Pose.Game
         private RoomArt _roomArt = new();
 
         private TMP_InputField? _codeInput;
+        private TMP_InputField? _promoInput;
+        private TextMeshProUGUI? _promoStatus;
 
         private bool _busy;
         private Image? _backgroundImage;
@@ -1345,6 +1347,25 @@ namespace Pose.Game
             GameObject action = UiKit.GhostButton(account, string.Empty, OnAccountActionClicked);
             _accountActionLabel = action.GetComponentInChildren<TextMeshProUGUI>();
 
+            // Promo code redemption (ADR 0022, phase E).
+            RectTransform promoCard = UiKit.Card(body, L10n.Get("promo_redeem_head"));
+            GameObject promoRow = UiKit.Child(promoCard, "PromoRow");
+            promoRow.AddComponent<LayoutElement>().preferredHeight = 84f;
+            HorizontalLayoutGroup promoLayout = promoRow.AddComponent<HorizontalLayoutGroup>();
+            promoLayout.spacing = 14f;
+            promoLayout.childAlignment = TextAnchor.MiddleLeft;
+            promoLayout.childControlWidth = true;
+            promoLayout.childControlHeight = true;
+            promoLayout.childForceExpandWidth = false;
+            promoLayout.childForceExpandHeight = true;
+
+            _promoInput = MakePromoInput(promoRow.transform);
+            GameObject redeemBtn = UiKit.PrimaryButton(
+                (RectTransform)promoRow.transform, L10n.Get("promo_redeem_button"), OnRedeemPromoClicked);
+            redeemBtn.GetComponent<LayoutElement>().preferredWidth = 170f;
+
+            _promoStatus = UiKit.Label(promoCard, string.Empty, 22f, UiKit.Muted, TextAlignmentOptions.MidlineLeft);
+
             UiKit.Spring(body);
             UiKit.GhostButton(body, L10n.Get("account_logout"), OnLogoutClicked);
 
@@ -1364,6 +1385,78 @@ namespace Pose.Game
                 return L10n.Get("account_status_facebook");
             }
             return L10n.Get("account_status_email");
+        }
+
+        private TMP_InputField MakePromoInput(Transform parent)
+        {
+            GameObject inputGo = UiKit.Child(parent, "PromoInput");
+            inputGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            Image bg = inputGo.AddComponent<Image>();
+            bg.sprite = GradientSprite.RoundedDiagonal(0.2f, Color.white, Color.white);
+            bg.type = Image.Type.Sliced;
+            bg.color = InputBgColor;
+
+            TMP_InputField field = inputGo.AddComponent<TMP_InputField>();
+            field.targetGraphic = bg;
+            field.characterLimit = 32;
+            field.contentType = TMP_InputField.ContentType.Alphanumeric;
+
+            GameObject area = UiKit.Child(inputGo.transform, "TextArea");
+            RectTransform areaRt = (RectTransform)area.transform;
+            UiKit.Stretch(areaRt, left: 16f, right: 16f, inset: 4f);
+            area.AddComponent<RectMask2D>();
+
+            GameObject textGo = UiKit.Child(area.transform, "Text");
+            StretchFull((RectTransform)textGo.transform);
+            TextMeshProUGUI text = textGo.AddComponent<TextMeshProUGUI>();
+            text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.fontSize = 26f;
+            text.color = UiKit.Bone;
+
+            GameObject ph = UiKit.Child(area.transform, "Placeholder");
+            StretchFull((RectTransform)ph.transform);
+            TextMeshProUGUI phTmp = ph.AddComponent<TextMeshProUGUI>();
+            phTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            phTmp.fontSize = 26f;
+            phTmp.color = UiKit.Muted;
+            phTmp.text = L10n.Get("promo_redeem_placeholder");
+
+            field.textViewport = areaRt;
+            field.textComponent = text;
+            field.placeholder = phTmp;
+            return field;
+        }
+
+        private async void OnRedeemPromoClicked()
+        {
+            if (_promoInput == null || _promoStatus == null)
+            {
+                return;
+            }
+            string code = _promoInput.text.Trim();
+            if (code.Length == 0)
+            {
+                _promoStatus.text = L10n.Get("promo_redeem_empty");
+                return;
+            }
+            _promoStatus.text = L10n.Get("promo_redeeming");
+            try
+            {
+                SocialService.RedeemResult result = await SocialService.RedeemPromoCodeAsync(code);
+                _promoStatus.text = L10n.Get("promo_redeem_ok", result.Coins);
+                _promoInput.text = string.Empty;
+                LoadProfileStats();
+            }
+            catch (Exception ex)
+            {
+                // The server sends a human reason (invalid / expired / already / capped).
+                if (_promoStatus != null)
+                {
+                    _promoStatus.text = string.IsNullOrEmpty(ex.Message)
+                        ? L10n.Get("promo_redeem_fail")
+                        : ex.Message;
+                }
+            }
         }
 
         private void RefreshAccountSection()

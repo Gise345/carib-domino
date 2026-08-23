@@ -136,6 +136,40 @@ namespace Pose.Net
             return new InviteResult(false, 0, 0, "unknown");
         }
 
+        /// <summary>Outcome of redeeming a promo code.</summary>
+        public readonly struct RedeemResult
+        {
+            public bool Rewarded { get; }
+            public int Coins { get; }
+            public int NewBalance { get; }
+
+            public RedeemResult(bool rewarded, int coins, int newBalance)
+            {
+                Rewarded = rewarded;
+                Coins = coins;
+                NewBalance = newBalance;
+            }
+        }
+
+        /// <summary>
+        /// Redeems a promo code via the <c>redeemPromoCode</c> Cloud Function
+        /// (server-authoritative: credits coins, once per player). Throws a
+        /// FunctionsException whose message is the human reason (invalid / expired /
+        /// already redeemed / capped) on failure. See ADR 0022.
+        /// </summary>
+        public static async Task<RedeemResult> RedeemPromoCodeAsync(string code)
+        {
+            Dictionary<string, object> payload = new() { ["code"] = code };
+            HttpsCallableResult result = await FirebaseFunctions.DefaultInstance
+                .GetHttpsCallable("redeemPromoCode").CallAsync(payload);
+
+            if (result.Data is IDictionary d)
+            {
+                return new RedeemResult(AsBool(d["rewarded"]), AsInt(d["coins"]), AsInt(d["newBalance"]));
+            }
+            return new RedeemResult(false, 0, 0);
+        }
+
         /// <summary>The player's own profile-card aggregate (name, coins, record).</summary>
         public readonly struct ProfileCard
         {
