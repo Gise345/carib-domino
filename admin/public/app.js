@@ -93,6 +93,7 @@ for (const tab of document.querySelectorAll('.tab')) {
       p.classList.toggle('hidden', p.id !== panel);
     }
     if (panel === 'analytics') loadStats();
+    if (panel === 'promotions') loadPromotions();
   });
 }
 
@@ -200,5 +201,74 @@ async function loadUserDetail(uid) {
     }
   } catch (e) {
     panel.innerHTML = `<p class="error">${escape(e && e.message ? e.message : 'Failed to load user.')}</p>`;
+  }
+}
+
+// ---- Promotions ------------------------------------------------------------
+
+el('promoForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const code = el('promoCode').value.trim();
+  const coins = parseInt(el('promoCoins').value, 10);
+  const max = parseInt(el('promoMax').value, 10);
+  const expiry = el('promoExpiry').value;
+  if (!code || !Number.isFinite(coins) || coins < 1) {
+    el('promoStatus').textContent = 'Enter a code and a coin amount.';
+    return;
+  }
+  const payload = { code, coins };
+  if (Number.isFinite(max) && max > 0) payload.maxRedemptions = max;
+  if (expiry) payload.expiresAtMs = new Date(`${expiry}T23:59:59`).getTime();
+  el('promoStatus').textContent = 'Creating…';
+  try {
+    await call('createPromotion', payload);
+    el('promoForm').reset();
+    el('promoStatus').textContent = '';
+    await loadPromotions();
+  } catch (e) {
+    el('promoStatus').textContent = e && e.message ? e.message : 'Create failed.';
+  }
+});
+
+async function loadPromotions() {
+  const list = el('promoList');
+  list.innerHTML = '<p class="muted">Loading…</p>';
+  try {
+    const { promotions } = await call('listPromotions');
+    if (!promotions.length) {
+      list.innerHTML = '<p class="muted">No promotions yet.</p>';
+      return;
+    }
+    list.innerHTML = promotions
+      .map((p) => {
+        const redeemed = p.maxRedemptions > 0 ? `${num(p.redemptionCount)}/${num(p.maxRedemptions)}` : num(p.redemptionCount);
+        const expiry = p.expiresAtMs > 0 ? new Date(p.expiresAtMs).toLocaleDateString() : 'never';
+        const toggle = p.active
+          ? `<button class="btn btn--small" data-code="${escape(p.code)}" data-active="false">Disable</button>`
+          : `<button class="btn btn--small btn--primary" data-code="${escape(p.code)}" data-active="true">Enable</button>`;
+        return `<div class="promo-row">
+          <span class="promo-code">${escape(p.code)}</span>
+          <span>${num(p.coins)} coins</span>
+          <span class="muted">redeemed ${redeemed}</span>
+          <span class="muted">expires ${escape(expiry)}</span>
+          <span class="${p.active ? 'ok' : 'muted'}">${p.active ? 'Active' : 'Off'}</span>
+          ${toggle}
+        </div>`;
+      })
+      .join('');
+    for (const btn of list.querySelectorAll('button[data-code]')) {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await call('setPromotionActive', { code: btn.dataset.code, active: btn.dataset.active === 'true' });
+          await loadPromotions();
+        } catch (e) {
+          window.alert(e && e.message ? e.message : 'Update failed.');
+          btn.disabled = false;
+        }
+      });
+    }
+  } catch (e) {
+    list.innerHTML = `<p class="error">${escape(e && e.message ? e.message : 'Failed to load promotions.')}</p>`;
   }
 }

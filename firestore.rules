@@ -143,6 +143,9 @@ service cloud.firestore {
     match /promotions/{promoId} {
       allow read, write: if false;
     }
+    match /promoRedemptions/{redemptionId} {
+      allow read, write: if false;
+    }
     match /adminStats/{docId} {
       allow read, write: if false;
     }

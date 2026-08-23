@@ -55,6 +55,13 @@ export { getUserDetail } from './admin/getUserDetail';
 export { banUser } from './admin/banUser';
 export { unbanUser } from './admin/unbanUser';
 
+// Admin (phase E): promotions. Admins create/toggle/list promo codes; players
+// redeem them via redeemPromoCode (server-authoritative credit, once each). ADR 0022.
+export { createPromotion } from './admin/createPromotion';
+export { setPromotionActive } from './admin/setPromotionActive';
+export { listPromotions } from './admin/listPromotions';
+export { redeemPromoCode } from './social/redeemPromoCode';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.

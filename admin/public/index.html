@@ -65,7 +65,15 @@
       </div>
       <div id="promotions" class="panel hidden">
         <h2>Promotions</h2>
-        <p class="muted">Create bonus-coin events and promo codes — Phase E.</p>
+        <form id="promoForm" class="promo-form">
+          <input id="promoCode" placeholder="CODE (3–32 A–Z/0–9)" autocomplete="off">
+          <input id="promoCoins" type="number" min="1" placeholder="Coins">
+          <input id="promoMax" type="number" min="0" placeholder="Max (0 = ∞)">
+          <input id="promoExpiry" type="date" title="Expiry (optional)">
+          <button class="btn btn--primary" type="submit">Create</button>
+        </form>
+        <p id="promoStatus" class="muted"></p>
+        <div id="promoList" class="results"></div>
       </div>
       <div id="audit" class="panel hidden">
         <h2>Audit log</h2>
