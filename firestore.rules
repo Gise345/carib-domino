@@ -211,6 +211,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // Voice (ADR 0024). The voice roster and the Vivox channel name live on the
+    // /chatRooms doc above, under its existing read-if-member rule — voice gets
+    // no collection of its own, so it inherits that room's retention TTL and its
+    // `retained: true` moderation hold for free.
+    //
+    //   /voiceTokenLimits/{uid} — the caller's sliding window on mintVivoxToken.
+    //     A Vivox access token is a billed, single-use credential; a client-
+    //     writable window would defeat the cap entirely.
+    // -----------------------------------------------------------------------
+    match /voiceTokenLimits/{userId} {
+      allow read, write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.

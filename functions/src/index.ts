@@ -59,6 +59,15 @@ export { joinChatRoom } from './chat/joinChatRoom';
 export { sendChatMessage } from './chat/sendChatMessage';
 export { reportChatMessage } from './chat/reportChatMessage';
 
+// Voice (ADR 0024): in-match voice via Unity Vivox. joinVoiceRoom claims the
+// caller's OWN place in the room (the same self-claim as joinChatRoom, writing
+// into the same /chatRooms doc so voice inherits its retention and moderation
+// hold); mintVivoxToken signs one short-lived, single-use Vivox credential per
+// action. mintVivoxToken NEVER signs a client-supplied identity or channel —
+// see the note in authorize.ts.
+export { joinVoiceRoom } from './voice/joinVoiceRoom';
+export { mintVivoxToken } from './voice/mintVivoxToken';
+
 // Chat moderation (ADR 0023): the admin-gated queue behind the dashboard's Reports
 // tab, plus the proportionate punishment (a time-boxed chat mute) that sits below a
 // full account ban. All audited via writeAudit.
