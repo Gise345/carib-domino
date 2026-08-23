@@ -511,6 +511,146 @@ MonoBehaviour:
     m_Key: login_err_disabled
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000114
+    m_Key: room_cutthroat_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000115
+    m_Key: room_partner_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000116
+    m_Key: room_onelove_title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000117
+    m_Key: room_format
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000118
+    m_Key: room_clock_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000119
+    m_Key: fmt_classic_six_love
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000120
+    m_Key: fmt_quick_love
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000121
+    m_Key: fmt_classic_partner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000122
+    m_Key: fmt_quick_partner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000123
+    m_Key: room_rounds_to_win
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000124
+    m_Key: room_players
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000125
+    m_Key: room_seat_2
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000126
+    m_Key: room_seat_3
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000127
+    m_Key: room_seat_4
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000128
+    m_Key: room_seat_partners
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000129
+    m_Key: room_rewards
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000130
+    m_Key: room_entry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000131
+    m_Key: room_entry_each
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000132
+    m_Key: room_winner_takes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000133
+    m_Key: room_team_takes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000134
+    m_Key: room_your_share
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000135
+    m_Key: room_key_bonus
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000136
+    m_Key: room_your_team
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000137
+    m_Key: room_always_four
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000138
+    m_Key: room_partner_note
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000139
+    m_Key: seat_you
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000140
+    m_Key: seat_mate
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000141
+    m_Key: seat_foe
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000142
+    m_Key: room_start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000143
+    m_Key: room_find_match
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000144
+    m_Key: room_create
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000145
+    m_Key: room_have_code
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000146
+    m_Key: room_code_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000147
+    m_Key: room_join
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000148
+    m_Key: room_code_wrong_length
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Pose.Core;
 using Pose.Net;
 using TMPro;
@@ -29,8 +30,7 @@ namespace Pose.Game
         private static readonly Color InputBgColor = new(0.04f, 0.20f, 0.12f);
         private static readonly Color StatusErrorColor = new(1.0f, 0.55f, 0.45f);
         private static readonly Color HeaderColor = new(0.03f, 0.18f, 0.11f, 0.96f);
-        private static readonly Color SelectedTint = Color.white;
-        private static readonly Color UnselectedTint = new(0.5f, 0.5f, 0.5f, 1f);
+        private static readonly Color UnavailableTint = new(0.5f, 0.5f, 0.5f, 1f);
 
         private const float ButtonFontSize = 28f;
         private const float ButtonWidth = 440f;
@@ -39,6 +39,15 @@ namespace Pose.Game
         private const float CountryBarHeight = 88f;
         private const float SubHeaderHeight = 120f;
         private const float NavHeight = 196f;
+
+        /// <summary>Left/right inset of a room's body stack — see <see cref="RoomKit.Screen"/>.</summary>
+        private const float RoomBodyInset = 30f;
+
+        /// <summary>
+        /// Canvas width the rooms are designed against. Only used before the
+        /// canvas has laid out, when the real width is not yet known.
+        /// </summary>
+        private const float ReferenceScreenWidth = 800f;
 
         private const string BuildStamp = "build shell · tall header/nav · 3D cards";
 
@@ -119,11 +128,31 @@ namespace Pose.Game
         private int _selectedSize = 2;
         private GameMode _createMode = GameMode.CutThroat;
 
-        private readonly List<(GameObject go, MatchFormat fmt)> _formatButtons = new();
-        private readonly List<(GameObject go, int size)> _sizeButtons = new();
-        private readonly List<(GameObject go, GameMode mode)> _createModeButtons = new();
-        private GameObject? _friendsFormatRow;
-        private GameObject? _friendsSizeRow;
+        // The format is one preference across every room — a player who wants
+        // the short series should not have to say so on each screen.
+        private readonly List<(GameObject go, MatchFormat fmt)> _formatTiles = new();
+
+        // Table size is per-room: Cut Throat's pick is not the friends room's.
+        private readonly List<(GameObject go, (GameMode mode, int seats) choice)> _cutThroatSeats = new();
+        private readonly List<(GameObject go, (GameMode mode, int seats) choice)> _friendsSeats = new();
+        private int _friendsSeatCount = NetworkedMatch.MaxPlayers;
+
+        // Restated whenever a choice changes — rounds to win, and every number
+        // on a rewards board.
+        private readonly List<Action> _roomRefreshers = new();
+
+        // Art targets. BoardBootstrap hands the sprites over after these screens
+        // are built, so the rooms are assembled art-less and dressed afterwards.
+        private readonly List<GameObject> _classicTiles = new();
+        private readonly List<GameObject> _quickTiles = new();
+        private Image? _cutThroatHero;
+        private Image? _partnerHero;
+        private Image? _oneLoveHero;
+        private Image? _cutThroatBoard;
+        private Image? _partnerBoard;
+        private Image? _oneLoveBoard;
+        private RoomArt _roomArt = new();
+
         private TMP_InputField? _codeInput;
 
         private bool _busy;
@@ -206,6 +235,55 @@ namespace Pose.Game
             }
         }
 
+        /// <summary>
+        /// Hands the three game rooms their painted art — titles, format tiles
+        /// and the rewards board.
+        ///
+        /// Deferred like the logo and background: the rooms are built during
+        /// Awake and the sprites arrive afterwards from
+        /// <see cref="BoardBootstrap"/>, so this dresses screens that already
+        /// exist. Any field left null keeps that piece's lettered stand-in,
+        /// which is what lets the art land one file at a time.
+        /// </summary>
+        /// <param name="art">The art bundle; null clears back to the stand-ins.</param>
+        public void SetRoomArt(RoomArt? art)
+        {
+            _roomArt = art ?? new RoomArt();
+            ApplyRoomArt();
+        }
+
+        private void ApplyRoomArt()
+        {
+            // Rooms are laid out at the canvas width, inset by the body stack's
+            // own padding — the art has to be sized against the space it will
+            // actually occupy, not the whole screen.
+            float screenWidth = ((RectTransform)transform).rect.width;
+            if (screenWidth <= 0f)
+            {
+                screenWidth = ReferenceScreenWidth;
+            }
+            float bodyWidth = screenWidth - (RoomBodyInset * 2f);
+
+            RoomKit.SetHeroArt(_cutThroatHero, _roomArt.CutThroatTitle, screenWidth);
+            RoomKit.SetHeroArt(_partnerHero, _roomArt.PartnerTitle, screenWidth);
+            RoomKit.SetHeroArt(_oneLoveHero, _roomArt.OneLoveTitle, screenWidth);
+
+            // The tile row sits inside a card, so it loses the card's padding too.
+            float tileRowWidth = bodyWidth - (UiKit.CardPadding * 2f);
+            foreach (GameObject tile in _classicTiles)
+            {
+                RoomKit.SetTileArt(tile, _roomArt.ClassicTile, tileRowWidth);
+            }
+            foreach (GameObject tile in _quickTiles)
+            {
+                RoomKit.SetTileArt(tile, _roomArt.QuickTile, tileRowWidth);
+            }
+
+            RoomKit.SetBoardArt(_cutThroatBoard, _roomArt.RewardsBoard, bodyWidth);
+            RoomKit.SetBoardArt(_partnerBoard, _roomArt.RewardsBoard, bodyWidth);
+            RoomKit.SetBoardArt(_oneLoveBoard, _roomArt.RewardsBoard, bodyWidth);
+        }
+
         // Sets a block's background frame: the supplied wooden image (9-sliced so
         // the rivet end-caps stay crisp while the middle stretches) or the drawn
         // wood fallback.
@@ -281,9 +359,7 @@ namespace Pose.Game
             _countryPopup = BuildCountryPopup();
             _waitingOverlay = BuildWaitingOverlay();
 
-            RefreshFormatButtons();
-            RefreshSizeButtons();
-            RefreshCreateModeButtons();
+            RefreshRooms();
             ShowTab(Tab.Yard, _yardPanel);
             RefreshOwnAvatars();
         }
@@ -828,7 +904,12 @@ namespace Pose.Game
                 b.transform.SetParent(list.transform, worldPositionStays: false);
                 if (!c.Live)
                 {
-                    Tint(b, false);
+                    // A country we cannot seat yet reads as unavailable, not absent.
+                    Image? face = b.GetComponent<Image>();
+                    if (face != null)
+                    {
+                        face.color = UnavailableTint;
+                    }
                 }
             }
 
@@ -861,145 +942,337 @@ namespace Pose.Game
             }
         }
 
-        // ---- Mode screens --------------------------------------------------
+        // ---- Game rooms ----------------------------------------------------
+        //
+        // All three ask the same questions in the same order — what format, who
+        // is at the table, what it pays — so they are built from one set of
+        // pieces (RoomKit) and differ only where the modes genuinely differ.
+        // Partner is the exception to the order: its seat map explains the mode
+        // before there is anything to choose, so it comes first.
 
         private GameObject BuildCutThroatScreen()
         {
-            (GameObject screen, RectTransform body) = CreateFullScreen("CutThroatScreen", "Cut Throat Online");
-            FillStack(body);
+            (GameObject screen, RectTransform body) = CreateRoomScreen(
+                "CutThroatScreen", L10n.Get("room_cutthroat_title"), out Image hero);
+            _cutThroatHero = hero;
 
-            CreateSectionLabel(body, "GAME FORMAT");
-            GameObject fmtRow = CreateRow(body);
-            AddFormatButton(fmtRow.transform, "Classic 6 Love", MatchFormat.ClassicSixLove);
-            AddFormatButton(fmtRow.transform, "Quick Love", MatchFormat.QuickLove);
+            BuildFormatCard(body, L10n.Get("fmt_classic_six_love"), L10n.Get("fmt_quick_love"), showRounds: true);
+            BuildSeatCard(body, _cutThroatSeats, GameMode.CutThroat, partnerOption: false);
+            _cutThroatBoard = BuildRewardsBoard(body, GameMode.CutThroat);
 
-            CreateSectionLabel(body, "PLAYERS");
-            GameObject sizeRow = CreateRow(body);
-            for (int n = 2; n <= 4; n++)
-            {
-                AddSizeButton(sizeRow.transform, n);
-            }
-
-            CreateRewardsCard(body, "Winner takes all", "Winner takes the pot + 2,000 key bonus");
-            CreateSpacer(body);
-            CreateEntryRow(body);
-            CreateBigButton(body, "Start", () => StartOnline(GameMode.CutThroat, _selectedSize, _selectedFormat));
+            UiKit.PrimaryButton(body, L10n.Get("room_start"),
+                () => StartOnline(GameMode.CutThroat, _selectedSize, _selectedFormat));
+            UiKit.Spring(body);
             return screen;
         }
 
         private GameObject BuildPartnerScreen()
         {
-            (GameObject screen, RectTransform body) = CreateFullScreen("PartnerScreen", "Partner");
-            FillStack(body);
+            (GameObject screen, RectTransform body) = CreateRoomScreen(
+                "PartnerScreen", L10n.Get("room_partner_title"), out Image hero);
+            _partnerHero = hero;
 
-            CreateSectionLabel(body, "RANDOM 2 v 2 · 4 PLAYERS");
-            CreatePartnerPieces(body);
-            CreateRewardsCard(body, "Winning team takes all", "The pot + key bonus, split with your partner");
-            CreateSpacer(body);
-            CreateEntryRow(body);
-            CreateBigButton(body, "Find Match",
-                () => StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers, MatchFormat.ClassicSixLove));
+            // The diagram is the explanation: that your partner sits opposite is
+            // the whole rule, and it lands faster drawn than written.
+            RectTransform team = UiKit.Card(
+                body, L10n.Get("room_your_team"), L10n.Get("room_always_four"));
+            BuildPartnerSeatMap(team);
+            UiKit.Label(team, L10n.Get("room_partner_note"), 21f, UiKit.Muted, TextAlignmentOptions.MidlineLeft);
+
+            BuildFormatCard(body, L10n.Get("fmt_classic_partner"), L10n.Get("fmt_quick_partner"), showRounds: false);
+            _partnerBoard = BuildRewardsBoard(body, GameMode.Partner);
+
+            UiKit.PrimaryButton(body, L10n.Get("room_find_match"),
+                () => StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
+            UiKit.Spring(body);
             return screen;
         }
 
         private GameObject BuildFriendsRoomScreen()
         {
-            (GameObject screen, RectTransform body) = CreateFullScreen("FriendsRoomScreen", "One-Love With Friends");
-            FillStack(body);
+            (GameObject screen, RectTransform body) = CreateRoomScreen(
+                "FriendsRoomScreen", L10n.Get("room_onelove_title"), out Image hero);
+            _oneLoveHero = hero;
 
-            CreateSectionLabel(body, "CREATE A ROOM");
-            GameObject modeRow = CreateRow(body);
-            AddCreateModeButton(modeRow.transform, "Cut-Throat", GameMode.CutThroat);
-            AddCreateModeButton(modeRow.transform, "Partner", GameMode.Partner);
+            BuildFormatCard(body, L10n.Get("fmt_classic_six_love"), L10n.Get("fmt_quick_love"), showRounds: true);
 
-            _friendsFormatRow = CreateRow(body);
-            AddFormatButton(_friendsFormatRow.transform, "Classic 6 Love", MatchFormat.ClassicSixLove);
-            AddFormatButton(_friendsFormatRow.transform, "Quick Love", MatchFormat.QuickLove);
+            // Same shape as Cut Throat, with one extra seating: a friends room
+            // is the only place you can arrange a 2 v 2, so the partner table
+            // lives here as a table shape rather than a separate mode switch.
+            BuildSeatCard(body, _friendsSeats, GameMode.CutThroat, partnerOption: true);
+            _oneLoveBoard = BuildRewardsBoard(body, GameMode.CutThroat, friendsRoom: true);
 
-            _friendsSizeRow = CreateRow(body);
-            for (int n = 2; n <= 4; n++)
-            {
-                AddSizeButton(_friendsSizeRow.transform, n);
-            }
+            UiKit.PrimaryButton(body, L10n.Get("room_create"), OnCreateRoomClicked);
 
-            CreateRewardsCard(body, "Winner takes all", "Beat your friends to win big!");
-            CreateSpacer(body);
-            CreateEntryRow(body);
-            CreateBigButton(body, "Create", OnCreateRoomClicked);
-
-            CreateSectionLabel(body, "HAVE A TABLE CODE?");
-            GameObject joinRow = CreateJoinRow(body);
-            joinRow.transform.SetParent(body, worldPositionStays: false);
+            RectTransform join = UiKit.Card(body, L10n.Get("room_have_code"));
+            BuildJoinRow(join);
+            UiKit.Spring(body);
             return screen;
         }
 
-        private void CreateSpacer(Transform parent)
-        {
-            GameObject go = CreateChild(parent, "Spacer");
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.flexibleHeight = 1f;
-            le.preferredHeight = 8f;
-        }
+        // ---- Room pieces ---------------------------------------------------
 
-        private void CreateEntryRow(Transform parent)
+        /// <summary>
+        /// A room's shell: the felt ground, the title art across the top with the
+        /// back ring over it, and an empty body stack. Registered as an overlay
+        /// so the Yard's back navigation already knows about it.
+        /// </summary>
+        private (GameObject screen, RectTransform body) CreateRoomScreen(
+            string name, string fallbackTitle, out Image hero)
         {
-            GameObject go = CreateChild(parent, "Entry");
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = 320f;
-            le.preferredHeight = 56f;
-            Image bg = go.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.4f), new Color(0f, 0f, 0f, 0.25f));
+            GameObject screen = CreateChild(transform, name);
+            StretchFull((RectTransform)screen.transform);
+            Image bg = screen.AddComponent<Image>();
+            bg.sprite = GradientSprite.Vertical(Hex("#0A3D22"), Hex("#062A17"), Hex("#04160C"));
             bg.color = Color.white;
-            AddIconAt(go.transform, IconFactory.Coin(), 32f, Hex("#FFD24A"), new Vector2(20f, 0f), TextAnchor.MiddleLeft);
-            AddLabel(go.transform, "Entry: 1,000", 28f, CodeTextColor, TextAlignmentOptions.Center);
+            bg.raycastTarget = true;
+
+            (Image titleArt, RectTransform body) = RoomKit.Screen(
+                (RectTransform)screen.transform, fallbackTitle, HideOverlays);
+            hero = titleArt;
+
+            screen.SetActive(false);
+            _overlays.Add(screen);
+            return (screen, body);
         }
 
-        private void CreateBigButton(Transform parent, string label, Action onClick)
+        /// <summary>
+        /// The format choice, made by picture. Both rooms that offer a choice
+        /// share <see cref="_selectedFormat"/>, so a player who prefers the
+        /// short series does not have to say so twice.
+        /// </summary>
+        private void BuildFormatCard(RectTransform body, string classicLabel, string quickLabel, bool showRounds)
         {
-            GameObject go = CreateButton(label, onClick);
-            go.transform.SetParent(parent, worldPositionStays: false);
-            LayoutElement le = go.GetComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth + 60f;
-            le.preferredHeight = 116f;
-            TextMeshProUGUI? tmp = go.GetComponentInChildren<TextMeshProUGUI>();
-            if (tmp != null)
+            RectTransform card = UiKit.Card(
+                body, L10n.Get("room_format"), L10n.Get("room_clock_fmt", (int)TurnTimer.ExpireAfterSeconds));
+
+            RectTransform row = RoomKit.TileRow(card);
+            GameObject classic = RoomKit.Tile(row, classicLabel, () => ChooseFormat(MatchFormat.ClassicSixLove));
+            GameObject quick = RoomKit.Tile(row, quickLabel, () => ChooseFormat(MatchFormat.QuickLove));
+            _formatTiles.Add((classic, MatchFormat.ClassicSixLove));
+            _formatTiles.Add((quick, MatchFormat.QuickLove));
+            _classicTiles.Add(classic);
+            _quickTiles.Add(quick);
+
+            if (showRounds)
             {
-                tmp.fontSize = 40f;
-            }
-            Image? img = go.GetComponent<Image>();
-            if (img != null)
-            {
-                img.sprite = GradientSprite.RoundedDiagonal(0.28f, Hex("#4CD964"), Hex("#1FA845"));
-                img.color = Color.white;
+                TextMeshProUGUI rounds = UiKit.Row(card, L10n.Get("room_rounds_to_win"), string.Empty);
+                _roomRefreshers.Add(() =>
+                    rounds.text = MatchFormatRules.For(_selectedFormat).Loves.ToString(CultureInfo.CurrentCulture));
             }
         }
 
-        private void CreatePartnerPieces(Transform parent)
+        /// <summary>
+        /// How many people are at the table, counted in heads rather than read as
+        /// a digit.
+        /// </summary>
+        private void BuildSeatCard(
+            RectTransform body,
+            List<(GameObject go, (GameMode mode, int seats) choice)> options,
+            GameMode mode,
+            bool partnerOption)
         {
-            GameObject row = CreateChild(parent, "Pieces");
-            LayoutElement le = row.AddComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth;
-            le.preferredHeight = 90f;
-            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.spacing = 20f;
-            hlg.childControlWidth = true;
-            hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false;
-            hlg.childForceExpandHeight = false;
-            string[] colors = { "#3B7DFF", "#FF4D4D", "#3BD16F", "#FFD23B" };
-            foreach (string c in colors)
+            RectTransform card = UiKit.Card(body, L10n.Get("room_players"));
+            RectTransform row = RoomKit.SeatRow(card);
+
+            for (int n = Stakes.MinSeats; n <= Stakes.MaxSeats; n++)
             {
-                GameObject piece = CreateChild(row.transform, "Piece");
-                LayoutElement ple = piece.AddComponent<LayoutElement>();
-                ple.preferredWidth = 70f;
-                ple.preferredHeight = 80f;
-                Image img = piece.AddComponent<Image>();
-                img.sprite = GradientSprite.RoundedDiagonal(0.5f, Hex(c), new Color(0f, 0f, 0f, 0.4f));
-                img.color = Color.white;
-                img.raycastTarget = false;
+                int seats = n;
+                GameObject go = RoomKit.SeatOption(
+                    row, seats, L10n.Get($"room_seat_{seats}"), () => ChooseSeats(options, mode, seats));
+                options.Add((go, (mode, seats)));
+            }
+
+            if (partnerOption)
+            {
+                GameObject go = RoomKit.SeatOption(
+                    row,
+                    NetworkedMatch.MaxPlayers,
+                    L10n.Get("room_seat_partners"),
+                    () => ChooseSeats(options, GameMode.Partner, NetworkedMatch.MaxPlayers));
+                options.Add((go, (GameMode.Partner, NetworkedMatch.MaxPlayers)));
             }
         }
+
+        /// <summary>
+        /// The stake, carved into the rewards board. Which lines a room shows
+        /// depends on whether the win is shared: a Partner table states the
+        /// team's take and then each partner's half, because "4,000" alone would
+        /// overstate what one player receives.
+        /// </summary>
+        private Image BuildRewardsBoard(RectTransform body, GameMode mode, bool friendsRoom = false)
+        {
+            (Image board, RectTransform rows) = RoomKit.Board(body, L10n.Get("room_rewards"));
+
+            bool team = mode == GameMode.Partner;
+            (_, TextMeshProUGUI entry) = RoomKit.BoardRow(
+                rows, L10n.Get(team || friendsRoom ? "room_entry_each" : "room_entry"));
+            (_, TextMeshProUGUI take) = RoomKit.BoardRow(
+                rows, L10n.Get(team ? "room_team_takes" : "room_winner_takes"));
+            (_, TextMeshProUGUI extra) = RoomKit.BoardRow(
+                rows, L10n.Get(team ? "room_your_share" : "room_key_bonus"));
+
+            _roomRefreshers.Add(() =>
+            {
+                RoomSummary s = SummaryFor(mode, friendsRoom);
+                entry.text = Coins(s.Entry);
+                take.text = Coins(s.WinningSideTakes);
+                extra.text = team ? Coins(s.ShareEach) : "+" + Coins(s.KeyBonus);
+            });
+            return board;
+        }
+
+        /// <summary>
+        /// The seat diagram: partners opposite, opponents on the flanks. Drawn
+        /// from the same <see cref="SeatArrangement"/> the table itself uses, so
+        /// the preview cannot promise a seat the deal will not give.
+        /// </summary>
+        private void BuildPartnerSeatMap(RectTransform card)
+        {
+            GameObject grid = UiKit.Child(card, "SeatMap");
+            grid.AddComponent<LayoutElement>().preferredHeight = 240f;
+
+            SeatPosition[] seats = SeatArrangement.Arrange(NetworkedMatch.MaxPlayers, localIndex: 0);
+            for (int i = 0; i < seats.Length; i++)
+            {
+                // Seat 0 is the local player; in a 2 v 2 the partner is two
+                // seats around, which is what puts them opposite.
+                bool isSelf = i == 0;
+                bool isMate = i == 2;
+                Color tint = isSelf ? UiKit.Brass : isMate ? UiKit.Success : UiKit.Danger;
+                string label = L10n.Get(isSelf ? "seat_you" : isMate ? "seat_mate" : "seat_foe");
+                AddSeatDot(grid.transform, seats[i], label, tint);
+            }
+        }
+
+        private void AddSeatDot(Transform parent, SeatPosition position, string label, Color tint)
+        {
+            (float x, float y) = position switch
+            {
+                SeatPosition.Bottom => (0.5f, 0.14f),
+                SeatPosition.Top => (0.5f, 0.86f),
+                SeatPosition.Left => (0.18f, 0.5f),
+                _ => (0.82f, 0.5f),
+            };
+
+            GameObject dot = UiKit.Child(parent, $"Seat_{position}");
+            RectTransform rt = (RectTransform)dot.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(x, y);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(96f, 96f);
+
+            Image ring = dot.AddComponent<Image>();
+            ring.sprite = IconFactory.Ring();
+            ring.color = tint;
+            ring.raycastTarget = false;
+
+            TextMeshProUGUI t = UiKit.Label(dot.transform, label, 19f, tint, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold;
+            UiKit.Stretch((RectTransform)t.transform);
+            t.raycastTarget = false;
+        }
+
+        /// <summary>The code field and its Join button, for a friends table.</summary>
+        private void BuildJoinRow(RectTransform card)
+        {
+            GameObject row = UiKit.Child(card, "JoinRow");
+            row.AddComponent<LayoutElement>().preferredHeight = 84f;
+            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
+            h.spacing = 14f;
+            h.childAlignment = TextAnchor.MiddleLeft;
+            h.childControlWidth = true;
+            h.childControlHeight = true;
+            h.childForceExpandWidth = true;
+            h.childForceExpandHeight = true;
+
+            GameObject inputGo = UiKit.Child(row.transform, "CodeInput");
+            inputGo.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            Image inputBg = inputGo.AddComponent<Image>();
+            inputBg.sprite = GradientSprite.RoundedDiagonal(0.2f, Color.white, Color.white);
+            inputBg.type = Image.Type.Sliced;
+            inputBg.color = InputBgColor;
+
+            _codeInput = inputGo.AddComponent<TMP_InputField>();
+            _codeInput.targetGraphic = inputBg;
+            _codeInput.characterLimit = RoomCodeGenerator.CodeLength;
+            _codeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
+
+            GameObject textArea = UiKit.Child(inputGo.transform, "TextArea");
+            RectTransform taRt = (RectTransform)textArea.transform;
+            UiKit.Stretch(taRt, left: 16f, right: 16f, inset: 4f);
+            textArea.AddComponent<RectMask2D>();
+
+            GameObject textGo = UiKit.Child(textArea.transform, "Text");
+            StretchFull((RectTransform)textGo.transform);
+            TextMeshProUGUI textTmp = textGo.AddComponent<TextMeshProUGUI>();
+            textTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            textTmp.fontSize = 26f;
+            textTmp.color = UiKit.Bone;
+
+            GameObject ph = UiKit.Child(textArea.transform, "Placeholder");
+            StretchFull((RectTransform)ph.transform);
+            TextMeshProUGUI phTmp = ph.AddComponent<TextMeshProUGUI>();
+            phTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            phTmp.fontSize = 26f;
+            phTmp.color = UiKit.Muted;
+            phTmp.text = L10n.Get("room_code_placeholder");
+
+            _codeInput.textViewport = taRt;
+            _codeInput.textComponent = textTmp;
+            _codeInput.placeholder = phTmp;
+
+            GameObject join = UiKit.GhostButton((RectTransform)row.transform, L10n.Get("room_join"), OnSubmitJoinClicked);
+            LayoutElement joinLe = join.GetComponent<LayoutElement>();
+            joinLe.preferredWidth = 150f;
+            joinLe.flexibleWidth = 0f;
+        }
+
+        // ---- Room selection -------------------------------------------------
+
+        private void ChooseFormat(MatchFormat format)
+        {
+            _selectedFormat = format;
+            RefreshRooms();
+        }
+
+        private void ChooseSeats(
+            List<(GameObject go, (GameMode mode, int seats) choice)> options, GameMode mode, int seats)
+        {
+            if (ReferenceEquals(options, _friendsSeats))
+            {
+                _createMode = mode;
+                _friendsSeatCount = seats;
+            }
+            else
+            {
+                _selectedSize = seats;
+            }
+            RefreshRooms();
+        }
+
+        /// <summary>
+        /// Restates every room's choices and every number that follows from
+        /// them. Cheap enough to run on any tap: three rooms, a handful of
+        /// tints, and one summary per board.
+        /// </summary>
+        private void RefreshRooms()
+        {
+            RoomKit.Refresh(_formatTiles, _selectedFormat);
+            RoomKit.Refresh(_cutThroatSeats, (GameMode.CutThroat, _selectedSize));
+            RoomKit.Refresh(_friendsSeats, (_createMode, _friendsSeatCount));
+
+            foreach (Action refresh in _roomRefreshers)
+            {
+                refresh();
+            }
+        }
+
+        /// <summary>The numbers a room states, for the choices currently made in it.</summary>
+        private RoomSummary SummaryFor(GameMode mode, bool friendsRoom) => friendsRoom
+            ? RoomSummary.For(_createMode, _friendsSeatCount, _selectedFormat)
+            : RoomSummary.For(mode, _selectedSize, _selectedFormat);
+
+        private static string Coins(int amount) => amount.ToString("N0", CultureInfo.CurrentCulture);
 
         private void OnCreateRoomClicked()
         {
@@ -1007,14 +1280,8 @@ namespace Pose.Game
             {
                 return;
             }
-            if (_createMode == GameMode.Partner)
-            {
-                StartCreate(NetworkedMatch.MaxPlayers, GameMode.Partner, MatchFormat.ClassicSixLove);
-            }
-            else
-            {
-                StartCreate(_selectedSize, GameMode.CutThroat, _selectedFormat);
-            }
+
+            StartCreate(_friendsSeatCount, _createMode, _selectedFormat);
         }
 
         // ---- Placeholder tab panels ---------------------------------------
@@ -1923,19 +2190,6 @@ namespace Pose.Game
 
         // A vertical stack that fills the body with generous spacing (fills the
         // screen rather than clumping in the middle).
-        private VerticalLayoutGroup FillStack(RectTransform body)
-        {
-            VerticalLayoutGroup vlg = body.gameObject.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.UpperCenter;
-            vlg.spacing = 26f;
-            vlg.padding = new RectOffset(10, 10, 10, 10);
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = true;
-            vlg.childForceExpandWidth = false;
-            vlg.childForceExpandHeight = false;
-            return vlg;
-        }
-
         // ---- Matchmaking (preserved) --------------------------------------
 
         private async void StartOnline(GameMode mode, int size, MatchFormat format)
@@ -1987,9 +2241,9 @@ namespace Pose.Game
                 return;
             }
             string code = (_codeInput?.text ?? string.Empty).Trim().ToUpperInvariant();
-            if (code.Length != 6)
+            if (code.Length != RoomCodeGenerator.CodeLength)
             {
-                EnterWaitingState("Enter a 6-character room code.");
+                EnterWaitingState(L10n.Get("room_code_wrong_length", RoomCodeGenerator.CodeLength));
                 _busy = false;
                 return;
             }
@@ -2050,70 +2304,6 @@ namespace Pose.Game
         }
 
         // ---- Selection toggles --------------------------------------------
-
-        private void AddFormatButton(Transform parent, string label, MatchFormat fmt)
-        {
-            GameObject go = CreateButton(label, () => { _selectedFormat = fmt; RefreshFormatButtons(); });
-            go.transform.SetParent(parent, worldPositionStays: false);
-            go.GetComponent<LayoutElement>().preferredWidth = 210f;
-            _formatButtons.Add((go, fmt));
-        }
-
-        private void AddSizeButton(Transform parent, int size)
-        {
-            GameObject go = CreateButton($"{size}P", () => { _selectedSize = size; RefreshSizeButtons(); });
-            go.transform.SetParent(parent, worldPositionStays: false);
-            go.GetComponent<LayoutElement>().preferredWidth = 120f;
-            _sizeButtons.Add((go, size));
-        }
-
-        private void AddCreateModeButton(Transform parent, string label, GameMode mode)
-        {
-            GameObject go = CreateButton(label, () =>
-            {
-                _createMode = mode;
-                RefreshCreateModeButtons();
-                bool cutThroat = mode == GameMode.CutThroat;
-                _friendsFormatRow?.SetActive(cutThroat);
-                _friendsSizeRow?.SetActive(cutThroat);
-            });
-            go.transform.SetParent(parent, worldPositionStays: false);
-            go.GetComponent<LayoutElement>().preferredWidth = 210f;
-            _createModeButtons.Add((go, mode));
-        }
-
-        private void RefreshFormatButtons()
-        {
-            foreach ((GameObject go, MatchFormat fmt) in _formatButtons)
-            {
-                Tint(go, fmt == _selectedFormat);
-            }
-        }
-
-        private void RefreshSizeButtons()
-        {
-            foreach ((GameObject go, int size) in _sizeButtons)
-            {
-                Tint(go, size == _selectedSize);
-            }
-        }
-
-        private void RefreshCreateModeButtons()
-        {
-            foreach ((GameObject go, GameMode mode) in _createModeButtons)
-            {
-                Tint(go, mode == _createMode);
-            }
-        }
-
-        private static void Tint(GameObject go, bool selected)
-        {
-            Image? img = go.GetComponent<Image>();
-            if (img != null)
-            {
-                img.color = selected ? SelectedTint : UnselectedTint;
-            }
-        }
 
         // ---- Waiting overlay ----------------------------------------------
 
@@ -2184,108 +2374,6 @@ namespace Pose.Game
             vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
             return col;
-        }
-
-        private GameObject CreateRow(Transform parent)
-        {
-            GameObject row = CreateChild(parent, "Row");
-            HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
-            hlg.childAlignment = TextAnchor.MiddleCenter;
-            hlg.spacing = 12f;
-            hlg.childControlWidth = true;
-            hlg.childControlHeight = true;
-            hlg.childForceExpandWidth = false;
-            hlg.childForceExpandHeight = false;
-            LayoutElement le = row.AddComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth;
-            le.preferredHeight = ButtonHeight;
-            return row;
-        }
-
-        private void CreateSectionLabel(Transform parent, string text)
-        {
-            GameObject go = CreateChild(parent, "Section");
-            LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth;
-            le.preferredHeight = 30f;
-            TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 20f;
-            tmp.fontStyle = FontStyles.Bold;
-            tmp.color = new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.8f);
-            tmp.characterSpacing = 6f;
-            tmp.text = text;
-            tmp.raycastTarget = false;
-        }
-
-        private void CreateRewardsCard(Transform parent, string headline, string subline)
-        {
-            GameObject card = CreateChild(parent, "Rewards");
-            LayoutElement le = card.AddComponent<LayoutElement>();
-            le.preferredWidth = ButtonWidth + 60f;
-            le.preferredHeight = 210f;
-            Image bg = card.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.12f, new Color(0.10f, 0.42f, 0.26f), new Color(0.03f, 0.16f, 0.10f));
-            bg.color = Color.white;
-            AddShadow(card, new Color(0f, 0f, 0f, 0.45f), new Vector2(0f, -4f));
-
-            GameObject text = CreateChild(card.transform, "Text");
-            StretchFull((RectTransform)text.transform);
-            ((RectTransform)text.transform).offsetMin = new Vector2(20f, 16f);
-            ((RectTransform)text.transform).offsetMax = new Vector2(-20f, -16f);
-            TextMeshProUGUI tmp = text.AddComponent<TextMeshProUGUI>();
-            tmp.alignment = TextAlignmentOptions.Center;
-            tmp.fontSize = 26f;
-            tmp.color = BodyTextColor;
-            tmp.text = $"<size=34><b><color=#FFD54A>Rewards</color></b></size>\n\n<size=40><b>{headline}</b></size>\n<size=24>{subline}</size>";
-            tmp.raycastTarget = false;
-        }
-
-        private GameObject CreateJoinRow(Transform parent)
-        {
-            GameObject row = CreateRow(parent);
-            GameObject inputGo = CreateChild(row.transform, "CodeInput");
-            LayoutElement inputLe = inputGo.AddComponent<LayoutElement>();
-            inputLe.preferredWidth = 280f;
-            inputLe.preferredHeight = ButtonHeight;
-            Image inputBg = inputGo.AddComponent<Image>();
-            inputBg.color = InputBgColor;
-            _codeInput = inputGo.AddComponent<TMP_InputField>();
-            _codeInput.targetGraphic = inputBg;
-            _codeInput.characterLimit = 6;
-            _codeInput.contentType = TMP_InputField.ContentType.Alphanumeric;
-
-            GameObject textArea = CreateChild(inputGo.transform, "TextArea");
-            RectTransform taRt = (RectTransform)textArea.transform;
-            taRt.anchorMin = Vector2.zero;
-            taRt.anchorMax = Vector2.one;
-            taRt.offsetMin = new Vector2(12f, 4f);
-            taRt.offsetMax = new Vector2(-12f, -4f);
-            textArea.AddComponent<RectMask2D>();
-
-            GameObject textGo = CreateChild(textArea.transform, "Text");
-            StretchFull((RectTransform)textGo.transform);
-            TextMeshProUGUI textTmp = textGo.AddComponent<TextMeshProUGUI>();
-            textTmp.alignment = TextAlignmentOptions.MidlineLeft;
-            textTmp.fontSize = ButtonFontSize;
-            textTmp.color = BodyTextColor;
-
-            GameObject ph = CreateChild(textArea.transform, "Placeholder");
-            StretchFull((RectTransform)ph.transform);
-            TextMeshProUGUI phTmp = ph.AddComponent<TextMeshProUGUI>();
-            phTmp.alignment = TextAlignmentOptions.MidlineLeft;
-            phTmp.fontSize = ButtonFontSize;
-            phTmp.color = new Color(BodyTextColor.r, BodyTextColor.g, BodyTextColor.b, 0.4f);
-            phTmp.text = "Room code";
-
-            _codeInput.textViewport = taRt;
-            _codeInput.textComponent = textTmp;
-            _codeInput.placeholder = phTmp;
-
-            GameObject join = CreateButton("Join", OnSubmitJoinClicked);
-            join.transform.SetParent(row.transform, worldPositionStays: false);
-            join.GetComponent<LayoutElement>().preferredWidth = 148f;
-            return row;
         }
 
         private GameObject CreateButton(string label, Action onClick)

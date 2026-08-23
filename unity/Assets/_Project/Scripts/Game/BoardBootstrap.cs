@@ -358,6 +358,13 @@ namespace Pose.Game
         private Sprite? _modeButtonSprite;
 
         [SerializeField]
+        [Tooltip("Painted art for the three game rooms — titles, format tiles " +
+                 "and the rewards board. Every field is optional: a missing " +
+                 "sprite draws a lettered stand-in, so art can land one file " +
+                 "at a time. Supply transparent PNGs trimmed to their own bounds.")]
+        private RoomArt _roomArt = new();
+
+        [SerializeField]
         [Tooltip("Optional cursive TMP font asset for the 'Welcome to the Yard' " +
                  "lobby title. Create it from a cursive .ttf/.otf via " +
                  "Window > TextMeshPro > Font Asset Creator, then assign here.")]
@@ -421,6 +428,7 @@ namespace Pose.Game
             _lobbyView = go.AddComponent<LobbyView>();
             _lobbyView.SetLogoSprite(_logoSprite);
             _lobbyView.SetModeButtonSprite(_modeButtonSprite);
+            _lobbyView.SetRoomArt(_roomArt);
             _lobbyView.SetTitleFont(_titleFont);
             _lobbyView.SetBackgroundSprite(_lobbyBackgroundSprite);
             _lobbyView.PracticeChosen += OnPracticeChosen;

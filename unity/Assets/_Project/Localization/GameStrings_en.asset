@@ -518,6 +518,146 @@ MonoBehaviour:
     m_Localized: "That account has been disabled."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000114
+    m_Localized: "Cut Throat Online"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000115
+    m_Localized: "Partner"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000116
+    m_Localized: "One Love With Friends"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000117
+    m_Localized: "Format"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000118
+    m_Localized: "{0}s clock"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000119
+    m_Localized: "Classic 6 Love"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000120
+    m_Localized: "Quick Love"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000121
+    m_Localized: "Classic Partner"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000122
+    m_Localized: "Quick Partner"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000123
+    m_Localized: "Rounds to win"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000124
+    m_Localized: "Players"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000125
+    m_Localized: "head to head"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000126
+    m_Localized: "three-hand"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000127
+    m_Localized: "full table"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000128
+    m_Localized: "2 v 2 partners"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000129
+    m_Localized: "Rewards"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000130
+    m_Localized: "Entry"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000131
+    m_Localized: "Entry, each"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000132
+    m_Localized: "Winner takes"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000133
+    m_Localized: "Team takes"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000134
+    m_Localized: "Your share"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000135
+    m_Localized: "Key bonus"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000136
+    m_Localized: "Your team"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000137
+    m_Localized: "Always 4"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000138
+    m_Localized: "Your partner sits opposite. You score together."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000139
+    m_Localized: "You"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000140
+    m_Localized: "Mate"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000141
+    m_Localized: "Foe"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000142
+    m_Localized: "Start"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000143
+    m_Localized: "Find Match"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000144
+    m_Localized: "Create"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000145
+    m_Localized: "Have a table code?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000146
+    m_Localized: "Enter a table code"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000147
+    m_Localized: "Join"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000148
+    m_Localized: "Enter a {0}-character table code."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -14,7 +14,8 @@ namespace Pose.Game
     {
         // 24 letters (A-Z minus O, I) + 8 digits (2-9) = 32 symbols.
         private const string Alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        private const int CodeLength = 6;
+        /// <summary>Characters in a room code — also what the lobby's join field accepts.</summary>
+        public const int CodeLength = 6;
 
         // System.Random instead of UnityEngine.Random so this stays
         // pure C# (no UnityEngine dep), reusable from tests if needed.
