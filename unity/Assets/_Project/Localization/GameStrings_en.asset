@@ -838,6 +838,58 @@ MonoBehaviour:
     m_Localized: "Partner"
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000245
+    m_Localized: "Winner takes all"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000246
+    m_Localized: "Team takes all"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000247
+    m_Localized: "Winner takes {0} + {1} key bonus"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000248
+    m_Localized: "Your team takes {0} — {1} each"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000249
+    m_Localized: "Entry {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000250
+    m_Localized: "Entry {0} each"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000251
+    m_Localized: "Promo code"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000252
+    m_Localized: "Enter code"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000253
+    m_Localized: "Redeem"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000254
+    m_Localized: "Redeeming…"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000255
+    m_Localized: "+{0} coins added!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000256
+    m_Localized: "Enter a code."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000257
+    m_Localized: "Couldn't redeem that code."
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

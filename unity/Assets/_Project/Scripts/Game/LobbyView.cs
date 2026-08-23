@@ -32,6 +32,9 @@ namespace Pose.Game
         private static readonly Color HeaderColor = new(0.03f, 0.18f, 0.11f, 0.96f);
         private static readonly Color UnavailableTint = new(0.5f, 0.5f, 0.5f, 1f);
 
+        /// <summary>Quiet ink for the board's smallest line.</summary>
+        private static readonly Color BoardMuted = new(0.902f, 0.855f, 0.741f);
+
         private const float ButtonFontSize = 28f;
         private const float ButtonWidth = 440f;
         private const float ButtonHeight = 84f;
@@ -1022,7 +1025,6 @@ namespace Pose.Game
             // The first question, because the rest of the screen depends on it:
             // a Partner table has no size to pick and pays out to a side, not a
             // player, so the two rooms are built separately and swapped.
-            RoomKit.Caption(body, L10n.Get("room_table_type"));
             RectTransform modeRow = RoomKit.ChoiceRow(body);
             _friendsModes.Add((
                 RoomKit.WordOption(modeRow, L10n.Get("mode_cutthroat"),
@@ -1089,7 +1091,6 @@ namespace Pose.Game
         /// </summary>
         private void BuildFormatChoice(RectTransform parent, bool cutThroat)
         {
-            RoomKit.Caption(parent, L10n.Get("room_game_format"));
             RectTransform row = RoomKit.ChoiceRow(parent);
 
             GameObject classic = RoomKit.Tile(
@@ -1134,19 +1135,22 @@ namespace Pose.Game
             (Image board, RectTransform rows) = RoomKit.Board(parent, L10n.Get("room_rewards"));
 
             bool team = mode == GameMode.Partner;
-            (_, TextMeshProUGUI entry) = RoomKit.BoardRow(
-                rows, L10n.Get(team ? "room_entry_each" : "room_entry"));
-            (_, TextMeshProUGUI take) = RoomKit.BoardRow(
-                rows, L10n.Get(team ? "room_team_takes" : "room_winner_takes"));
-            (_, TextMeshProUGUI extra) = RoomKit.BoardRow(
-                rows, L10n.Get(team ? "room_your_share" : "room_key_bonus"));
+            TextMeshProUGUI headline = RoomKit.BoardHeadline(rows, _titleFont);
+            headline.text = L10n.Get(team ? "room_headline_team" : "room_headline_winner");
+            TextMeshProUGUI takes = RoomKit.BoardLine(rows);
+            TextMeshProUGUI entry = RoomKit.BoardLine(rows);
+            entry.fontSize = 21f;
+            entry.color = new Color(BoardMuted.r, BoardMuted.g, BoardMuted.b, 0.85f);
 
             _roomRefreshers.Add(() =>
             {
                 RoomSummary s = summary();
-                entry.text = Coins(s.Entry);
-                take.text = Coins(s.WinningSideTakes);
-                extra.text = team ? Coins(s.ShareEach) : "+" + Coins(s.KeyBonus);
+                takes.text = team
+                    ? L10n.Get("room_team_takes_fmt",
+                        RoomKit.Lit(Coins(s.WinningSideTakes)), RoomKit.Lit(Coins(s.ShareEach)))
+                    : L10n.Get("room_winner_takes_fmt",
+                        RoomKit.Lit(Coins(s.WinningSideTakes)), RoomKit.Lit(Coins(s.KeyBonus)));
+                entry.text = L10n.Get(team ? "room_entry_each_fmt" : "room_entry_fmt", Coins(s.Entry));
             });
             return board;
         }

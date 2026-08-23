@@ -49,8 +49,8 @@ namespace Pose.Game
         // colliding with the painted flowers at lower-left or the treasure
         // chest, which starts about 69% across. Measured off the supplied art,
         // trimmed to its own bounds.
-        private const float PlankLeft = 0.23f;
-        private const float PlankRight = 0.29f;
+        private const float PlankLeft = 0.09f;
+        private const float PlankRight = 0.25f;
         private const float PlankTop = 0.28f;
         private const float PlankBottom = 0.17f;
         private const float PlankCaptionTop = 0.10f;
@@ -272,9 +272,9 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// The shell every choice shares: a rounded box, a lit ring that only the
-        /// chosen one wears, and a tick in its corner. The tick matters — it
-        /// means the choice is carried by a shape as well as by colour.
+        /// The shell every choice shares: a rounded box, and a lit ring that only
+        /// the chosen one wears. The ring is the signal — a shape, not just a
+        /// colour, and nothing else is added on top of it.
         /// </summary>
         /// <param name="row">The row from <see cref="ChoiceRow"/>.</param>
         /// <param name="name">Name for the object, for debugging.</param>
@@ -293,38 +293,23 @@ namespace Pose.Game
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
 
-            // Behind the content and outside the box, so it blooms outward
-            // rather than washing over what it is marking.
+            // Traces the box itself, just outside it. It must sit OUT of the
+            // layout: the box lays its content out in a vertical group, and a
+            // ring left in that flow is treated as one more row and stretched
+            // into a solid block.
             GameObject glow = UiKit.Child(go.transform, "Glow");
+            glow.AddComponent<LayoutElement>().ignoreLayout = true;
             RectTransform grt = (RectTransform)glow.transform;
             grt.anchorMin = Vector2.zero;
             grt.anchorMax = Vector2.one;
-            grt.offsetMin = new Vector2(-14f, -14f);
-            grt.offsetMax = new Vector2(14f, 14f);
+            grt.offsetMin = new Vector2(-10f, -10f);
+            grt.offsetMax = new Vector2(10f, 10f);
             Image glowImg = glow.AddComponent<Image>();
             glowImg.sprite = Glow();
             glowImg.type = Image.Type.Sliced;
             glowImg.color = Color.white;
             glowImg.raycastTarget = false;
             glow.SetActive(false);
-
-            GameObject tick = UiKit.Child(go.transform, "Tick");
-            RectTransform trt = (RectTransform)tick.transform;
-            trt.anchorMin = trt.anchorMax = new Vector2(1f, 1f);
-            trt.pivot = new Vector2(1f, 1f);
-            trt.anchoredPosition = new Vector2(-12f, -12f);
-            trt.sizeDelta = new Vector2(46f, 46f);
-            Image disc = tick.AddComponent<Image>();
-            disc.sprite = GradientSprite.RoundedDiagonal(0.5f, UiKit.BrassLit, UiKit.Brass);
-            disc.color = Color.white;
-            disc.raycastTarget = false;
-            GameObject mark = UiKit.Child(tick.transform, "Mark");
-            UiKit.Stretch((RectTransform)mark.transform, inset: 11f);
-            Image markImg = mark.AddComponent<Image>();
-            markImg.sprite = IconFactory.Check();
-            markImg.color = new Color(0.09f, 0.08f, 0.04f);
-            markImg.raycastTarget = false;
-            tick.SetActive(false);
 
             return go;
         }
@@ -488,8 +473,8 @@ namespace Pose.Game
 
         /// <summary>
         /// Lights an option as the chosen one: the box goes see-through so the
-        /// room shows through it, a gold ring blooms around it, the tick appears,
-        /// and its heads and lettering warm up. The unchosen keep a flat grey.
+        /// room shows through it, a gold ring blooms around it, and its heads and
+        /// lettering warm up. The unchosen keep a flat grey.
         /// </summary>
         /// <param name="option">A tile, seat option or worded option.</param>
         /// <param name="chosen">Whether this is the current choice.</param>
@@ -510,12 +495,6 @@ namespace Pose.Game
             if (glow != null)
             {
                 glow.gameObject.SetActive(chosen);
-            }
-
-            Transform? tick = option.transform.Find("Tick");
-            if (tick != null)
-            {
-                tick.gameObject.SetActive(chosen);
             }
 
             Transform? heads = option.transform.Find("Heads");
@@ -565,13 +544,13 @@ namespace Pose.Game
             board.raycastTarget = false;
 
             TextMeshProUGUI cap = UiKit.Label(
-                go.transform, caption.ToUpperInvariant(), 20f, BoardValue, TextAlignmentOptions.MidlineLeft);
+                go.transform, caption.ToUpperInvariant(), 21f, BoardValue, TextAlignmentOptions.Center);
             cap.fontStyle = FontStyles.Bold;
             cap.characterSpacing = 8f;
             cap.raycastTarget = false;
             RectTransform crt = (RectTransform)cap.transform;
-            crt.anchorMin = new Vector2(FallbackInset, 1f - PlankCaptionTop - 0.08f);
-            crt.anchorMax = new Vector2(0.7f, 1f - PlankCaptionTop);
+            crt.anchorMin = new Vector2(FallbackInset, 1f - PlankCaptionTop - 0.09f);
+            crt.anchorMax = new Vector2(1f - FallbackInset, 1f - PlankCaptionTop);
             crt.offsetMin = Vector2.zero;
             crt.offsetMax = Vector2.zero;
 
@@ -583,12 +562,14 @@ namespace Pose.Game
             rows.offsetMax = Vector2.zero;
 
             VerticalLayoutGroup v = rowsGo.AddComponent<VerticalLayoutGroup>();
-            v.spacing = 2f;
+            v.spacing = 4f;
             v.childAlignment = TextAnchor.MiddleCenter;
             v.childControlWidth = true;
             v.childControlHeight = true;
             v.childForceExpandWidth = true;
-            v.childForceExpandHeight = true;
+            // Not force-expanded: the headline is meant to be bigger than the
+            // lines under it, and an even split would flatten all three.
+            v.childForceExpandHeight = false;
 
             return (board, rows);
         }
@@ -641,40 +622,70 @@ namespace Pose.Game
             {
                 RectTransform crt = (RectTransform)cap;
                 float left = painted ? PlankLeft : FallbackInset;
-                crt.anchorMin = new Vector2(left, 1f - PlankCaptionTop - 0.08f);
-                crt.anchorMax = new Vector2(left + 0.45f, 1f - PlankCaptionTop);
+                float right = painted ? PlankRight : FallbackInset;
+                crt.anchorMin = new Vector2(left, 1f - PlankCaptionTop - 0.09f);
+                crt.anchorMax = new Vector2(1f - right, 1f - PlankCaptionTop);
                 crt.offsetMin = Vector2.zero;
                 crt.offsetMax = Vector2.zero;
             }
         }
 
         /// <summary>
-        /// One line of the stake: what it is, and how much. Carved into the
-        /// plank, so the ink is warm rather than the cool bone used on cards.
+        /// What the board is announcing, set big. A carved sign is a poster, not
+        /// a receipt — a column of small label/value pairs reads as a form and
+        /// wastes the one piece of art on the screen built to carry a statement.
         /// </summary>
-        /// <param name="rows">The rows region from <see cref="Board"/>.</param>
-        /// <param name="label">What the number means.</param>
-        /// <returns>The label and value, so both can be restated when the choice changes.</returns>
-        public static (TextMeshProUGUI label, TextMeshProUGUI value) BoardRow(
-            RectTransform rows, string label)
+        /// <param name="rows">The text region from <see cref="Board"/>.</param>
+        /// <param name="font">Display face, if one has been supplied.</param>
+        /// <returns>The headline, to restate when the choice changes.</returns>
+        public static TextMeshProUGUI BoardHeadline(RectTransform rows, TMP_FontAsset? font)
         {
-            GameObject row = UiKit.Child(rows, "Row");
-            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-            h.childAlignment = TextAnchor.MiddleLeft;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = true;
-            h.childForceExpandHeight = true;
+            TextMeshProUGUI t = UiKit.Label(
+                rows, string.Empty, 46f, Color.white, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+            t.characterSpacing = 2f;
+            t.enableAutoSizing = true;
+            t.fontSizeMin = 28f;
+            t.fontSizeMax = 50f;
+            t.raycastTarget = false;
+            if (font != null)
+            {
+                t.font = font;
+            }
 
-            TextMeshProUGUI l = UiKit.Label(row.transform, label, 24f, BoardInk, TextAlignmentOptions.MidlineLeft);
-            l.GetComponent<LayoutElement>().flexibleWidth = 1f;
-            l.raycastTarget = false;
-
-            TextMeshProUGUI v = UiKit.Label(row.transform, "—", 24f, BoardValue, TextAlignmentOptions.MidlineRight);
-            v.fontStyle = FontStyles.Bold;
-            v.raycastTarget = false;
-            return (l, v);
+            // Carved letters catch a shadow; without one the white sits on the
+            // wood rather than in it.
+            Shadow cut = t.gameObject.AddComponent<Shadow>();
+            cut.effectColor = new Color(0f, 0f, 0f, 0.75f);
+            cut.effectDistance = new Vector2(0f, -3f);
+            t.GetComponent<LayoutElement>().preferredHeight = 58f;
+            return t;
         }
+
+        /// <summary>
+        /// The line under the headline, where the actual numbers live. Rich text,
+        /// so the amounts can be lit gold inside an otherwise plain sentence.
+        /// </summary>
+        /// <param name="rows">The text region from <see cref="Board"/>.</param>
+        /// <returns>The line, to restate when the choice changes.</returns>
+        public static TextMeshProUGUI BoardLine(RectTransform rows)
+        {
+            TextMeshProUGUI t = UiKit.Label(
+                rows, string.Empty, 25f, BoardInk, TextAlignmentOptions.Center);
+            t.richText = true;
+            t.raycastTarget = false;
+            Shadow cut = t.gameObject.AddComponent<Shadow>();
+            cut.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            cut.effectDistance = new Vector2(0f, -2f);
+            t.GetComponent<LayoutElement>().preferredHeight = 34f;
+            return t;
+        }
+
+        /// <summary>Wraps an amount in the board's gold, for use inside a line.</summary>
+        /// <param name="amount">Already-formatted coin amount.</param>
+        /// <returns>Rich-text markup lighting the amount.</returns>
+        public static string Lit(string amount) =>
+            $"<b><color=#{ColorUtility.ToHtmlStringRGB(BoardValue)}>{amount}</color></b>";
 
         // ---- Shared -----------------------------------------------------------
 

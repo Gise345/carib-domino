@@ -831,6 +831,58 @@ MonoBehaviour:
     m_Key: mode_partner
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000245
+    m_Key: room_headline_winner
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000246
+    m_Key: room_headline_team
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000247
+    m_Key: room_winner_takes_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000248
+    m_Key: room_team_takes_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000249
+    m_Key: room_entry_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000250
+    m_Key: room_entry_each_fmt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000251
+    m_Key: promo_redeem_head
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000252
+    m_Key: promo_redeem_placeholder
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000253
+    m_Key: promo_redeem_button
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000254
+    m_Key: promo_redeeming
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000255
+    m_Key: promo_redeem_ok
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000256
+    m_Key: promo_redeem_empty
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000257
+    m_Key: promo_redeem_fail
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
