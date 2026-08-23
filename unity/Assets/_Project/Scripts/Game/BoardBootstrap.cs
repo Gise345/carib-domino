@@ -2561,6 +2561,10 @@ namespace Pose.Game
                 }
 
                 _chatRoomId = joined.Value.RoomId;
+                // The server states the mute at join time, so a muted player sees
+                // their lock on opening chat rather than after typing a message
+                // that comes back refused.
+                _chatMuted = joined.Value.Muted;
                 _chatSubscription = ChatService.Subscribe(_chatRoomId, OnChatMessages);
                 _chatPanel.SetSubtitle(ChatSubtitle());
                 RefreshChatEntitlement();

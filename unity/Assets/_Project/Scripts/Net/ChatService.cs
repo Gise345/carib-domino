@@ -35,14 +35,21 @@ namespace Pose.Net
             /// <summary>How many players the room holds after the join.</summary>
             public int MemberCount { get; }
 
-            /// <summary>False for a guest — read allowed, send refused (ADR 0023 §3).</summary>
+            /// <summary>
+            /// False for a guest, and false while a mute is in force — read is
+            /// allowed either way, sending is not (ADR 0023 §3).
+            /// </summary>
             public bool CanSend { get; }
 
-            public JoinResult(string roomId, int memberCount, bool canSend)
+            /// <summary>True when a moderator mute is currently in force.</summary>
+            public bool Muted { get; }
+
+            public JoinResult(string roomId, int memberCount, bool canSend, bool muted)
             {
                 RoomId = roomId;
                 MemberCount = memberCount;
                 CanSend = canSend;
+                Muted = muted;
             }
         }
 
@@ -114,7 +121,8 @@ namespace Pose.Net
                 return new JoinResult(
                     ReadString(data, "roomId", roomId),
                     (int)ReadLong(data, "memberCount", 0L),
-                    ReadBool(data, "canSend", false));
+                    ReadBool(data, "canSend", false),
+                    ReadBool(data, "muted", false));
             }
             catch (Exception e)
             {

@@ -5,6 +5,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { z } from 'zod';
 import { assertNotBanned } from '../admin/bans';
 import { isGuestToken } from './entitlement';
+import { isMuteActive } from './mutes';
 import { ChatMember, MAX_ROOM_MEMBERS, isValidRoomId, retentionExpiry } from './model';
 
 if (getApps().length === 0) {
@@ -33,12 +34,21 @@ const JoinSchema = z.object({
  * refuses them. The room id is the Photon session name, so one room spans every
  * round of a series.
  *
- * @returns `{ roomId, memberCount, canSend }`
+ * The reply also states whether the caller may send, so the panel can show a
+ * muted player their lock the moment they open chat rather than after a message
+ * they have already typed comes back refused.
+ *
+ * @returns `{ roomId, memberCount, canSend, muted }`
  */
 export const joinChatRoom = onCall(
   async (
     request: CallableRequest<unknown>,
-  ): Promise<{ roomId: string; memberCount: number; canSend: boolean }> => {
+  ): Promise<{
+    roomId: string;
+    memberCount: number;
+    canSend: boolean;
+    muted: boolean;
+  }> => {
     const uid = request.auth?.uid;
     if (uid === undefined) {
       throw new HttpsError('unauthenticated', 'Sign-in required to join chat.');
@@ -56,6 +66,9 @@ export const joinChatRoom = onCall(
 
     const isGuest = isGuestToken(request.auth?.token);
     const db = getFirestore();
+
+    const muteSnap = await db.collection('chatMutes').doc(uid).get();
+    const muted = isMuteActive(muteSnap.data(), new Date());
     const roomRef = db.collection('chatRooms').doc(roomId);
     const member: ChatMember = { name: displayName, seat };
 
@@ -95,7 +108,7 @@ export const joinChatRoom = onCall(
       return alreadyIn ? Object.keys(members).length : Object.keys(members).length + 1;
     });
 
-    logger.info('joinChatRoom', { roomId, uid, memberCount, isGuest });
-    return { roomId, memberCount, canSend: !isGuest };
+    logger.info('joinChatRoom', { roomId, uid, memberCount, isGuest, muted });
+    return { roomId, memberCount, canSend: !isGuest && !muted, muted };
   },
 );
