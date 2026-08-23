@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pose — Table Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap">
+
+<style>
+  /* ------------------------------------------------------------------
+     Pose — table chat, redesigned.
+
+     Everything here is drawn at the size it ships at: the Board scene's
+     canvas is Constant Pixel Size at scale 1, so 1px in this mockup is
+     1 Unity unit on a 1080-wide phone. That is the whole reason the first
+     build read as tiny — 22px body copy is 22 real pixels on a 1080
+     screen, not 22 "design" pixels.
+
+     Tokens from docs/DESIGN_SYSTEM.md §2. Seat colours from
+     BoardRoomHud.SeatColors so a name in chat matches the ring around
+     that player's avatar at the table.
+     ------------------------------------------------------------------ */
+  :root {
+    --night:       #14322E;
+    --night-deep:  #0C201D;
+    --panel:       #12261F;
+    --ink:         #101F1C;
+    --bone:        #F2EADA;
+    --bone-worn:   #DCD2BC;
+    --lamplight:   #E8D5A8;
+    --brass:       #CA8A04;
+    --brass-hi:    #F0C24A;
+    --cta:         #EE7F5F;
+    --success:     #7BB661;
+    --danger:      #F2705A;
+    --muted:       #A89F8E;
+
+    /* Card grounds — warm near-black, so bone type stays the lightest thing. */
+    --card:        #14100C;
+    --card-edge:   rgba(240,194,74,0.16);
+    --bubble:      #1E1913;
+    --bubble-own:  #1B2416;
+    --field:       rgba(0,0,0,0.42);
+
+    /* Seat accents (BoardRoomHud.SeatColors). */
+    --seat-0: #37C871;
+    --seat-1: #4AA3FF;
+    --seat-2: #F5A623;
+    --seat-3: #9B6CF6;
+
+    --display: "Baloo 2", ui-rounded, "Segoe UI", system-ui, sans-serif;
+    --body:    "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(120% 70% at 50% 0%, #163F37 0%, var(--night-deep) 62%);
+    color: var(--bone);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1500px; margin: 0 auto; padding: 0 28px 110px; }
+
+  header.masthead { padding: 54px 0 26px; display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    font-size: 12px; font-weight: 800; letter-spacing: 0.17em;
+    text-transform: uppercase; color: var(--brass);
+  }
+  .masthead h1 {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(32px, 5vw, 50px); line-height: 1.05; margin: 0;
+  }
+  .masthead p { margin: 0; max-width: 74ch; color: var(--bone-worn); }
+
+  h2.section {
+    font-family: var(--display); font-weight: 700;
+    font-size: 26px; margin: 56px 0 6px;
+    border-top: 1px solid rgba(240,194,74,0.18); padding-top: 26px;
+  }
+  h2.section:first-of-type { border-top: none; }
+  .section-note { margin: 0 0 24px; color: var(--muted); max-width: 78ch; }
+
+  /* ---- phone frames ------------------------------------------------ */
+  .rack {
+    display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start;
+  }
+  .device { width: 380px; flex: 0 0 auto; }
+  .device > figcaption {
+    margin-top: 12px; font-size: 14px; color: var(--muted);
+  }
+  .device > figcaption b { color: var(--lamplight); font-weight: 700; }
+
+  /* The board sits behind at 1080x2160, scaled to the frame. Everything
+     inside .screen is authored in SHIP pixels and scaled as one block, so
+     the numbers you read here are the numbers to type into Unity. */
+  .screen {
+    width: 380px; height: 760px;
+    border-radius: 26px; overflow: hidden; position: relative;
+    background: #0a1512;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(240,194,74,0.14);
+  }
+  .stage {
+    position: absolute; inset: 0;
+    width: 1080px; height: 2160px;
+    transform: scale(0.35185); /* 380 / 1080 */
+    transform-origin: top left;
+  }
+
+  /* ---- the board behind -------------------------------------------- */
+  .felt {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(70% 45% at 50% 38%, #1D5C48 0%, #123A2F 55%, #0B221C 100%);
+  }
+  .felt::after {
+    /* a few tiles, just enough to read as a table underneath */
+    content: "";
+    position: absolute; left: 300px; top: 900px; width: 480px; height: 300px;
+    background:
+      linear-gradient(90deg, rgba(242,234,218,0.9) 0 96px, transparent 96px 132px,
+                              rgba(242,234,218,0.9) 132px 228px, transparent 228px 264px,
+                              rgba(242,234,218,0.9) 264px 360px, transparent 360px);
+    background-size: 100% 84px; background-repeat: no-repeat;
+    background-position: 0 108px;
+    border-radius: 8px; filter: blur(0.4px);
+  }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.74); }
+
+  /* ---- the chat card ------------------------------------------------ */
+  .chat {
+    position: absolute; left: 40px; right: 40px; top: 120px; bottom: 120px;
+    background: linear-gradient(180deg, #17120D 0%, #120E0A 100%);
+    border: 2px solid var(--card-edge);
+    border-radius: 36px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  /* Header: 132 tall. Icons live in fixed square boxes and never stretch —
+     the first build let the layout group expand them, which is where those
+     gold columns came from. */
+  .chat-head {
+    height: 132px; flex: 0 0 132px;
+    display: flex; align-items: center; gap: 20px;
+    padding: 0 28px;
+    border-bottom: 2px solid rgba(240,194,74,0.14);
+    background: rgba(240,194,74,0.04);
+  }
+  .icon-box {
+    width: 56px; height: 56px; flex: 0 0 56px;
+    display: grid; place-items: center;
+  }
+  .icon-box svg { width: 100%; height: 100%; display: block; }
+  .chat-titles { flex: 1 1 auto; min-width: 0; }
+  .chat-title {
+    font-family: var(--display); font-weight: 800;
+    font-size: 46px; line-height: 1.1; letter-spacing: 0.01em;
+    color: var(--bone);
+  }
+  .chat-sub {
+    font-size: 26px; color: var(--muted); line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip {
+    display: inline-block; padding: 2px 14px; margin-left: 8px;
+    border: 2px solid rgba(240,194,74,0.3); border-radius: 999px;
+    font-size: 22px; font-weight: 700; color: var(--brass-hi);
+    letter-spacing: 0.08em; vertical-align: 3px;
+  }
+  .head-btn {
+    width: 76px; height: 76px; flex: 0 0 76px;
+    border-radius: 22px; display: grid; place-items: center;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.07);
+  }
+  .head-btn svg { width: 40px; height: 40px; }
+  .head-btn.is-locked { opacity: 0.45; }
+  .head-btn.is-locked::after {
+    content: ""; position: absolute; /* lock pip drawn in the SVG instead */
+  }
+
+  /* ---- the log ------------------------------------------------------ */
+  .log {
+    flex: 1 1 auto; overflow: hidden; position: relative;
+    padding: 26px 26px 8px;
+    display: flex; flex-direction: column; gap: 22px;
+    background: rgba(0,0,0,0.18);
+  }
+
+  .day {
+    align-self: center; font-size: 22px; color: var(--muted);
+    background: rgba(255,255,255,0.05); border-radius: 999px;
+    padding: 4px 20px;
+  }
+
+  .msg { display: flex; gap: 16px; align-items: flex-end; }
+  .msg.own { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 72px; height: 72px; flex: 0 0 72px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800; font-size: 30px;
+    color: var(--ink); background: var(--seat-0);
+    box-shadow: 0 0 0 3px rgba(0,0,0,0.5), 0 0 0 6px currentColor;
+  }
+  .avatar.s0 { background: var(--seat-0); color: var(--seat-0); }
+  .avatar.s1 { background: var(--seat-1); color: var(--seat-1); }
+  .avatar.s2 { background: var(--seat-2); color: var(--seat-2); }
+  .avatar.s3 { background: var(--seat-3); color: var(--seat-3); }
+  .avatar span { color: var(--ink); }
+  .avatar.spacer { background: none; box-shadow: none; }
+
+  .bubble-wrap { max-width: 700px; min-width: 0; }
+  .msg.own .bubble-wrap { margin-left: auto; }
+
+  .meta {
+    display: flex; align-items: baseline; gap: 12px;
+    margin: 0 6px 6px; font-size: 24px;
+  }
+  .msg.own .meta { justify-content: flex-end; }
+  .meta .who { font-weight: 800; }
+  .who.s0 { color: var(--seat-0); }
+  .who.s1 { color: var(--seat-1); }
+  .who.s2 { color: var(--seat-2); }
+  .who.s3 { color: var(--seat-3); }
+  .who.me  { color: var(--lamplight); }
+  .meta .at { font-size: 21px; color: rgba(168,159,142,0.7); }
+
+  .row { display: flex; align-items: center; gap: 12px; }
+  .msg.own .row { flex-direction: row-reverse; }
+
+  .bubble {
+    background: var(--bubble);
+    border: 2px solid rgba(255,255,255,0.05);
+    border-radius: 26px 26px 26px 8px;
+    padding: 18px 24px;
+    font-size: 34px; line-height: 1.35; color: var(--bone);
+    word-break: break-word;
+  }
+  .msg.own .bubble {
+    background: var(--bubble-own);
+    border-color: rgba(123,182,97,0.22);
+    border-radius: 26px 26px 8px 26px;
+  }
+
+  /* Report: one tap, always visible (there is no hover on a phone), but
+     quiet enough that it is not competing with the message. */
+  .flag {
+    width: 56px; height: 56px; flex: 0 0 56px; border-radius: 16px;
+    display: grid; place-items: center; opacity: 0.4;
+    background: rgba(255,255,255,0.04);
+  }
+  .flag svg { width: 30px; height: 30px; }
+
+  .masked { color: var(--muted); font-size: 22px; margin: 6px 8px 0; }
+  .system {
+    align-self: center; text-align: center; max-width: 760px;
+    font-size: 24px; color: var(--muted); font-style: italic;
+  }
+
+  /* ---- quick phrases + composer ------------------------------------- */
+  .quick {
+    display: flex; gap: 12px; padding: 14px 26px 0; flex: 0 0 auto;
+    overflow: hidden;
+  }
+  .quick b {
+    font-size: 26px; font-weight: 700; color: var(--lamplight);
+    background: rgba(240,194,74,0.10);
+    border: 2px solid rgba(240,194,74,0.22);
+    border-radius: 999px; padding: 8px 22px; white-space: nowrap;
+  }
+
+  .composer {
+    flex: 0 0 auto; padding: 18px 26px 26px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .field {
+    flex: 1 1 auto; height: 104px; border-radius: 28px;
+    background: var(--field); border: 2px solid rgba(255,255,255,0.07);
+    display: flex; align-items: center; padding: 0 26px;
+    font-size: 34px; color: var(--bone);
+  }
+  .field.placeholder { color: rgba(168,159,142,0.65); }
+  .counter { font-size: 24px; color: var(--muted); min-width: 60px; text-align: right; }
+  .send {
+    width: 104px; height: 104px; flex: 0 0 104px; border-radius: 30px;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, #3FA45A, #2A7B41);
+    box-shadow: 0 8px 0 rgba(0,0,0,0.35);
+  }
+  .send svg { width: 46px; height: 46px; }
+  .send.off { background: rgba(255,255,255,0.07); box-shadow: none; }
+  .send.off svg { opacity: 0.35; }
+
+  /* ---- locked / muted / offline states ------------------------------ */
+  .locked {
+    flex: 0 0 auto; margin: 6px 26px 26px;
+    border-radius: 28px; padding: 22px 24px;
+    background: rgba(240,194,74,0.07);
+    border: 2px solid rgba(240,194,74,0.22);
+    display: flex; align-items: center; gap: 18px;
+  }
+  .locked .icon-box { width: 48px; height: 48px; flex: 0 0 48px; }
+  .locked-copy { flex: 1 1 auto; min-width: 0; }
+  .locked-copy b { display: block; font-size: 28px; font-weight: 800; color: var(--bone); }
+  .locked-copy span { font-size: 24px; color: var(--muted); }
+  .cta {
+    flex: 0 0 auto; height: 84px; padding: 0 30px; border-radius: 24px;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, var(--brass-hi), #B8860B);
+    color: var(--ink); font-family: var(--display); font-weight: 800; font-size: 28px;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.35);
+    white-space: nowrap;
+  }
+  .locked.muted { background: rgba(242,112,90,0.08); border-color: rgba(242,112,90,0.3); }
+  .locked.offline { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.09); }
+
+  .banner {
+    flex: 0 0 auto; margin: 0 26px 4px; padding: 14px 22px;
+    border-radius: 20px; font-size: 24px;
+    background: rgba(242,112,90,0.12); border: 2px solid rgba(242,112,90,0.3);
+    color: #FFC9BE; display: flex; align-items: center; gap: 12px;
+  }
+  .banner.info {
+    background: rgba(240,194,74,0.10); border-color: rgba(240,194,74,0.26); color: var(--lamplight);
+  }
+  .banner .icon-box { width: 34px; height: 34px; flex: 0 0 34px; }
+
+  /* ---- empty state -------------------------------------------------- */
+  .empty {
+    margin: auto; text-align: center; max-width: 720px;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .empty .icon-box { width: 120px; height: 120px; opacity: 0.35; }
+  .empty b { font-size: 34px; font-family: var(--display); font-weight: 700; }
+  .empty span { font-size: 26px; color: var(--muted); }
+
+  /* ---- report sheet -------------------------------------------------- */
+  .sheet {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.72);
+    display: flex; align-items: flex-end; border-radius: 34px; overflow: hidden;
+  }
+  .sheet-card {
+    width: 100%; background: #17120D;
+    border-top: 2px solid rgba(240,194,74,0.22);
+    border-radius: 40px 40px 34px 34px;
+    padding: 30px 28px 28px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .sheet-head { display: flex; align-items: center; gap: 16px; }
+  .sheet-head .icon-box { width: 48px; height: 48px; flex: 0 0 48px; }
+  .sheet-head b { font-family: var(--display); font-size: 38px; font-weight: 800; }
+  .quote {
+    background: rgba(0,0,0,0.4); border-left: 6px solid var(--danger);
+    border-radius: 8px 22px 22px 8px; padding: 16px 22px;
+    font-size: 28px; color: var(--bone-worn); line-height: 1.35;
+  }
+  .quote i { display: block; font-size: 22px; color: var(--muted); font-style: normal; }
+  .reasons { display: flex; flex-wrap: wrap; gap: 12px; }
+  .reasons b {
+    font-size: 26px; font-weight: 700; padding: 12px 22px; border-radius: 999px;
+    background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.08);
+    color: var(--bone-worn);
+  }
+  .reasons b.on {
+    background: var(--brass-hi); border-color: var(--brass-hi); color: var(--ink);
+  }
+  .sheet-actions { display: flex; gap: 14px; }
+  .btn-ghost, .btn-danger {
+    flex: 1 1 0; height: 92px; border-radius: 26px; display: grid; place-items: center;
+    font-family: var(--display); font-weight: 800; font-size: 30px;
+  }
+  .btn-ghost { background: rgba(255,255,255,0.06); color: var(--bone-worn); }
+  .btn-danger {
+    background: linear-gradient(160deg, #E85C48, #A83A2C); color: #fff;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.35);
+  }
+
+  /* ---- HUD button with unread badge --------------------------------- */
+  .hud-btn {
+    position: absolute; right: 44px; bottom: 220px;
+    width: 168px; height: 168px; border-radius: 48px;
+    background: linear-gradient(160deg, #241A12, #140D08);
+    border: 2px solid rgba(240,194,74,0.22);
+    display: grid; place-items: center;
+    box-shadow: 0 12px 0 rgba(0,0,0,0.4);
+  }
+  .hud-btn svg { width: 84px; height: 84px; }
+  .badge {
+    position: absolute; top: -10px; right: -10px;
+    min-width: 62px; height: 62px; padding: 0 16px; border-radius: 999px;
+    background: var(--danger); color: #fff;
+    font-family: var(--display); font-weight: 800; font-size: 34px;
+    display: grid; place-items: center;
+    box-shadow: 0 0 0 6px #0d1a16;
+  }
+
+  /* ---- spec table ---------------------------------------------------- */
+  table.spec {
+    width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 15px;
+  }
+  .spec th, .spec td {
+    text-align: left; padding: 11px 14px; border-bottom: 1px solid rgba(240,194,74,0.14);
+    vertical-align: top;
+  }
+  .spec th { color: var(--brass); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .spec td:first-child { color: var(--lamplight); font-weight: 700; white-space: nowrap; }
+  .spec code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; background: rgba(0,0,0,0.35); padding: 2px 7px; border-radius: 6px;
+    color: var(--bone-worn);
+  }
+  .callout {
+    margin: 22px 0 0; padding: 18px 22px; border-radius: 14px;
+    background: rgba(240,194,74,0.07); border-left: 4px solid var(--brass);
+    color: var(--bone-worn); max-width: 90ch;
+  }
+  .callout b { color: var(--lamplight); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead">
+  <span class="eyebrow">Prototype · ADR 0023</span>
+  <h1>Table chat, rebuilt</h1>
+  <p>Drawn at ship size. The Board canvas is <b>Constant Pixel Size at scale 1</b>, so every number
+     on this page is a Unity unit on a 1080-wide phone — which is exactly why the first pass read as
+     tiny, and why nothing here is smaller than 21px.</p>
+</header>
+
+<h2 class="section">The panel</h2>
+<p class="section-note">Four people talking mid-hand. It has to be readable at a glance, reportable in
+   one tap, and dismissible without hunting — while the board stays visible enough behind the scrim
+   that you know the game is still there.</p>
+
+<div class="rack">
+
+  <!-- ============================ NORMAL ============================ -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none">
+                <path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z"
+                      fill="#F0C24A"/>
+                <circle cx="18" cy="19" r="2.4" fill="#14100C"/>
+                <circle cx="24" cy="19" r="2.4" fill="#14100C"/>
+                <circle cx="30" cy="19" r="2.4" fill="#14100C"/>
+              </svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Cut&#8209;Throat · 4 players <span class="chip">7KQ2MP</span></div>
+            </div>
+            <div class="head-btn">
+              <svg viewBox="0 0 48 48" fill="none">
+                <rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/>
+                <path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/>
+                <path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/>
+              </svg>
+            </div>
+            <div class="head-btn">
+              <svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+
+          <div class="log">
+            <div class="day">Today</div>
+
+            <div class="msg">
+              <div class="avatar s1"><span>SC</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s1">Swift Coconut</span><span class="at">21:04</span></div>
+                <div class="row">
+                  <div class="bubble">Let's get it! 🁫</div>
+                  <div class="flag">
+                    <svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="msg">
+              <div class="avatar s2"><span>BH</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s2">Brave Hibiscus</span><span class="at">21:05</span></div>
+                <div class="row">
+                  <div class="bubble">big chain coming, watch the double six</div>
+                  <div class="flag">
+                    <svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="msg own">
+              <div class="avatar s0"><span>ME</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="at">21:05</span><span class="who me">You</span></div>
+                <div class="row"><div class="bubble">not today 😄</div></div>
+              </div>
+            </div>
+
+            <div class="msg">
+              <div class="avatar s3"><span>NM</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s3">Noble Marlin</span><span class="at">21:06</span></div>
+                <div class="row">
+                  <div class="bubble">watch yuhself ****</div>
+                  <div class="flag">
+                    <svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg>
+                  </div>
+                </div>
+                <div class="masked">Some words were hidden</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="quick">
+            <b>Good game!</b><b>Nice play</b><b>Your turn 👀</b>
+          </div>
+
+          <div class="composer">
+            <div class="field placeholder">Say something…</div>
+            <div class="send off">
+              <svg viewBox="0 0 48 48"><path d="M8 24 40 10l-6 14 6 14z" fill="#F2EADA"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Account holder.</b> Avatars carry the seat colour, so a name here is the same
+      colour as that player's ring at the table. Send stays dim until the draft is worth sending.</figcaption>
+  </figure>
+
+  <!-- ============================ TYPING ============================ -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none">
+                <path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/>
+                <circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/>
+              </svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Cut&#8209;Throat · 4 players <span class="chip">7KQ2MP</span></div>
+            </div>
+            <div class="head-btn"><svg viewBox="0 0 48 48" fill="none"><rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/><path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/><path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/></svg></div>
+            <div class="head-btn"><svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+
+          <div class="log">
+            <div class="system">Brave Hibiscus was reported. A moderator will review it.</div>
+
+            <div class="msg">
+              <div class="avatar s2"><span>BH</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s2">Brave Hibiscus</span><span class="at">21:07</span></div>
+                <div class="row">
+                  <div class="bubble" style="opacity:0.55;font-style:italic;color:var(--muted)">Message removed by a moderator</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="msg">
+              <div class="avatar s1"><span>SC</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s1">Swift Coconut</span><span class="at">21:08</span></div>
+                <div class="row">
+                  <div class="bubble">good game all, rematch?</div>
+                  <div class="flag"><svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="composer">
+            <div class="field">One more, I'm on a roll<span style="opacity:.5">|</span></div>
+            <div class="counter">176</div>
+            <div class="send"><svg viewBox="0 0 48 48"><path d="M8 24 40 10l-6 14 6 14z" fill="#F2EADA"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Composing.</b> The counter only appears inside the last 40 characters. A redacted
+      message keeps its place in the thread — removing it silently would rewrite what people saw.</figcaption>
+  </figure>
+
+  <!-- ============================ GUEST ============================= -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none">
+                <path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/>
+                <circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/>
+              </svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Cut&#8209;Throat · 4 players <span class="chip">7KQ2MP</span></div>
+            </div>
+            <div class="head-btn is-locked">
+              <svg viewBox="0 0 48 48" fill="none"><rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/><path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/><path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/></svg>
+            </div>
+            <div class="head-btn"><svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+
+          <div class="log">
+            <div class="msg">
+              <div class="avatar s1"><span>SC</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s1">Swift Coconut</span><span class="at">21:04</span></div>
+                <div class="row">
+                  <div class="bubble">good luck everyone</div>
+                  <div class="flag"><svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg></div>
+                </div>
+              </div>
+            </div>
+            <div class="msg">
+              <div class="avatar s2"><span>BH</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s2">Brave Hibiscus</span><span class="at">21:05</span></div>
+                <div class="row">
+                  <div class="bubble">big chain coming</div>
+                  <div class="flag"><svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#A89F8E"/></svg></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="locked">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none">
+                <rect x="10" y="21" width="28" height="21" rx="6" fill="#F0C24A"/>
+                <path d="M17 21v-6a7 7 0 0 1 14 0v6" stroke="#F0C24A" stroke-width="4" fill="none"/>
+                <circle cx="24" cy="31" r="3" fill="#14100C"/>
+              </svg>
+            </div>
+            <div class="locked-copy">
+              <b>Guests can read chat</b>
+              <span>A free account lets you talk</span>
+            </div>
+            <div class="cta">Create account</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Guest.</b> They still see the table talking — that is the point of letting them read.
+      The lock is one bar, not a wall, and the CTA is sized like a button rather than a billboard.</figcaption>
+  </figure>
+
+</div>
+
+<h2 class="section">The other four states</h2>
+<p class="section-note">Every one of these is a real path the panel can land in today. Each says what
+   happened and what to do about it, in that order.</p>
+
+<div class="rack">
+
+  <!-- ============================ EMPTY / MUTED ===================== -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none"><path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/><circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/></svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Partner · 4 players <span class="chip">J38PLQ</span></div>
+            </div>
+            <div class="head-btn is-locked"><svg viewBox="0 0 48 48" fill="none"><rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/><path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/><path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/></svg></div>
+            <div class="head-btn"><svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+
+          <div class="log">
+            <div class="empty">
+              <div class="icon-box">
+                <svg viewBox="0 0 48 48" fill="none"><path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F2EADA"/></svg>
+              </div>
+              <b>Quiet table</b>
+              <span>Say hello — everyone at the table will see it.</span>
+            </div>
+          </div>
+
+          <div class="locked muted">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none">
+                <rect x="18" y="6" width="12" height="22" rx="6" fill="#F2705A"/>
+                <path d="M12 22a12 12 0 0 0 24 0" stroke="#F2705A" stroke-width="3.4" fill="none"/>
+                <path d="M8 8l32 32" stroke="#F2705A" stroke-width="4" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <div class="locked-copy">
+              <b>You're muted in chat</b>
+              <span>Until tomorrow, 09:40</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Empty + muted.</b> The mute is stated on open, not after a message comes back
+      refused. It says when it lifts, so there is nothing to appeal.</figcaption>
+  </figure>
+
+  <!-- ============================ OFFLINE / ERROR =================== -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none"><path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/><circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/></svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Practice table</div>
+            </div>
+            <div class="head-btn is-locked"><svg viewBox="0 0 48 48" fill="none"><rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/><path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/><path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/></svg></div>
+            <div class="head-btn"><svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+
+          <div class="log">
+            <div class="empty">
+              <div class="icon-box">
+                <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="18" stroke="#F2EADA" stroke-width="3.4" fill="none"/><path d="M24 14v14" stroke="#F2EADA" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="34" r="2.6" fill="#F2EADA"/></svg>
+              </div>
+              <b>Chat is for online tables</b>
+              <span>Play against people and the table talks back.</span>
+            </div>
+          </div>
+
+          <div class="banner">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="18" stroke="#F2705A" stroke-width="3.4" fill="none"/><path d="M24 14v14" stroke="#F2705A" stroke-width="4" stroke-linecap="round"/><circle cx="24" cy="34" r="2.6" fill="#F2705A"/></svg>
+            </div>
+            Couldn't reach table chat. Retrying…
+          </div>
+
+          <div class="locked offline">
+            <div class="locked-copy"><b>Reconnecting</b><span>Your messages will send once it's back</span></div>
+            <div class="cta">Retry</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Practice table + connection trouble.</b> The old build put a bare red line in the
+      middle of an empty panel; this one names the state and offers the action.</figcaption>
+  </figure>
+
+  <!-- ============================ REPORT SHEET ====================== -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="scrim"></div>
+        <div class="chat">
+          <div class="chat-head">
+            <div class="icon-box">
+              <svg viewBox="0 0 48 48" fill="none"><path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/><circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/></svg>
+            </div>
+            <div class="chat-titles">
+              <div class="chat-title">Table chat</div>
+              <div class="chat-sub">Cut&#8209;Throat · 4 players <span class="chip">7KQ2MP</span></div>
+            </div>
+            <div class="head-btn"><svg viewBox="0 0 48 48" fill="none"><rect x="18" y="6" width="12" height="22" rx="6" fill="#A89F8E"/><path d="M12 22a12 12 0 0 0 24 0" stroke="#A89F8E" stroke-width="3.4" fill="none"/><path d="M24 34v8M17 42h14" stroke="#A89F8E" stroke-width="3.4"/></svg></div>
+            <div class="head-btn"><svg viewBox="0 0 48 48"><path d="M14 14l20 20M34 14L14 34" stroke="#A89F8E" stroke-width="4" stroke-linecap="round"/></svg></div>
+          </div>
+          <div class="log">
+            <div class="msg">
+              <div class="avatar s3"><span>NM</span></div>
+              <div class="bubble-wrap">
+                <div class="meta"><span class="who s3">Noble Marlin</span><span class="at">21:06</span></div>
+                <div class="row"><div class="bubble">watch yuhself ****</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <div class="field placeholder">Say something…</div>
+            <div class="send off"><svg viewBox="0 0 48 48"><path d="M8 24 40 10l-6 14 6 14z" fill="#F2EADA"/></svg></div>
+          </div>
+
+          <div class="sheet">
+            <div class="sheet-card">
+              <div class="sheet-head">
+                <div class="icon-box"><svg viewBox="0 0 48 48"><path d="M14 6v36" stroke="#F2705A" stroke-width="4" stroke-linecap="round"/><path d="M16 9h20l-5 8 5 8H16z" fill="#F2705A"/></svg></div>
+                <b>Report message</b>
+              </div>
+              <div class="quote"><i>Noble Marlin · 21:06</i>watch yuhself ****</div>
+              <div class="reasons">
+                <b>Harassment</b><b class="on">Hate speech</b><b>Threats</b><b>Sexual</b><b>Spam</b><b>Cheating</b><b>Other</b>
+              </div>
+              <div class="field placeholder" style="height:88px;font-size:28px">Add a note (optional)</div>
+              <div class="sheet-actions">
+                <div class="btn-ghost">Cancel</div>
+                <div class="btn-danger">Send report</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Report.</b> A bottom sheet, thumb-reachable, quoting the exact message so nobody
+      files against the wrong line. The reasons are the server's closed set.</figcaption>
+  </figure>
+
+  <!-- ============================ HUD BUTTON ======================== -->
+  <figure class="device">
+    <div class="screen">
+      <div class="stage">
+        <div class="felt"></div>
+        <div class="hud-btn">
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M8 12a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H22l-10 8v-8a4 4 0 0 1-4-4z" fill="#F0C24A"/>
+            <circle cx="18" cy="19" r="2.4" fill="#14100C"/><circle cx="24" cy="19" r="2.4" fill="#14100C"/><circle cx="30" cy="19" r="2.4" fill="#14100C"/>
+          </svg>
+          <div class="badge">3</div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Closed.</b> The HUD button carries an unread count, so chat is worth closing —
+      today there is no reason to ever shut it, which is why it ends up covering the board.</figcaption>
+  </figure>
+
+</div>
+
+<h2 class="section">What changes, and why</h2>
+<p class="section-note">The build in the screenshot isn't a styling problem — four specific mechanical
+   faults produced it.</p>
+
+<table class="spec">
+  <thead><tr><th style="width:200px">Fault</th><th>Cause</th><th style="width:34%">Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Gold columns</td>
+      <td>Icons sat in a <code>HorizontalLayoutGroup</code> with <code>childForceExpandHeight</code>
+          left at its default <code>true</code>, so a 40×40 chat glyph was stretched to the row's
+          full height, and <code>Image.preserveAspect</code> was never set.</td>
+      <td>Every icon goes in a fixed square with <code>preserveAspect = true</code>, and every layout
+          group sets <b>both</b> force-expand flags explicitly.</td>
+    </tr>
+    <tr>
+      <td>Everything tiny</td>
+      <td>The Board canvas is <b>Constant Pixel Size, scale 1</b> — 22px type is 22 device pixels on a
+          1080-wide phone.</td>
+      <td>Type scale rebuilt at ship size: body <b>34</b>, names <b>24</b>, title <b>46</b>, controls
+          <b>76–104</b> tall.</td>
+    </tr>
+    <tr>
+      <td>Giant CTA block</td>
+      <td>Same force-expand default: a 230×60 button in a 76-tall row stretched both ways.</td>
+      <td>The locked bar is a row — icon, two lines of copy, one button sized to its label.</td>
+    </tr>
+    <tr>
+      <td>“Table dl3010f3-ec3a…”</td>
+      <td>The subtitle printed the raw Photon session id.</td>
+      <td>Ruleset and player count, with the joinable code as a chip. A matchmade table shows no code.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="callout"><b>New in this pass:</b> per-seat avatars tying a name to the ring at the table ·
+  own messages on the right · timestamps · a "some words were hidden" note under a filtered message ·
+  quick phrases for people mid-hand · an unread badge on the HUD button · a bottom-sheet report ·
+  and states that say what happened rather than a bare red line.</p>
+
+<p class="callout"><b>Deliberately not here:</b> message reactions, typing indicators, and read
+  receipts. Each is a new realtime write path per keystroke, which is a moderation and cost surface
+  for something nobody asks for at a dominoes table.</p>
+
+</div>
+</body>
+</html>

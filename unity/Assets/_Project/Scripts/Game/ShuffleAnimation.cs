@@ -126,6 +126,12 @@ namespace Pose.Game
             _lastCycle = -1;
             _running = true;
             gameObject.SetActive(true);
+            // Draw above everything, every time. This is built with the board,
+            // but an online match starts the shuffle while the LOBBY is still on
+            // screen — and the lobby is a later sibling, so without this the
+            // shuffle plays underneath it and nobody ever sees it. Claiming the
+            // top at play time also survives whatever gets built after it later.
+            transform.SetAsLastSibling();
             BuildTiles();
         }
 
