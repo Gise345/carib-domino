@@ -41,6 +41,19 @@ namespace Pose.Game
         /// <summary>Height of the drawn title used until the art arrives.</summary>
         private const float HeroFallbackHeight = 150f;
 
+        /// <summary>Air above the title, so it is not jammed against the status bar.</summary>
+        private const int HeroTopPad = 58;
+
+        /// <summary>Air between the brass rule and the first choice.</summary>
+        private const int BodyTopPad = 52;
+
+        /// <summary>
+        /// The break before the rewards board. Larger than the gap between
+        /// choices, because the board is the answer to them rather than one more
+        /// of them.
+        /// </summary>
+        public const float RewardsGap = 40f;
+
         /// <summary>Art box every format tile fits inside, whatever its own ratio.</summary>
         private const float TileArtAspect = 2.1f;
 
@@ -51,9 +64,9 @@ namespace Pose.Game
         // trimmed to its own bounds.
         private const float PlankLeft = 0.09f;
         private const float PlankRight = 0.25f;
-        private const float PlankTop = 0.28f;
+        private const float PlankTop = 0.34f;
         private const float PlankBottom = 0.17f;
-        private const float PlankCaptionTop = 0.10f;
+        private const float PlankCaptionTop = 0.09f;
 
         // The drawn stand-in has no painted furniture to avoid, so its numbers
         // use honest padding instead.
@@ -90,11 +103,13 @@ namespace Pose.Game
 
         /// <summary>
         /// A room screen: the title art across the top with the back ring
-        /// floating over it, a brass rule, and the body below.
+        /// floating over it, and the body below.
         ///
         /// There is no text header. The logo is the header — which is why the
         /// back control is a ring rather than a bar: it has to hold its own
-        /// silhouette over painted art.
+        /// silhouette over painted art. No rule under it either: the art has an
+        /// edge of its own, and a line drawn under a painted sign fences it off
+        /// from the room it belongs to.
         /// </summary>
         /// <param name="root">The screen root to fill.</param>
         /// <param name="fallbackTitle">Drawn as text until the title art arrives.</param>
@@ -104,8 +119,8 @@ namespace Pose.Game
             RectTransform root, string fallbackTitle, Action onBack)
         {
             VerticalLayoutGroup column = root.gameObject.AddComponent<VerticalLayoutGroup>();
-            column.padding = new RectOffset(0, 0, 18, 0);
-            column.spacing = 14f;
+            column.padding = new RectOffset(0, 0, HeroTopPad, 0);
+            column.spacing = 24f;
             column.childAlignment = TextAnchor.UpperCenter;
             column.childControlWidth = true;
             column.childControlHeight = true;
@@ -137,19 +152,11 @@ namespace Pose.Game
             rrt.pivot = new Vector2(0f, 1f);
             rrt.anchoredPosition = new Vector2(24f, -6f);
 
-            GameObject rule = UiKit.Child(root, "Rule");
-            LayoutElement ruleLe = rule.AddComponent<LayoutElement>();
-            ruleLe.preferredHeight = 2f;
-            ruleLe.minHeight = 2f;
-            Image ruleImg = rule.AddComponent<Image>();
-            ruleImg.color = new Color(UiKit.Brass.r, UiKit.Brass.g, UiKit.Brass.b, 0.65f);
-            ruleImg.raycastTarget = false;
-
             GameObject body = UiKit.Child(root, "Body");
             LayoutElement bodyLe = body.AddComponent<LayoutElement>();
             bodyLe.flexibleHeight = 1f;
             VerticalLayoutGroup stack = body.AddComponent<VerticalLayoutGroup>();
-            stack.padding = new RectOffset(30, 30, 14, 16);
+            stack.padding = new RectOffset(30, 30, BodyTopPad, 16);
             stack.spacing = UiKit.CardGap;
             stack.childAlignment = TextAnchor.UpperCenter;
             stack.childControlWidth = true;
@@ -246,6 +253,17 @@ namespace Pose.Game
             v.childForceExpandHeight = false;
             go.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             return (RectTransform)go.transform;
+        }
+
+        /// <summary>A fixed vertical break in the body stack.</summary>
+        /// <param name="parent">The body stack or a section.</param>
+        /// <param name="height">How much air, in canvas pixels.</param>
+        public static void Gap(RectTransform parent, float height)
+        {
+            GameObject go = UiKit.Child(parent, "Gap");
+            LayoutElement le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = height;
+            le.minHeight = height;
         }
 
         // ---- Choice rows ----------------------------------------------------
@@ -544,12 +562,12 @@ namespace Pose.Game
             board.raycastTarget = false;
 
             TextMeshProUGUI cap = UiKit.Label(
-                go.transform, caption.ToUpperInvariant(), 21f, BoardValue, TextAlignmentOptions.Center);
+                go.transform, caption.ToUpperInvariant(), 38f, BoardValue, TextAlignmentOptions.Center);
             cap.fontStyle = FontStyles.Bold;
             cap.characterSpacing = 8f;
             cap.raycastTarget = false;
             RectTransform crt = (RectTransform)cap.transform;
-            crt.anchorMin = new Vector2(FallbackInset, 1f - PlankCaptionTop - 0.09f);
+            crt.anchorMin = new Vector2(FallbackInset, 1f - PlankCaptionTop - 0.17f);
             crt.anchorMax = new Vector2(1f - FallbackInset, 1f - PlankCaptionTop);
             crt.offsetMin = Vector2.zero;
             crt.offsetMax = Vector2.zero;
@@ -623,7 +641,7 @@ namespace Pose.Game
                 RectTransform crt = (RectTransform)cap;
                 float left = painted ? PlankLeft : FallbackInset;
                 float right = painted ? PlankRight : FallbackInset;
-                crt.anchorMin = new Vector2(left, 1f - PlankCaptionTop - 0.09f);
+                crt.anchorMin = new Vector2(left, 1f - PlankCaptionTop - 0.17f);
                 crt.anchorMax = new Vector2(1f - right, 1f - PlankCaptionTop);
                 crt.offsetMin = Vector2.zero;
                 crt.offsetMax = Vector2.zero;
@@ -641,12 +659,12 @@ namespace Pose.Game
         public static TextMeshProUGUI BoardHeadline(RectTransform rows, TMP_FontAsset? font)
         {
             TextMeshProUGUI t = UiKit.Label(
-                rows, string.Empty, 46f, Color.white, TextAlignmentOptions.Center);
+                rows, string.Empty, 33f, Color.white, TextAlignmentOptions.Center);
             t.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
             t.characterSpacing = 2f;
             t.enableAutoSizing = true;
-            t.fontSizeMin = 28f;
-            t.fontSizeMax = 50f;
+            t.fontSizeMin = 22f;
+            t.fontSizeMax = 34f;
             t.raycastTarget = false;
             if (font != null)
             {
@@ -658,7 +676,7 @@ namespace Pose.Game
             Shadow cut = t.gameObject.AddComponent<Shadow>();
             cut.effectColor = new Color(0f, 0f, 0f, 0.75f);
             cut.effectDistance = new Vector2(0f, -3f);
-            t.GetComponent<LayoutElement>().preferredHeight = 58f;
+            t.GetComponent<LayoutElement>().preferredHeight = 42f;
             return t;
         }
 

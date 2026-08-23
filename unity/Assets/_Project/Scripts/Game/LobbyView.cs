@@ -989,6 +989,7 @@ namespace Pose.Game
 
             BuildFormatChoice(body, cutThroat: true);
             BuildSeatChoice(body, _cutThroatSeats);
+            RoomKit.Gap(body, RoomKit.RewardsGap);
             _cutThroatBoard = BuildRewardsBoard(
                 body, GameMode.CutThroat,
                 () => RoomSummary.For(GameMode.CutThroat, _selectedSize, _selectedFormat));
@@ -1008,6 +1009,7 @@ namespace Pose.Game
             // No table-size choice and no seat diagram: Partner is always four
             // seats with partners opposite, so there is nothing here to decide.
             BuildFormatChoice(body, cutThroat: false);
+            RoomKit.Gap(body, RoomKit.RewardsGap);
             _partnerBoard = BuildRewardsBoard(
                 body, GameMode.Partner,
                 () => RoomSummary.For(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
@@ -1040,12 +1042,14 @@ namespace Pose.Game
             _friendsCutThroatSection = RoomKit.Section(body);
             BuildFormatChoice(_friendsCutThroatSection, cutThroat: true);
             BuildSeatChoice(_friendsCutThroatSection, _friendsSeats);
+            RoomKit.Gap(_friendsCutThroatSection, RoomKit.RewardsGap);
             _oneLoveBoard = BuildRewardsBoard(
                 _friendsCutThroatSection, GameMode.CutThroat,
                 () => RoomSummary.For(GameMode.CutThroat, _friendsSeatCount, _selectedFormat));
 
             _friendsPartnerSection = RoomKit.Section(body);
             BuildFormatChoice(_friendsPartnerSection, cutThroat: false);
+            RoomKit.Gap(_friendsPartnerSection, RoomKit.RewardsGap);
             _oneLovePartnerBoard = BuildRewardsBoard(
                 _friendsPartnerSection, GameMode.Partner,
                 () => RoomSummary.For(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
