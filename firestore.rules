@@ -150,6 +150,67 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // -----------------------------------------------------------------------
+    // Chat (ADR 0023). The ONE collection clients read live and never write.
+    //
+    //   /chatRooms/{roomId}                    — roster, ruleset, match ids
+    //   /chatRooms/{roomId}/messages/{msgId}   — the conversation
+    //   /chatRooms/{roomId}/originals/{msgId}  — verbatim text behind a mask
+    //
+    // Writes are Cloud-Functions-only: `sendChatMessage` stamps senderUid from
+    // the signed token and enforces ban / guest / membership / mute / rate limit
+    // / length / profanity. Nothing about a message is client-supplied except its
+    // text, so there is no client write rule to get wrong.
+    //
+    // Reads are allowed only to a uid listed in the room's `members` map — the map
+    // `joinChatRoom` builds from each caller's OWN authenticated uid, never from a
+    // host-supplied roster. Guests may read (they play too); the server is what
+    // refuses their sends, per ADR 0023 §3.
+    //
+    // `originals` is deny-all: Firestore rules are document-level, so the verbatim
+    // text behind a masked message lives in its own subcollection rather than as a
+    // field a client could read. Subcollections do NOT inherit the parent's rule,
+    // but it is spelled out here rather than left to the default-deny catch-all.
+    // -----------------------------------------------------------------------
+    match /chatRooms/{roomId} {
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.members;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+                    && request.auth.uid in
+                       get(/databases/$(database)/documents/chatRooms/$(roomId)).data.members;
+        allow write: if false;
+      }
+
+      match /originals/{messageId} {
+        allow read, write: if false;
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Chat moderation (ADR 0023) — server-only, like the rest of the admin
+    // surface (ADR 0022).
+    //   /chatReports/{reportId} — frozen transcript + who reported whom. Holds
+    //     other players' messages and personal context, so it is never client-
+    //     readable; moderators read it through listChatReports / getChatReport.
+    //   /chatMutes/{uid}        — time-boxed chat suspension, enforced by
+    //     sendChatMessage. Not client-readable: a muted player learns of it from
+    //     the send response, and a readable mute doc would just be a probe target.
+    //   /chatRateLimits/{uid}   — the sender's sliding send window. Client-
+    //     writable would defeat the point.
+    // -----------------------------------------------------------------------
+    match /chatReports/{reportId} {
+      allow read, write: if false;
+    }
+    match /chatMutes/{userId} {
+      allow read, write: if false;
+    }
+    match /chatRateLimits/{userId} {
+      allow read, write: if false;
+    }
+
     // Default deny — collections without an explicit match block above are
     // fully denied. Add a new match block here whenever a new collection
     // gets introduced.

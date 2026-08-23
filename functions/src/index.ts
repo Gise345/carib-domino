@@ -50,6 +50,26 @@ export { getAdminStats } from './admin/getAdminStats';
 export { searchUsers } from './admin/searchUsers';
 export { getUserDetail } from './admin/getUserDetail';
 
+// Chat (ADR 0023): server-written, client-read in-match chat. joinChatRoom claims
+// the caller's OWN seat in the room (never a host-supplied roster); sendChatMessage
+// is the only write path into /chatRooms/** and runs every gate — ban, guest, member,
+// mute, rate limit, length, profanity; reportChatMessage freezes a transcript into an
+// immutable /chatReports doc for moderators.
+export { joinChatRoom } from './chat/joinChatRoom';
+export { sendChatMessage } from './chat/sendChatMessage';
+export { reportChatMessage } from './chat/reportChatMessage';
+
+// Chat moderation (ADR 0023): the admin-gated queue behind the dashboard's Reports
+// tab, plus the proportionate punishment (a time-boxed chat mute) that sits below a
+// full account ban. All audited via writeAudit.
+export {
+  listChatReports,
+  getChatReport,
+  resolveChatReport,
+  redactChatMessage,
+} from './admin/chatReports';
+export { muteUser, unmuteUser } from './admin/muteUser';
+
 // Admin (phase D): ban/unban. Bans write the authoritative /bans/{uid} record
 // that gameplay entrypoints check via assertNotBanned. See ADR 0022.
 export { banUser } from './admin/banUser';
