@@ -287,7 +287,7 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 50470000000056
-    m_Localized: "Sign in with Email"
+    m_Localized: "Continue with Email"
     m_Metadata:
       m_Items: []
   - m_Id: 50470000000057
@@ -476,6 +476,46 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 50470000000103
     m_Localized: "Privacy Policy"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000104
+    m_Localized: "I already have an account"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000105
+    m_Localized: "Create an account"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000106
+    m_Localized: "That password doesn't match. Try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000107
+    m_Localized: "No account with that email. Create one instead?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000108
+    m_Localized: "That email already has an account. Sign in instead?"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000109
+    m_Localized: "Pick a longer password — at least 6 characters."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000110
+    m_Localized: "That doesn't look like an email address."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000111
+    m_Localized: "Can't reach the server. Check your connection."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000112
+    m_Localized: "Too many tries. Wait a moment and try again."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000113
+    m_Localized: "That account has been disabled."
     m_Metadata:
       m_Items: []
   references:

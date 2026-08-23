@@ -113,6 +113,9 @@ namespace Pose.Net
         {
             _auth ??= FirebaseAuth.DefaultInstance;
             await _auth.SignInAnonymouslyAsync();
+            // The email and Facebook paths both raise this; a guest sign-in is
+            // just as much a change of session.
+            AuthChanged?.Invoke();
         }
 
         /// <summary>
@@ -209,6 +212,51 @@ namespace Pose.Net
         }
 
         /// <summary>Signs out of Firebase and clears the local Facebook session.</summary>
+        /// <summary>
+        /// Turns a failed auth call into a key the UI can show. Firebase reports
+        /// every failure the same way to a plain catch, so without this a wrong
+        /// password, an address already registered and a weak password all read
+        /// as one vague "couldn't sign you in", which is no help to the player
+        /// and no help debugging.
+        ///
+        /// Lives here rather than in the view because unwrapping it means
+        /// touching Firebase types, and nothing in Pose.Game should have to.
+        /// </summary>
+        /// <returns>A localization key from the <c>login_err_*</c> family.</returns>
+        public static string DescribeError(Exception ex)
+        {
+            // The SDK hands back an AggregateException around the real one.
+            Exception inner = ex;
+            if (ex is AggregateException aggregate)
+            {
+                AggregateException flat = aggregate.Flatten();
+                if (flat.InnerExceptions.Count > 0)
+                {
+                    inner = flat.InnerExceptions[0];
+                }
+            }
+
+            if (inner is not FirebaseException firebase)
+            {
+                return "login_err_generic";
+            }
+
+            return (AuthError)firebase.ErrorCode switch
+            {
+                AuthError.WrongPassword => "login_err_wrong_password",
+                AuthError.InvalidCredential => "login_err_wrong_password",
+                AuthError.UserNotFound => "login_err_no_account",
+                AuthError.EmailAlreadyInUse => "login_err_email_taken",
+                AuthError.AccountExistsWithDifferentCredentials => "login_err_email_taken",
+                AuthError.WeakPassword => "login_err_weak_password",
+                AuthError.InvalidEmail => "login_err_bad_email",
+                AuthError.NetworkRequestFailed => "login_err_network",
+                AuthError.TooManyRequests => "login_err_too_many",
+                AuthError.UserDisabled => "login_err_disabled",
+                _ => "login_err_signin",
+            };
+        }
+
         public void SignOut()
         {
             FacebookAuthService.Logout();

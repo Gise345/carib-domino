@@ -77,13 +77,14 @@ namespace Pose.Game
         private Sprite? _backgroundSprite;
 
         private GameObject _chooser = null!;
+        private GameObject _emailChoice = null!;
         private GameObject _legal = null!;
         private GameObject _emailForm = null!;
         private TMP_InputField _emailField = null!;
         private TMP_InputField _passwordField = null!;
         private TextMeshProUGUI _status = null!;
         private TextMeshProUGUI _emailActionLabel = null!;
-        private TextMeshProUGUI _emailToggleLabel = null!;
+        private TextMeshProUGUI _forgotLink = null!;
 
         private bool _signUpMode;
         private bool _busy;
@@ -115,11 +116,12 @@ namespace Pose.Game
             BuildLogo(root);
             BuildSubtitle(root);
             BuildChooser(root);
+            BuildEmailChoice(root);
             BuildEmailForm(root);
             BuildStatus(root);
             BuildLegalFooter(root);
 
-            ShowEmailForm(false);
+            Show(Panel.Chooser);
         }
 
         private void BuildBackground(RectTransform root)
@@ -189,10 +191,32 @@ namespace Pose.Game
                 OnFacebookClicked, IconKind.Facebook);
             MakeButton(_chooser.transform, L10n.Get("login_email"),
                 Hex("#3FC55A"), Hex("#22A244"), Color.white,
-                () => ShowEmailForm(true), IconKind.Envelope);
+                () => Show(Panel.EmailChoice), IconKind.Envelope);
             MakeButton(_chooser.transform, L10n.Get("login_guest"),
                 Hex("#39393B"), Hex("#232325"), Color.white,
                 OnGuestClicked, IconKind.Person);
+        }
+
+        /// <summary>
+        /// Between the chooser and the form: sign in, or create an account.
+        /// Asked outright rather than defaulting to sign-in with a link to
+        /// switch, because the two are different intentions and a player who
+        /// picked the wrong one only finds out when the form rejects them.
+        /// </summary>
+        private void BuildEmailChoice(RectTransform root)
+        {
+            _emailChoice = AddTopColumn(
+                root, "EmailChoice", new Vector2(ButtonWidth, 400f), ControlsTop, ChooserSpacing);
+
+            MakeButton(_emailChoice.transform, L10n.Get("login_have_account"),
+                Hex("#3FC55A"), Hex("#22A244"), Color.white,
+                () => OpenEmailForm(signUp: false));
+
+            MakeButton(_emailChoice.transform, L10n.Get("login_new_account"),
+                Hex("#39393B"), Hex("#232325"), Color.white,
+                () => OpenEmailForm(signUp: true));
+
+            MakeLink(_emailChoice.transform, L10n.Get("login_back"), () => Show(Panel.Chooser));
         }
 
         /// <summary>Badge drawn at the left edge of a chooser button.</summary>
@@ -290,9 +314,11 @@ namespace Pose.Game
                 _emailForm.transform, L10n.Get("login_signin"), Hex("#4CD964"), Hex("#1FA845"), Hex("#06231A"), OnEmailSubmit);
             _emailActionLabel = primary.GetComponentInChildren<TextMeshProUGUI>();
 
-            _emailToggleLabel = MakeLink(_emailForm.transform, L10n.Get("login_to_signup"), ToggleEmailMode);
-            MakeLink(_emailForm.transform, L10n.Get("login_forgot"), OnForgotPassword);
-            MakeLink(_emailForm.transform, L10n.Get("login_back"), () => ShowEmailForm(false));
+            // Nothing to switch here any more — the mode was chosen on the way
+            // in. Forgot-password only belongs to signing in; there is nothing
+            // to recover on an account that does not exist yet.
+            _forgotLink = MakeLink(_emailForm.transform, L10n.Get("login_forgot"), OnForgotPassword);
+            MakeLink(_emailForm.transform, L10n.Get("login_back"), () => Show(Panel.EmailChoice));
         }
 
         private void BuildStatus(RectTransform root)
@@ -309,24 +335,45 @@ namespace Pose.Game
 
         // ---- Interaction ---------------------------------------------------
 
-        private void ShowEmailForm(bool show)
+        /// <summary>Which of the three panels is on screen.</summary>
+        private enum Panel
         {
-            _chooser.SetActive(!show);
-            _emailForm.SetActive(show);
+            /// <summary>Facebook / Email / Guest.</summary>
+            Chooser,
+
+            /// <summary>Sign in, or create an account.</summary>
+            EmailChoice,
+
+            /// <summary>The email and password fields themselves.</summary>
+            EmailForm,
+        }
+
+        private void Show(Panel panel)
+        {
+            _chooser.SetActive(panel == Panel.Chooser);
+            _emailChoice.SetActive(panel == Panel.EmailChoice);
+            _emailForm.SetActive(panel == Panel.EmailForm);
             // The terms line belongs to the choice of how to sign in, and it is
-            // agreed on the way in. Dropping it here keeps the email screen to
-            // one job, and gives the taller form the room it needs on a short
-            // display.
-            _legal.SetActive(!show);
+            // agreed on the way in. Dropping it past that point keeps the email
+            // screens to one job, and gives the taller form the room it needs on
+            // a short display.
+            _legal.SetActive(panel == Panel.Chooser);
             SetStatus(string.Empty, isError: false);
         }
 
-        private void ToggleEmailMode()
+        /// <summary>
+        /// Opens the form in the mode the player picked, and dresses it to
+        /// match: the button says what it will do, and forgot-password is only
+        /// offered where it means anything.
+        /// </summary>
+        private void OpenEmailForm(bool signUp)
         {
-            _signUpMode = !_signUpMode;
-            _emailActionLabel.text = L10n.Get(_signUpMode ? "login_create" : "login_signin");
-            _emailToggleLabel.text = L10n.Get(_signUpMode ? "login_to_signin" : "login_to_signup");
-            SetStatus(string.Empty, isError: false);
+            _signUpMode = signUp;
+            _emailActionLabel.text = L10n.Get(signUp ? "login_create" : "login_signin");
+            _forgotLink.gameObject.SetActive(!signUp);
+            _emailField.text = string.Empty;
+            _passwordField.text = string.Empty;
+            Show(Panel.EmailForm);
         }
 
         private void OnGuestClicked() => RunAuth(() => AuthService.Instance!.SignInAsGuestAsync(), reportsSuccess: true);
@@ -406,8 +453,12 @@ namespace Pose.Game
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[LoginView] sign-in failed: {ex.Message}");
-                SetStatus(L10n.Get(emailError ? "login_err_signin" : "login_err_generic"), isError: true);
+                Debug.LogWarning($"[LoginView] sign-in failed: {ex}");
+                // Say which thing went wrong. Firebase reports them all the
+                // same way to a plain catch, so AuthService unwraps the code.
+                SetStatus(
+                    L10n.Get(emailError ? AuthService.DescribeError(ex) : "login_err_generic"),
+                    isError: true);
                 SetBusy(false);
             }
         }

@@ -238,6 +238,16 @@
     flex-direction: column;
     gap: 3.4cqw;
   }
+  .email-choice {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 44.05%;
+    width: 65%;
+    display: none;
+    flex-direction: column;
+    gap: 4.5cqw;
+  }
+  .email-choice.is-on { display: flex; }
   .email-form.is-on { display: flex; }
   .chooser.is-off { display: none; }
   /* The email screen stands alone: the terms line belongs to choosing HOW to
@@ -400,7 +410,7 @@
                   <path d="M2.5 6.5 12 13l9.5-6.5"></path>
                 </svg>
               </span>
-              Sign in with Email
+              Continue with Email
             </button>
 
             <button class="btn guest" type="button">
@@ -415,14 +425,19 @@
             </button>
           </div>
 
+          <div class="email-choice" id="emailChoice">
+            <button class="btn mail" type="button" id="toSignIn">I already have an account</button>
+            <button class="btn guest" type="button" id="toCreate">Create an account</button>
+            <div class="linkrow"><button type="button" class="backToChooser">Back</button></div>
+          </div>
+
           <div class="email-form" id="emailForm">
             <input class="field" type="email" placeholder="Email address" autocomplete="off">
             <input class="field" type="password" placeholder="Password" autocomplete="off">
-            <button class="btn mail" type="button">Sign in</button>
+            <button class="btn mail" type="button" id="primary">Sign in</button>
             <div class="linkrow">
-              <button type="button">Create an account</button>
-              <button type="button">Forgot password?</button>
-              <button type="button" id="backToChooser">Back</button>
+              <button type="button" id="forgot">Forgot password?</button>
+              <button type="button" id="backToChoice">Back</button>
             </div>
           </div>
 
@@ -439,6 +454,7 @@
 
       <div class="controls">
         <button class="seg" type="button" id="segChooser" aria-pressed="true">Chooser</button>
+        <button class="seg" type="button" id="segChoice" aria-pressed="false">Email choice</button>
         <button class="seg" type="button" id="segEmail" aria-pressed="false">Email form</button>
       </div>
     </div>
@@ -526,21 +542,44 @@
   (() => {
     "use strict";
     const chooser = document.getElementById("chooser");
+    const choice = document.getElementById("emailChoice");
     const form = document.getElementById("emailForm");
-    const segChooser = document.getElementById("segChooser");
-    const segEmail = document.getElementById("segEmail");
+    const legal = document.querySelector(".legal");
+    const primary = document.getElementById("primary");
+    const forgot = document.getElementById("forgot");
+    const segs = {
+      chooser: document.getElementById("segChooser"),
+      choice: document.getElementById("segChoice"),
+      form: document.getElementById("segEmail"),
+    };
 
-    function show(email) {
-      chooser.classList.toggle("is-off", email);
-      form.classList.toggle("is-on", email);
-      document.querySelector(".legal").classList.toggle("is-off", email);
-      segChooser.setAttribute("aria-pressed", String(!email));
-      segEmail.setAttribute("aria-pressed", String(email));
+    function show(panel) {
+      chooser.classList.toggle("is-off", panel !== "chooser");
+      choice.classList.toggle("is-on", panel === "choice");
+      form.classList.toggle("is-on", panel === "form");
+      // The terms line belongs to choosing HOW to sign in.
+      legal.classList.toggle("is-off", panel !== "chooser");
+      for (const [k, el] of Object.entries(segs)) {
+        if (el) el.setAttribute("aria-pressed", String(k === panel));
+      }
     }
 
-    document.getElementById("toEmail").addEventListener("click", () => show(true));
-    document.getElementById("backToChooser").addEventListener("click", () => show(false));
-    segChooser.addEventListener("click", () => show(false));
-    segEmail.addEventListener("click", () => show(true));
+    function openForm(signUp) {
+      primary.textContent = signUp ? "Create account" : "Sign in";
+      // Nothing to recover on an account that does not exist yet.
+      forgot.style.display = signUp ? "none" : "";
+      show("form");
+    }
+
+    document.getElementById("toEmail").addEventListener("click", () => show("choice"));
+    document.getElementById("toSignIn").addEventListener("click", () => openForm(false));
+    document.getElementById("toCreate").addEventListener("click", () => openForm(true));
+    document.getElementById("backToChoice").addEventListener("click", () => show("choice"));
+    for (const b of document.querySelectorAll(".backToChooser")) {
+      b.addEventListener("click", () => show("chooser"));
+    }
+    segs.chooser.addEventListener("click", () => show("chooser"));
+    if (segs.choice) segs.choice.addEventListener("click", () => show("choice"));
+    segs.form.addEventListener("click", () => openForm(false));
   })();
 </script>

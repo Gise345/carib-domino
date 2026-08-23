@@ -471,6 +471,46 @@ MonoBehaviour:
     m_Key: login_privacy
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000104
+    m_Key: login_have_account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000105
+    m_Key: login_new_account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000106
+    m_Key: login_err_wrong_password
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000107
+    m_Key: login_err_no_account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000108
+    m_Key: login_err_email_taken
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000109
+    m_Key: login_err_weak_password
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000110
+    m_Key: login_err_bad_email
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000111
+    m_Key: login_err_network
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000112
+    m_Key: login_err_too_many
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000113
+    m_Key: login_err_disabled
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:
