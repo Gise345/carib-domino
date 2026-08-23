@@ -1,5 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.unity3d.player" android:versionCode="1" android:versionName="1.0">
+  <!-- Voice chat (ADR 0024). RECORD_AUDIO is requested at RUNTIME on first mic
+       use, not at launch: minSdk is 25, so the OS prompt is mandatory, and asking
+       before the player has any idea why reliably gets it denied.
+       MODIFY_AUDIO_SETTINGS lets Vivox pick the right audio route (earpiece vs
+       speaker) and is install-time, with no prompt. -->
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
   <supports-screens android:smallScreens="true" android:normalScreens="true" android:largeScreens="true" android:xlargeScreens="true" android:anyDensity="true" />
   <application android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:icon="@drawable/app_icon" android:label="@string/app_name">
     <activity android:name="com.unity3d.player.UnityPlayerActivity" android:label="@string/app_name" android:exported="true">

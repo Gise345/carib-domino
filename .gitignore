@@ -157,9 +157,18 @@ emulator-data/
 google-services.json
 GoogleService-Info.plist
 
-# RevenueCat / Photon credentials
+# Third-party service credentials
 revenuecat-secret.*
 photon-app-id.*
+
+# Vivox settings (ADR 0024). Issuer/domain/server are not secret and are
+# delivered to the client by joinVoiceRoom at runtime, so nothing here is
+# needed in the repo — but the Vivox settings window writes the TOKEN SIGNING
+# KEY into this same file, and that key can mint a credential to join any
+# channel as any user. Ignoring the file outright is the only reliable way to
+# stop it being committed by accident. The key belongs in Secret Manager:
+#   firebase functions:secrets:set VIVOX_TOKEN_KEY
+unity/ProjectSettings/Packages/com.unity.services.vivox/Settings.json
 
 # =============================================================================
 # IDE / Editor — JetBrains (Rider, IntelliJ, etc.)

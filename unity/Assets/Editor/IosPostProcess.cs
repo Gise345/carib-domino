@@ -35,6 +35,18 @@ namespace Pose.Build
             "Pose uses this to show you the game to friends who'd enjoy it, and to " +
             "measure which ads bring in real players.";
 
+        /// <summary>
+        /// Voice chat (ADR 0024). Apple CRASHES an app that touches the microphone
+        /// without this key — it is a hard failure, not a review warning. The copy
+        /// says what we do and what we do not do, because "never recorded" is both
+        /// true (reports are metadata-only) and the thing a reviewer looks for.
+        /// </summary>
+        private const string MicrophoneUsageKey = "NSMicrophoneUsageDescription";
+
+        private const string MicrophoneUsageDescription =
+            "Pose uses your microphone so you can talk to the other players at your " +
+            "table. Your voice is never recorded or stored.";
+
         private const string FacebookAppIdKey = "FacebookAppID";
 
         [PostProcessBuild(1000)]
@@ -53,6 +65,7 @@ namespace Pose.Build
             PlistElementDict root = plist.root;
             root.SetBoolean(EncryptionExemptKey, false);
             root.SetString(TrackingUsageKey, TrackingUsageDescription);
+            root.SetString(MicrophoneUsageKey, MicrophoneUsageDescription);
 
             bool facebookConfigured = root.values.ContainsKey(FacebookAppIdKey);
             plist.WriteToFile(plistPath);
