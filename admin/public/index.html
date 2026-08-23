@@ -42,6 +42,7 @@
     <nav class="tabs">
       <button class="tab is-active" data-panel="analytics">Analytics</button>
       <button class="tab" data-panel="users">Users</button>
+      <button class="tab" data-panel="reports">Reports</button>
       <button class="tab" data-panel="promotions">Promotions</button>
       <button class="tab" data-panel="audit">Audit log</button>
     </nav>
@@ -62,6 +63,23 @@
         <p id="searchStatus" class="muted"></p>
         <div id="searchResults" class="results"></div>
         <div id="userDetail" class="detail hidden"></div>
+      </div>
+      <div id="reports" class="panel hidden">
+        <div class="panel-head">
+          <h2>Chat reports</h2>
+          <div class="report-filters">
+            <select id="reportStatus">
+              <option value="open">Open</option>
+              <option value="actioned">Actioned</option>
+              <option value="dismissed">Dismissed</option>
+              <option value="all">All</option>
+            </select>
+            <button id="refreshReports" class="btn btn--small">Refresh</button>
+          </div>
+        </div>
+        <p id="reportStatusLine" class="muted"></p>
+        <div id="reportList" class="results"></div>
+        <div id="reportDetail" class="detail hidden"></div>
       </div>
       <div id="promotions" class="panel hidden">
         <h2>Promotions</h2>

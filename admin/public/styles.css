@@ -179,3 +179,56 @@ body {
 .promo-code { font-weight: 700; letter-spacing: 0.5px; min-width: 120px; }
 .promo-row .btn { margin-left: auto; }
 .ok { color: var(--accent-2); }
+
+/* ---- Chat reports (ADR 0023) --------------------------------------------- */
+
+.report-filters { display: flex; gap: 8px; align-items: center; }
+.report-filters select {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.report-row { align-items: flex-start; gap: 16px; }
+.report-main { display: flex; flex-direction: column; gap: 2px; text-align: left; min-width: 0; }
+.report-who { font-weight: 600; }
+.report-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; white-space: nowrap; }
+.pill {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.pill--danger { border-color: #b4453a; color: #f07a6d; }
+
+/* The transcript is evidence: it reads top-to-bottom like the conversation did,
+   and the reported line is marked so it can't be confused with its neighbours. */
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.line { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.line-who { min-width: 130px; font-weight: 600; }
+.line-text { flex: 1; word-break: break-word; }
+.line-at { font-size: 12px; white-space: nowrap; }
+.line--reported {
+  background: rgba(180, 69, 58, 0.16);
+  border-left: 3px solid #b4453a;
+  margin-left: -14px;
+  padding: 4px 0 4px 11px;
+}
+/* The action row wraps on a narrow window and keeps the destructive buttons
+   apart from the resolve pair. */
+.detail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.detail-actions .spacer { flex: 1; min-width: 12px; }
+.detail h4 { margin: 22px 0 8px; }

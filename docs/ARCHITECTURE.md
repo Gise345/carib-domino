@@ -317,6 +317,36 @@ If the client generates the tile shuffle, a malicious client can deal itself goo
 /processedWebhooks/{eventId}
     source, processedAt
     [internal idempotency tracking]
+
+/chatRooms/{roomId}
+    members { uid: { name, seat } }, mode, matchIds[],
+    createdAt, lastMessageAt, retained, expiresAt
+    [read: members only; write-restricted — sendChatMessage is the only
+     write path. TTL-swept after 30 days unless a report retains it. ADR 0023]
+
+/chatRooms/{roomId}/messages/{messageId}
+    senderUid, senderName, seat, text (masked), filtered,
+    severe, redacted, createdAt, expiresAt
+    [read: room members only; write-restricted]
+
+/chatRooms/{roomId}/originals/{messageId}
+    senderUid, originalText, createdAt, expiresAt
+    [no client access — the verbatim text behind a mask; separate document
+     because Firestore rules are document-level, not field-level]
+
+/chatReports/{reportId}
+    status, reason, note, roomId, mode, matchIds[], members,
+    reporterUid, reportedUid, reportedMessageId, reportedText,
+    transcript[] (frozen, unmasked), createdAt, resolution
+    [no client access; read by admins via listChatReports / getChatReport]
+
+/chatMutes/{userId}
+    until, reason, mutedByUid, mutedByEmail, at
+    [no client access; enforced by sendChatMessage]
+
+/chatRateLimits/{userId}
+    window[] (recent send times)
+    [no client access]
 ```
 
 ### 6.2 Photon networked state (per match)

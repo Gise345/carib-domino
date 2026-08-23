@@ -94,6 +94,7 @@ for (const tab of document.querySelectorAll('.tab')) {
     }
     if (panel === 'analytics') loadStats();
     if (panel === 'promotions') loadPromotions();
+    if (panel === 'reports') loadReports();
   });
 }
 
@@ -271,4 +272,185 @@ async function loadPromotions() {
   } catch (e) {
     list.innerHTML = `<p class="error">${escape(e && e.message ? e.message : 'Failed to load promotions.')}</p>`;
   }
+}
+
+// ---- Chat reports (ADR 0023) -----------------------------------------------
+//
+// The moderation queue. A report carries a FROZEN transcript — the messages as
+// they were typed, unmasked — plus the room's roster and the server-issued match
+// ids, so a decision is made on evidence rather than on one line out of context.
+// Every action here runs through an assertAdmin-gated callable and is audited.
+
+const REASON_LABELS = {
+  harassment: 'Harassment',
+  hate: 'Hate speech',
+  threats: 'Threats',
+  sexual: 'Sexual content',
+  spam: 'Spam',
+  cheating: 'Cheating',
+  other: 'Other',
+};
+
+const when = (iso) => (iso ? new Date(iso).toLocaleString() : '—');
+
+el('refreshReports').addEventListener('click', () => loadReports());
+el('reportStatus').addEventListener('change', () => loadReports());
+
+async function loadReports() {
+  const list = el('reportList');
+  el('reportDetail').classList.add('hidden');
+  el('reportStatusLine').textContent = 'Loading…';
+  list.innerHTML = '';
+  try {
+    const { reports } = await call('listChatReports', { status: el('reportStatus').value });
+    el('reportStatusLine').textContent = reports.length
+      ? `${reports.length} report${reports.length === 1 ? '' : 's'}`
+      : 'Nothing to review.';
+    list.innerHTML = reports
+      .map(
+        (r) => `
+        <button class="result report-row" data-id="${escape(r.id)}">
+          <span class="report-main">
+            <span class="report-who">${escape(r.reportedName || r.reportedUid)}</span>
+            <span class="muted">${escape(r.reportedText).slice(0, 120)}</span>
+          </span>
+          <span class="report-meta">
+            ${r.severe ? '<span class="pill pill--danger">severe</span>' : ''}
+            <span class="pill">${escape(REASON_LABELS[r.reason] || r.reason)}</span>
+            <span class="muted">${escape(when(r.createdAt))}</span>
+          </span>
+        </button>`,
+      )
+      .join('');
+    for (const row of list.querySelectorAll('.report-row')) {
+      row.addEventListener('click', () => openReport(row.dataset.id));
+    }
+  } catch (e) {
+    el('reportStatusLine').textContent = e && e.message ? e.message : 'Failed to load reports.';
+  }
+}
+
+async function openReport(reportId) {
+  const panel = el('reportDetail');
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<p class="muted">Loading…</p>';
+  try {
+    const r = await call('getChatReport', { reportId });
+    panel.innerHTML = renderReport(r);
+    wireReportActions(r);
+  } catch (e) {
+    panel.innerHTML = `<p class="error">${escape(e && e.message ? e.message : 'Failed to load report.')}</p>`;
+  }
+}
+
+function renderReport(r) {
+  const members = Object.entries(r.members || {})
+    .map(([uid, m]) => `${escape(m.name || uid)}${m.seat >= 0 ? ` (seat ${m.seat})` : ''}`)
+    .join(', ');
+
+  const facts = [
+    ['Reported', `${escape(r.reportedName || '—')} <span class="muted">${escape(r.reportedUid)}</span>`],
+    ['Reported by', `${escape(r.reporterName || '—')} <span class="muted">${escape(r.reporterUid)}</span>`],
+    ['Reason', escape(REASON_LABELS[r.reason] || r.reason)],
+    ['Note', escape(r.note) || '—'],
+    ['Table', `${escape(r.roomId)} · ${escape(r.mode)}`],
+    ['Players', members || '—'],
+    ['Matches', escape((r.matchIds || []).join(', ')) || '—'],
+    ['Filed', escape(when(r.createdAt))],
+    ['Prior reports against them', num(r.priorReportCount)],
+    [
+      'Account',
+      r.isBanned
+        ? '<span class="error">Banned</span>'
+        : r.muteUntil
+          ? `Muted until ${escape(when(r.muteUntil))}`
+          : 'Active',
+    ],
+    ['Status', escape(r.status)],
+  ];
+
+  const transcript = (r.transcript || [])
+    .map(
+      (line) => `
+      <div class="line${line.reported ? ' line--reported' : ''}">
+        <span class="line-who">${escape(line.senderName || line.senderUid)}</span>
+        <span class="line-text">${escape(line.text)}</span>
+        <span class="line-at muted">${escape(when(line.at))}</span>
+      </div>`,
+    )
+    .join('');
+
+  const resolved =
+    r.status === 'open'
+      ? ''
+      : `<p class="muted">Resolved by ${escape(r.resolvedByEmail || '—')} on ${escape(when(r.resolvedAt))}.</p>`;
+
+  return (
+    `<h3>Report</h3>` +
+    facts.map(([k, v]) => `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('') +
+    `<h4>Transcript <span class="muted">(as typed, unmasked)</span></h4>` +
+    `<div class="transcript">${transcript || '<p class="muted">No messages captured.</p>'}</div>` +
+    resolved +
+    `<div class="detail-actions">
+       <button class="btn btn--small" id="muteDayBtn">Mute 24h</button>
+       <button class="btn btn--small" id="muteWeekBtn">Mute 7 days</button>
+       <button class="btn btn--small btn--danger" id="reportBanBtn">Ban…</button>
+       <button class="btn btn--small" id="redactBtn">Remove message</button>
+       <span class="spacer"></span>
+       <button class="btn btn--small" id="dismissBtn">Dismiss</button>
+       <button class="btn btn--small btn--primary" id="actionedBtn">Mark actioned</button>
+     </div>
+     <p id="reportActionStatus" class="muted"></p>`
+  );
+}
+
+function wireReportActions(r) {
+  const status = (text, isError) => {
+    const line = document.getElementById('reportActionStatus');
+    if (line) {
+      line.textContent = text;
+      line.className = isError ? 'error' : 'muted';
+    }
+  };
+
+  const run = async (label, fn, reopen = true) => {
+    status(`${label}…`);
+    try {
+      await fn();
+      status(`${label} done.`);
+      // Re-read rather than patch the DOM: the callables are the source of
+      // truth for ban/mute state, and a stale panel invites a double action.
+      if (reopen) await openReport(r.id);
+      await loadReports();
+    } catch (e) {
+      status(e && e.message ? e.message : `${label} failed.`, true);
+    }
+  };
+
+  const on = (id, handler) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', handler);
+  };
+
+  on('muteDayBtn', () => run('Mute 24h', () => call('muteUser', { uid: r.reportedUid, hours: 24, reason: r.reason })));
+  on('muteWeekBtn', () =>
+    run('Mute 7 days', () => call('muteUser', { uid: r.reportedUid, hours: 168, reason: r.reason })));
+  on('reportBanBtn', () => {
+    const reason = window.prompt('Ban reason (optional):', `Chat: ${REASON_LABELS[r.reason] || r.reason}`);
+    if (reason === null) return;
+    run('Ban', () => call('banUser', { uid: r.reportedUid, reason }));
+  });
+  on('redactBtn', () =>
+    run('Remove message', () =>
+      call('redactChatMessage', { roomId: r.roomId, messageId: r.reportedMessageId })));
+  on('dismissBtn', () => {
+    const note = window.prompt('Why is this being dismissed?', '');
+    if (note === null) return;
+    run('Dismiss', () => call('resolveChatReport', { reportId: r.id, resolution: 'dismissed', note }), false);
+  });
+  on('actionedBtn', () => {
+    const note = window.prompt('What action was taken?', '');
+    if (note === null) return;
+    run('Mark actioned', () => call('resolveChatReport', { reportId: r.id, resolution: 'actioned', note }), false);
+  });
 }
