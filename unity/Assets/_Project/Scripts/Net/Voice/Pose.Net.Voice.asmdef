@@ -3,6 +3,7 @@
     "rootNamespace": "Pose.Net.Voice",
     "references": [
         "Pose.Core",
+        "Firebase.SourceModules",
         "Unity.Services.Vivox",
         "Unity.Services.Core"
     ],
@@ -12,7 +13,15 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": false,
-    "defineConstraints": [],
-    "versionDefines": [],
+    "defineConstraints": [
+        "POSE_VIVOX"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.services.vivox",
+            "expression": "",
+            "define": "POSE_VIVOX"
+        }
+    ],
     "noEngineReferences": false
 }

@@ -159,6 +159,18 @@ stays null, and the game runs without voice. So a null `Session` is a **normal**
 state — unbuilt, unprovisioned, or not yet started — and every caller null-checks
 rather than assuming.
 
+The assembly is also **define-constrained**: `versionDefines` sets `POSE_VIVOX`
+only when `com.unity.services.vivox` is actually installed, and
+`defineConstraints` requires it. So a missing package does not produce a broken
+assembly full of red errors — the assembly is skipped entirely, compiles nothing,
+and reports nothing. Quarantine contains the blast; the constraint removes the
+noise.
+
+Note that `Firebase.SourceModules` must be listed explicitly. Firebase's
+Functions API ships as C# **source** under `Assets/Firebase/FirebaseFunctions/`,
+not as a precompiled DLL, and an asmdef's `autoReferenced: true` only makes
+*predefined* assemblies (`Assembly-CSharp`) reference it — never other asmdefs.
+
 The cost is real and accepted: `Assembly-CSharp` cannot reference a
 non-auto-referenced assembly, so the board and the bootstrap cannot construct the
 voice controller directly and must go through the interface. That indirection is
