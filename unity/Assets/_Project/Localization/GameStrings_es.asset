@@ -30,6 +30,162 @@ MonoBehaviour:
     m_Localized: "No se pudo conectar con la mesa. Revisa tu conexion e intentalo de nuevo."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000200
+    m_Localized: "Aún no hay mensajes. ¡Saluda!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000201
+    m_Localized: Tú
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000202
+    m_Localized: "Mesa {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000203
+    m_Localized: Mesa de práctica
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000204
+    m_Localized: Mensaje eliminado por un moderador
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000205
+    m_Localized: Se ocultaron algunas palabras.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000206
+    m_Localized: Ve un poco más despacio.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000207
+    m_Localized: No se pudo enviar el mensaje.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000208
+    m_Localized: No se pudo conectar al chat de la mesa.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000209
+    m_Localized: El chat de voz llegará pronto.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000210
+    m_Localized: Los invitados pueden leer el chat, pero no escribir.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000211
+    m_Localized: Estás silenciado en el chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000212
+    m_Localized: El chat está disponible en partidas en línea.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000213
+    m_Localized: Inicia sesión para usar el chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000214
+    m_Localized: Crear cuenta
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000215
+    m_Localized: Conectando tu cuenta…
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000216
+    m_Localized: Puedes crear una cuenta en la pestaña Cuenta.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000217
+    m_Localized: "Cuenta conectada: chat desbloqueado."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000218
+    m_Localized: Denunciar mensaje
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000219
+    m_Localized: ¿Por qué lo denuncias?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000220
+    m_Localized: Añade una nota (opcional)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000221
+    m_Localized: Cancelar
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000222
+    m_Localized: Enviar denuncia
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000223
+    m_Localized: Denuncia enviada. Gracias.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000224
+    m_Localized: No se pudo enviar la denuncia.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000225
+    m_Localized: Acoso
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000226
+    m_Localized: Discurso de odio
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000227
+    m_Localized: Amenazas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000228
+    m_Localized: Contenido sexual
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000229
+    m_Localized: Spam
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000230
+    m_Localized: Trampas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000231
+    m_Localized: Otra cosa
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000232
+    m_Localized: Estás jugando como invitado
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000233
+    m_Localized: Puedes jugar en todas las mesas ya mismo. Una cuenta gratuita desbloquea el resto.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000234
+    m_Localized: El chat de la mesa es solo lectura
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000235
+    m_Localized: El chat de voz no está disponible
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000236
+    m_Localized: Pierdes tu progreso si desinstalas
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000237
+    m_Localized: Crear una cuenta gratis
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000238
+    m_Localized: Continuar como invitado
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

@@ -658,6 +658,162 @@ MonoBehaviour:
     m_Localized: "Enter a {0}-character table code."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000200
+    m_Localized: "No messages yet. Say hello!"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000201
+    m_Localized: You
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000202
+    m_Localized: "Table {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000203
+    m_Localized: Practice table
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000204
+    m_Localized: Message removed by a moderator
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000205
+    m_Localized: Some words were hidden.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000206
+    m_Localized: Slow down a moment.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000207
+    m_Localized: "Couldn't send that message."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000208
+    m_Localized: "Couldn't connect to table chat."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000209
+    m_Localized: Voice chat is coming soon.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000210
+    m_Localized: Guests can read chat, but not send.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000211
+    m_Localized: You are muted in chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000212
+    m_Localized: Chat is available in online matches.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000213
+    m_Localized: Sign in to use chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000214
+    m_Localized: Create account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000215
+    m_Localized: Connecting your account…
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000216
+    m_Localized: You can create an account from the Account tab.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000217
+    m_Localized: Account connected — chat unlocked.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000218
+    m_Localized: Report message
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000219
+    m_Localized: Why are you reporting this?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000220
+    m_Localized: Add a note (optional)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000221
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000222
+    m_Localized: Send report
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000223
+    m_Localized: Report sent. Thank you.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000224
+    m_Localized: "Couldn't send that report."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000225
+    m_Localized: Harassment
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000226
+    m_Localized: Hate speech
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000227
+    m_Localized: Threats
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000228
+    m_Localized: Sexual content
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000229
+    m_Localized: Spam
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000230
+    m_Localized: Cheating
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000231
+    m_Localized: Something else
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000232
+    m_Localized: "You're playing as a guest"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000233
+    m_Localized: You can play every table right away. A free account unlocks the rest.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000234
+    m_Localized: Table chat is read-only
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000235
+    m_Localized: Voice chat is unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000236
+    m_Localized: Progress is lost if you uninstall
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000237
+    m_Localized: Create a free account
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000238
+    m_Localized: Continue as guest
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

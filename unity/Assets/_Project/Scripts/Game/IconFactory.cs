@@ -158,6 +158,29 @@ namespace Pose.Game
             Tri(b, 18, 18, 18, 54, 58, 36);
         });
 
+        /// <summary>An X — dismisses a modal.</summary>
+        public static Sprite Close() => Make(b =>
+        {
+            ThickLine(b, 20, 20, 52, 52, 3.4f);
+            ThickLine(b, 52, 20, 20, 52, 3.4f);
+        });
+
+        /// <summary>A pennant on a pole — report a message.</summary>
+        public static Sprite Flag() => Make(b =>
+        {
+            Rect(b, 18, 8, 23, 62);                   // pole
+            Tri(b, 23, 62, 23, 36, 56, 49);           // pennant
+        });
+
+        /// <summary>A padlock — a feature an account is needed for.</summary>
+        public static Sprite Lock() => Make(b =>
+        {
+            RoundRect(b, 16, 8, 56, 40, 6);           // body
+            Ring(b, 36, 44, 16, 12);                  // shackle
+            ClearRect(b, 12, 8, 60, 44);              // keep only the arc above the body
+            ClearCircle(b, 36, 26, 5);                // keyhole
+        });
+
         // ---- Baking + primitives ------------------------------------------
 
         private static Sprite Make(Action<Color[]> draw)

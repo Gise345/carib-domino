@@ -2,7 +2,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Pose.Core;
+using Pose.Core.Chat;
 using Pose.Net;
 using TMPro;
 using UnityEngine;
@@ -1594,6 +1596,7 @@ namespace Pose.Game
                 includesStatus: false, showName: false);
 
             CreateBoardRoomHud();
+            CreateChatPanel();
             CreateTurnTimerView();
             CreateShuffleAnimation();
         }
@@ -1694,6 +1697,7 @@ namespace Pose.Game
             _hud.PassClicked += OnPassClicked;
             _hud.HomeClicked += OnHomePressed;
             _hud.SettingsClicked += OnHomePressed;
+            _hud.ChatClicked += OnChatPressed;
 
             if (_oldScoreboardPanel != null)
             {
@@ -2472,6 +2476,225 @@ namespace Pose.Game
             ReturnToLobby();
         }
 
+        // ---- chat (ADR 0023) ------------------------------------------------
+        //
+        // The panel renders; ChatService talks; this wires the two together and
+        // owns the room lifetime. Nothing here is a security boundary — the
+        // server re-checks guest status, membership, mutes and rate limits on
+        // every send — so the worst a tampered client achieves is a composer
+        // that looks unlocked and a message that is still refused.
+
+        private ChatPanelView? _chatPanel;
+        private IDisposable? _chatSubscription;
+        private string? _chatRoomId;
+        private bool _chatJoinInFlight;
+        private bool _chatMuted;
+
+        private void CreateChatPanel()
+        {
+            GameObject go = new("ChatPanelView", typeof(RectTransform));
+            go.transform.SetParent(transform, worldPositionStays: false);
+            _chatPanel = go.AddComponent<ChatPanelView>();
+            _chatPanel.Init();
+            _chatPanel.SendRequested += OnChatSendRequested;
+            _chatPanel.ReportRequested += OnChatReportRequested;
+            _chatPanel.CreateAccountRequested += OnChatCreateAccountRequested;
+        }
+
+        private async void OnChatPressed()
+        {
+            if (_chatPanel == null)
+            {
+                return;
+            }
+            if (_chatPanel.IsOpen)
+            {
+                _chatPanel.Close();
+                return;
+            }
+
+            _chatPanel.SetLocalUid(AuthService.Instance?.Uid);
+            _chatPanel.SetSubtitle(ChatSubtitle());
+            RefreshChatEntitlement();
+            _chatPanel.Open();
+
+            // Join lazily, on first open: most matches never open chat, and a
+            // room nobody looks at is a listener and a document for nothing.
+            await EnsureChatRoomAsync();
+        }
+
+        /// <summary>
+        /// Joins the chat room for the current table and starts listening. The
+        /// room id is the Photon session name, so one room spans every round of a
+        /// series; a practice match against bots has no session and so no chat.
+        /// </summary>
+        private async Task EnsureChatRoomAsync()
+        {
+            if (_chatPanel == null || _chatRoomId != null || _chatJoinInFlight)
+            {
+                return;
+            }
+
+            string? roomId = PhotonBootstrap.Instance?.CurrentRoomCode;
+            if (!_isOnline || string.IsNullOrEmpty(roomId))
+            {
+                RefreshChatEntitlement();
+                return;
+            }
+
+            _chatJoinInFlight = true;
+            try
+            {
+                ChatService.JoinResult? joined = await ChatService.JoinRoomAsync(
+                    roomId!,
+                    ProfileService.Instance?.Profile?.DisplayName ?? L10n.Get("chat_you"),
+                    _onlineMatchController?.LocalPlayerIndex ?? -1,
+                    _onlineMatchController?.CurrentMatchId,
+                    _onlineMatchController != null
+                        ? _onlineMatchController.Mode.ToString().ToLowerInvariant()
+                        : "unknown");
+
+                if (joined == null)
+                {
+                    _chatPanel.SetStatus(L10n.Get("chat_error_join"), isError: true);
+                    return;
+                }
+
+                _chatRoomId = joined.Value.RoomId;
+                _chatSubscription = ChatService.Subscribe(_chatRoomId, OnChatMessages);
+                _chatPanel.SetSubtitle(ChatSubtitle());
+                RefreshChatEntitlement();
+            }
+            finally
+            {
+                _chatJoinInFlight = false;
+            }
+        }
+
+        private void OnChatMessages(IReadOnlyList<ChatMessage> messages)
+        {
+            _chatPanel?.SetMessages(messages);
+        }
+
+        private void RefreshChatEntitlement()
+        {
+            AuthService? auth = AuthService.Instance;
+            _chatPanel?.SetEntitlement(ChatEntitlement.For(
+                isSignedIn: auth?.IsSignedIn ?? false,
+                isGuest: auth?.IsGuest ?? true,
+                isMuted: _chatMuted,
+                hasRoom: _chatRoomId != null));
+        }
+
+        private async void OnChatSendRequested(string text)
+        {
+            if (_chatPanel == null || _chatRoomId == null)
+            {
+                return;
+            }
+
+            ChatService.SendResult result = await ChatService.SendAsync(_chatRoomId, text);
+            switch (result.Outcome)
+            {
+                case ChatService.SendOutcome.Ok:
+                    _chatPanel.ClearDraft();
+                    // Say so, rather than leaving the player to wonder why their
+                    // message came back with asterisks in it.
+                    _chatPanel.SetStatus(result.Filtered ? L10n.Get("chat_filtered_notice") : string.Empty);
+                    break;
+
+                case ChatService.SendOutcome.GuestRestricted:
+                    RefreshChatEntitlement();
+                    break;
+
+                case ChatService.SendOutcome.Muted:
+                    // The server is the authority on mutes; reflect it locally so
+                    // the composer stops offering what will only be refused.
+                    _chatMuted = true;
+                    RefreshChatEntitlement();
+                    _chatPanel.SetStatus(L10n.Get("chat_locked_muted"), isError: true);
+                    break;
+
+                case ChatService.SendOutcome.RateLimited:
+                    _chatPanel.SetStatus(L10n.Get("chat_rate_limited"), isError: true);
+                    break;
+
+                default:
+                    _chatPanel.SetStatus(L10n.Get("chat_error_send"), isError: true);
+                    break;
+            }
+        }
+
+        private async void OnChatReportRequested(string messageId, ChatReportReason reason, string note)
+        {
+            if (_chatPanel == null || _chatRoomId == null)
+            {
+                return;
+            }
+
+            bool filed = await ChatService.ReportAsync(_chatRoomId, messageId, reason, note);
+            _chatPanel.SetStatus(
+                L10n.Get(filed ? "chat_report_sent" : "chat_error_report"),
+                isError: !filed);
+        }
+
+        /// <summary>
+        /// The guest CTA. Facebook is the only upgrade that completes without
+        /// leaving the table, so it is what the in-match button offers; the
+        /// lobby's Account section still carries the email route. On success the
+        /// session stops being anonymous and chat unlocks in place — linking
+        /// keeps the same uid, so nothing earned as a guest is lost (ADR 0019).
+        /// </summary>
+        private async void OnChatCreateAccountRequested()
+        {
+            if (_chatPanel == null || AuthService.Instance == null)
+            {
+                return;
+            }
+
+            _chatPanel.SetStatus(L10n.Get("chat_linking"));
+            try
+            {
+                bool linked = await AuthService.Instance.ConnectFacebookAsync();
+                if (!linked)
+                {
+                    _chatPanel.SetStatus(L10n.Get("chat_link_elsewhere"));
+                    return;
+                }
+
+                // Re-join so the room's roster carries the upgraded profile.
+                _chatSubscription?.Dispose();
+                _chatSubscription = null;
+                _chatRoomId = null;
+                await EnsureChatRoomAsync();
+                _chatPanel.SetStatus(L10n.Get("chat_unlocked"));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[BoardBootstrap] chat account upgrade failed: {e.Message}");
+                _chatPanel.SetStatus(L10n.Get("chat_link_elsewhere"), isError: true);
+            }
+        }
+
+        private string ChatSubtitle()
+        {
+            string room = PhotonBootstrap.Instance?.CurrentRoomCode ?? string.Empty;
+            return string.IsNullOrEmpty(room)
+                ? L10n.Get("chat_subtitle_offline")
+                : L10n.Get("chat_subtitle", room);
+        }
+
+        private void LeaveChatRoom()
+        {
+            _chatSubscription?.Dispose();
+            _chatSubscription = null;
+            _chatRoomId = null;
+            _chatMuted = false;
+            _chatPanel?.Close();
+        }
+
+        private void OnDestroy() => LeaveChatRoom();
+
         private void OnHomePressed()
         {
             Debug.Log("[BoardBootstrap] Home pressed — returning to lobby.");
@@ -2560,6 +2783,10 @@ namespace Pose.Game
                 StopCoroutine(_botRoutine);
                 _botRoutine = null;
             }
+
+            // Leaving the table leaves its chat: a live Firestore listener on a
+            // room nobody is watching keeps a stream open and bills reads.
+            LeaveChatRoom();
 
             // Tear down the online session (if any). This also drops Photon
             // room membership so the other player gets OnPlayerLeft.

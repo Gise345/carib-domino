@@ -376,7 +376,30 @@ namespace Pose.Game
             Show(Panel.EmailForm);
         }
 
-        private void OnGuestClicked() => RunAuth(() => AuthService.Instance!.SignInAsGuestAsync(), reportsSuccess: true);
+        /// <summary>
+        /// Signs in as a guest, then says what that costs before the player is
+        /// dropped into the lobby — chat and voice need a real account (ADR 0023
+        /// §3), and finding that out mid-match reads as a bug rather than a
+        /// policy. Creating an account from here LINKS onto the guest session, so
+        /// nothing earned in the meantime is lost.
+        /// </summary>
+        private void OnGuestClicked() =>
+            RunAuth(
+                async () =>
+                {
+                    await AuthService.Instance!.SignInAsGuestAsync();
+                    ShowGuestLimits();
+                },
+                reportsSuccess: false);
+
+        private void ShowGuestLimits()
+        {
+            SetBusy(false);
+            GuestLimitsDialog.Show(
+                (RectTransform)transform,
+                onCreateAccount: () => OpenEmailForm(signUp: true),
+                onContinue: () => LoggedIn?.Invoke());
+        }
 
         private async void OnFacebookClicked()
         {

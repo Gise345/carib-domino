@@ -11,8 +11,8 @@ namespace Pose.Game
     /// <summary>
     /// The cinematic in-match "board room" chrome that overlays the felt board:
     /// a gold scoreboard (top-left, collapsible), ringed seat avatars around the
-    /// table, the local player's profile + chat button in the bottom-right, a
-    /// toggle-open chat/voice panel, and a bottom action bar (last play · Pass
+    /// table, the local player's profile + chat button in the bottom-right (which
+    /// opens the <see cref="ChatPanelView"/> modal), and a bottom action bar (last play · Pass
     /// Turn · turn tag). Purely presentational — it never touches game state; a
     /// host (see <see cref="BoardBootstrap"/>) builds it, wires
     /// <see cref="PassClicked"/> / <see cref="HomeClicked"/>, and feeds it live
@@ -33,6 +33,13 @@ namespace Pose.Game
         public event Action? PassClicked;
         public event Action? HomeClicked;
         public event Action? SettingsClicked;
+
+        /// <summary>
+        /// Raised by the corner chat button. The conversation itself lives in
+        /// <see cref="ChatPanelView"/> — a full-screen modal owned by the host —
+        /// rather than in this HUD, which stays presentational chrome.
+        /// </summary>
+        public event Action? ChatClicked;
 
         /// <summary>
         /// Height of the bottom action bar (Last Play · Pass · turn tag).
@@ -99,7 +106,6 @@ namespace Pose.Game
         private TextMeshProUGUI _scoreChev = null!;
         private bool _scoreCollapsed;
 
-        private GameObject _chatPanel = null!;
         private TextMeshProUGUI _coinLabel = null!;
 
         private Image _passBg = null!;
@@ -124,7 +130,6 @@ namespace Pose.Game
             BuildSeat(SeatPosition.Top, new Vector2(1f, 1f), new Vector2(-94f, -270f), TopSeatAvatarSize);
             BuildSeat(SeatPosition.Left, new Vector2(0f, 1f), new Vector2(74f, -540f), SideSeatAvatarSize);
             BuildSeat(SeatPosition.Right, new Vector2(1f, 1f), new Vector2(-74f, -540f), SideSeatAvatarSize);
-            BuildChatPanel();
             BuildCorner();
             BuildActionBar();
         }
@@ -487,79 +492,6 @@ namespace Pose.Game
             return w;
         }
 
-        // ---- chat panel ---------------------------------------------------
-
-        private void BuildChatPanel()
-        {
-            GameObject panel = Child(transform, "ChatPanel");
-            RectTransform rt = (RectTransform)panel.transform;
-            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(1f, 1f);
-            rt.anchoredPosition = new Vector2(-24f, -120f);
-            rt.sizeDelta = new Vector2(380f, 520f);
-            PanelBg(panel);
-            VerticalLayoutGroup vl = panel.AddComponent<VerticalLayoutGroup>();
-            vl.childControlWidth = true; vl.childControlHeight = true; vl.childForceExpandWidth = true; vl.childForceExpandHeight = false;
-
-            GameObject head = Child(panel.transform, "Head");
-            head.AddComponent<LayoutElement>().preferredHeight = 56f;
-            HorizontalLayoutGroup hl = head.AddComponent<HorizontalLayoutGroup>();
-            hl.padding = new RectOffset(16, 12, 0, 0); hl.spacing = 8f; hl.childAlignment = TextAnchor.MiddleLeft;
-            hl.childControlWidth = true; hl.childControlHeight = true; hl.childForceExpandWidth = false;
-            Button hb = HeaderButton(head);
-            hb.onClick.AddListener(ToggleChat);
-            AddIconInline(head.transform, IconFactory.Chat(), 30f, Gold);
-            AddFlexLabel(head.transform, L10n.Get("chat_title"), 24f, TextCol, FontStyles.Bold, 4f);
-            AddIconInline(head.transform, IconFactory.Mic(), 28f, Muted);
-            AddLabel(head.transform, "–", 30f, Muted, TextAlignmentOptions.Right).GetComponent<LayoutElement>().preferredWidth = 26f;
-
-            // A few sample messages (static until chat is wired).
-            GameObject log = Child(panel.transform, "Log");
-            log.AddComponent<LayoutElement>().flexibleHeight = 1f;
-            VerticalLayoutGroup lvl = log.AddComponent<VerticalLayoutGroup>();
-            lvl.padding = new RectOffset(14, 14, 12, 12); lvl.spacing = 12f;
-            lvl.childControlWidth = true; lvl.childControlHeight = true; lvl.childForceExpandWidth = true; lvl.childForceExpandHeight = false;
-            AddChatMessage(log.transform, "Sly Mongoose", SeatColors[0], "Good luck everyone!");
-            AddChatMessage(log.transform, "Swift Coconut", SeatColors[1], "Let's get it!");
-            AddChatMessage(log.transform, "Brave Hibiscus", SeatColors[2], "Big chain coming!");
-            AddChatMessage(log.transform, "Noble Marlin", SeatColors[3], "Watch yuhself!");
-
-            // Input row.
-            GameObject inrow = Child(panel.transform, "Input");
-            inrow.AddComponent<LayoutElement>().preferredHeight = 60f;
-            HorizontalLayoutGroup il = inrow.AddComponent<HorizontalLayoutGroup>();
-            il.padding = new RectOffset(14, 14, 10, 12); il.spacing = 8f;
-            il.childControlWidth = true; il.childControlHeight = true; il.childForceExpandWidth = false; il.childAlignment = TextAnchor.MiddleLeft;
-            GameObject field = Child(inrow.transform, "Field");
-            LayoutElement fle = field.AddComponent<LayoutElement>();
-            fle.flexibleWidth = 1f; fle.preferredHeight = 44f;
-            Image fbg = field.AddComponent<Image>();
-            fbg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0f, 0f, 0f, 0.35f), new Color(0f, 0f, 0f, 0.35f));
-            fbg.color = Color.white;
-            AddChildLabel(field.transform, L10n.Get("chat_placeholder"), 18f, Faint, TextAlignmentOptions.Left);
-            GameObject send = Child(inrow.transform, "Send");
-            LayoutElement sle = send.AddComponent<LayoutElement>();
-            sle.preferredWidth = 48f; sle.preferredHeight = 48f;
-            Image sbg = send.AddComponent<Image>();
-            sbg.sprite = GradientSprite.RoundedDiagonal(0.5f, new Color(0.27f, 0.70f, 0.35f), new Color(0.20f, 0.55f, 0.28f));
-            sbg.color = Color.white;
-            AddIcon(send.transform, IconFactory.Send(), 26f, Color.white, Vector2.zero, TextAnchor.MiddleCenter);
-
-            _chatPanel = panel;
-            panel.SetActive(false);
-        }
-
-        private void AddChatMessage(Transform parent, string name, Color color, string text)
-        {
-            GameObject msg = Child(parent, "Msg");
-            VerticalLayoutGroup vl = msg.AddComponent<VerticalLayoutGroup>();
-            vl.spacing = 1f; vl.childControlWidth = true; vl.childControlHeight = true; vl.childForceExpandWidth = true; vl.childForceExpandHeight = false;
-            AddLabel(msg.transform, name, 17f, color, TextAlignmentOptions.Left, FontStyles.Bold).GetComponent<LayoutElement>().preferredHeight = 22f;
-            AddLabel(msg.transform, text, 19f, Muted, TextAlignmentOptions.Left).GetComponent<LayoutElement>().preferredHeight = 24f;
-        }
-
-        private void ToggleChat() => _chatPanel.SetActive(!_chatPanel.activeSelf);
-
         // ---- bottom-right corner (local profile + chat button) ------------
 
         private void BuildCorner()
@@ -588,7 +520,7 @@ namespace Pose.Game
             cbg.sprite = GradientSprite.RoundedDiagonal(0.28f, new Color(0.14f, 0.10f, 0.07f), new Color(0.08f, 0.05f, 0.03f));
             cbg.color = Color.white;
             Button cbtn = chat.AddComponent<Button>();
-            cbtn.onClick.AddListener(ToggleChat);
+            cbtn.onClick.AddListener(() => ChatClicked?.Invoke());
             AddIcon(chat.transform, IconFactory.Chat(), 42f, Gold, Vector2.zero, TextAnchor.MiddleCenter);
         }
 

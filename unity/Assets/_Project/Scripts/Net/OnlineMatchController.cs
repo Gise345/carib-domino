@@ -181,6 +181,12 @@ namespace Pose.Net
         /// <summary>The series format (Classic / Quick).</summary>
         public MatchFormat SeriesFormat => _match != null ? _match.SeriesFormat : MatchFormat.ClassicSixLove;
 
+        /// <summary>
+        /// The ruleset this table is playing — the networked value once the match
+        /// object exists, and the requested one before that.
+        /// </summary>
+        public GameMode Mode => _match != null ? _match.GameMode : _targetMode;
+
         /// <summary>The current round number in the series (1-based).</summary>
         public int SeriesRoundNumber => _match?.RoundNumber ?? 0;
 

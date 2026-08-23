@@ -30,6 +30,162 @@ MonoBehaviour:
     m_Localized: "Impossible de joindre la table. Verifiez votre connexion et reessayez."
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000200
+    m_Localized: "Aucun message. Dites bonjour !"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000201
+    m_Localized: Vous
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000202
+    m_Localized: "Table {0}"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000203
+    m_Localized: "Table d'entraînement"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000204
+    m_Localized: Message supprimé par un modérateur
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000205
+    m_Localized: Certains mots ont été masqués.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000206
+    m_Localized: Doucement, un instant.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000207
+    m_Localized: "Impossible d'envoyer ce message."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000208
+    m_Localized: Connexion au chat de la table impossible.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000209
+    m_Localized: Le chat vocal arrive bientôt.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000210
+    m_Localized: Les invités peuvent lire le chat, mais pas écrire.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000211
+    m_Localized: Vous êtes réduit au silence dans le chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000212
+    m_Localized: Le chat est disponible en ligne.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000213
+    m_Localized: Connectez-vous pour utiliser le chat.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000214
+    m_Localized: Créer un compte
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000215
+    m_Localized: Connexion de votre compte…
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000216
+    m_Localized: Vous pouvez créer un compte dans l’onglet Compte.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000217
+    m_Localized: Compte connecté — chat débloqué.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000218
+    m_Localized: Signaler le message
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000219
+    m_Localized: Pourquoi le signalez-vous ?
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000220
+    m_Localized: Ajouter une note (facultatif)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000221
+    m_Localized: Annuler
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000222
+    m_Localized: Envoyer
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000223
+    m_Localized: Signalement envoyé. Merci.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000224
+    m_Localized: "Impossible d'envoyer le signalement."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000225
+    m_Localized: Harcèlement
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000226
+    m_Localized: Discours haineux
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000227
+    m_Localized: Menaces
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000228
+    m_Localized: Contenu sexuel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000229
+    m_Localized: Spam
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000230
+    m_Localized: Triche
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000231
+    m_Localized: Autre chose
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000232
+    m_Localized: Vous jouez en tant qu’invité
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000233
+    m_Localized: Vous pouvez jouer à toutes les tables. Un compte gratuit débloque le reste.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000234
+    m_Localized: Le chat de table est en lecture seule
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000235
+    m_Localized: Le chat vocal est indisponible
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000236
+    m_Localized: Votre progression est perdue en cas de désinstallation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000237
+    m_Localized: Créer un compte gratuit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000238
+    m_Localized: Continuer en invité
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
