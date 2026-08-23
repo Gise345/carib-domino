@@ -74,6 +74,86 @@ namespace Pose.Game
         }
 
         /// <summary>
+        /// A rounded-rect outline with a soft outward bloom and a hollow centre —
+        /// the "lit" ring that marks a chosen option.
+        ///
+        /// Baked rather than layered from two tinted rects because a glow needs a
+        /// falloff, and a hard second rectangle behind the first reads as a
+        /// mistake. The centre is left fully transparent so whatever the option
+        /// sits on shows through.
+        ///
+        /// 9-sliced: the border is set past the corner radius and the bloom, so
+        /// corners stay crisp at any box size while the straight runs stretch.
+        /// </summary>
+        /// <param name="color">Ring colour; its alpha scales the whole glow.</param>
+        /// <param name="cornerFraction">Corner radius, as a fraction of half the sprite.</param>
+        /// <param name="glowFraction">Bloom width, as a fraction of half the sprite.</param>
+        /// <param name="lineFraction">Crisp ring width, as a fraction of half the sprite.</param>
+        public static Sprite RoundedGlow(
+            Color color, float cornerFraction = 0.30f, float glowFraction = 0.17f, float lineFraction = 0.035f)
+        {
+            const int size = 128;
+            float half = size * 0.5f;
+            float glow = Mathf.Max(1f, glowFraction * half);
+            float line = Mathf.Max(1f, lineFraction * half);
+            float radius = Mathf.Clamp(cornerFraction * half, 0f, half - glow - 1f);
+
+            // The crisp box is inset by the bloom, so the bloom has room to fall
+            // off inside the sprite rather than being clipped at its edge.
+            float inset = glow;
+            Texture2D tex = new(size, size, TextureFormat.RGBA32, mipChain: false)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                name = "RoundedGlowSprite",
+            };
+
+            Color[] pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    // Signed distance to the rounded rect: negative inside.
+                    float px = x + 0.5f;
+                    float py = y + 0.5f;
+                    float qx = Mathf.Abs(px - half) - ((half - inset) - radius);
+                    float qy = Mathf.Abs(py - half) - ((half - inset) - radius);
+                    float outside = Mathf.Sqrt(
+                        (Mathf.Max(qx, 0f) * Mathf.Max(qx, 0f)) + (Mathf.Max(qy, 0f) * Mathf.Max(qy, 0f)));
+                    float d = outside + Mathf.Min(Mathf.Max(qx, qy), 0f) - radius;
+
+                    float a;
+                    if (d > 0f)
+                    {
+                        // Outside the box: bloom, fading to nothing.
+                        float t = Mathf.Clamp01(d / glow);
+                        a = (1f - t) * (1f - t) * 0.85f;
+                    }
+                    else if (d > -line)
+                    {
+                        a = 1f;                                   // the ring itself
+                    }
+                    else
+                    {
+                        // Inside: a faint inner lip, then clear.
+                        float t = Mathf.Clamp01((-d - line) / (glow * 0.8f));
+                        a = (1f - t) * (1f - t) * 0.35f;
+                    }
+
+                    pixels[(y * size) + x] = new Color(color.r, color.g, color.b, a * color.a);
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply(updateMipmaps: false);
+            float border = inset + radius + 2f;
+            return Sprite.Create(
+                tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f),
+                pixelsPerUnit: 100f, extrude: 0, meshType: SpriteMeshType.FullRect,
+                border: new Vector4(border, border, border, border));
+        }
+
+        /// <summary>
         /// Renders a gradient into a fresh texture and wraps it in a sprite.
         /// </summary>
         /// <param name="direction">Axis the gradient runs along.</param>

@@ -814,6 +814,30 @@ MonoBehaviour:
     m_Localized: Continue as guest
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000239
+    m_Localized: "Game Format"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000240
+    m_Localized: "The traditional way to play."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000241
+    m_Localized: "Fast paced, get in and play."
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000242
+    m_Localized: "Table Type"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000243
+    m_Localized: "Cut Throat"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000244
+    m_Localized: "Partner"
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []

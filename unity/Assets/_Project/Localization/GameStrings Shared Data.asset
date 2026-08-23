@@ -807,6 +807,30 @@ MonoBehaviour:
     m_Key: guest_limits_continue
     m_Metadata:
       m_Items: []
+  - m_Id: 50470000000239
+    m_Key: room_game_format
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000240
+    m_Key: fmt_classic_blurb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000241
+    m_Key: fmt_quick_blurb
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000242
+    m_Key: room_table_type
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000243
+    m_Key: mode_cutthroat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 50470000000244
+    m_Key: mode_partner
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

@@ -21,6 +21,11 @@ namespace Pose.Game
     [Serializable]
     public sealed class RoomArt
     {
+        [Tooltip("The room ground — the beach scene behind all three rooms. " +
+                 "Drawn at the 800x1730 canvas ratio and stretched to fill; a " +
+                 "different ratio will be squashed rather than cropped.")]
+        public Sprite? RoomBackground;
+
         [Tooltip("Cut Throat Online title. Carries the top of the room in place " +
                  "of a text header. Transparent PNG, trimmed.")]
         public Sprite? CutThroatTitle;

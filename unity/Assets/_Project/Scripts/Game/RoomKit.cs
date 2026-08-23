@@ -60,10 +60,31 @@ namespace Pose.Game
         private const float FallbackInset = 0.07f;
         private const float FallbackVInset = 0.16f;
 
-        private static readonly Color TileFill = new(0.078f, 0.196f, 0.165f, 0.72f);
-        private static readonly Color TileFillOn = new(0.792f, 0.541f, 0.016f, 0.16f);
+        /// <summary>
+        /// Unchosen options: a dark, faintly green-cast grey. Flat and quiet, so
+        /// the lit one is the only thing in the row asking to be looked at.
+        /// </summary>
+        private static readonly Color BoxFill = new(0.145f, 0.161f, 0.153f, 0.94f);
+
+        /// <summary>
+        /// The chosen option is see-through — the room shows through it, which is
+        /// what makes the gold ring read as lit rather than as another border.
+        /// </summary>
+        private static readonly Color BoxFillOn = new(0.055f, 0.129f, 0.098f, 0.35f);
+
+        /// <summary>Head icons on an unchosen option — the yard's green.</summary>
+        private static readonly Color HeadIdle = new(0.357f, 0.816f, 0.478f);
         private static readonly Color BoardInk = new(0.965f, 0.914f, 0.784f);
         private static readonly Color BoardValue = new(1f, 0.855f, 0.541f);
+
+        private static Sprite? _glow;
+        private static Sprite? _boxFill;
+
+        /// <summary>The lit ring, built once and shared by every choice box.</summary>
+        private static Sprite Glow() => _glow ??= GradientSprite.RoundedGlow(UiKit.BrassLit);
+
+        private static Sprite Box() =>
+            _boxFill ??= GradientSprite.RoundedDiagonal(0.14f, Color.white, Color.white);
 
         // ---- The hero -------------------------------------------------------
 
@@ -184,20 +205,63 @@ namespace Pose.Game
             le.minHeight = height;
         }
 
-        // ---- Format tiles ---------------------------------------------------
+        // ---- Sections -------------------------------------------------------
 
         /// <summary>
-        /// A row of picture choices — the format, chosen by looking rather than
-        /// reading. Tiles share one art box so a wide banner and a squarer pile
-        /// sit at the same size without either being stretched.
+        /// A section heading, centred over what it introduces. Sections are no
+        /// longer boxed: a card border around two picture tiles fenced them off
+        /// from the room they belong to, so the heading now does the whole job of
+        /// separating one choice from the next.
         /// </summary>
-        /// <param name="card">The card to add the row to.</param>
-        /// <returns>The row, to parent tiles into.</returns>
-        public static RectTransform TileRow(RectTransform card)
+        /// <param name="parent">The body stack.</param>
+        /// <param name="text">The heading, set in caps.</param>
+        public static void Caption(RectTransform parent, string text)
         {
-            GameObject row = UiKit.Child(card, "Tiles");
+            TextMeshProUGUI t = UiKit.Label(
+                parent, text.ToUpperInvariant(), 24f, UiKit.Bone, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold;
+            t.characterSpacing = 8f;
+            t.raycastTarget = false;
+            LayoutElement le = t.GetComponent<LayoutElement>();
+            le.preferredHeight = 40f;
+            le.minHeight = 40f;
+        }
+
+        /// <summary>
+        /// A transparent vertical group inside the body stack — used where a
+        /// whole run of sections has to appear and disappear together, as when a
+        /// friends room switches between Cut-Throat and Partner.
+        /// </summary>
+        /// <param name="parent">The body stack.</param>
+        /// <returns>The container, laid out like the body it sits in.</returns>
+        public static RectTransform Section(RectTransform parent)
+        {
+            GameObject go = UiKit.Child(parent, "Section");
+            VerticalLayoutGroup v = go.AddComponent<VerticalLayoutGroup>();
+            v.spacing = UiKit.CardGap;
+            v.childAlignment = TextAnchor.UpperCenter;
+            v.childControlWidth = true;
+            v.childControlHeight = true;
+            v.childForceExpandWidth = true;
+            v.childForceExpandHeight = false;
+            go.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return (RectTransform)go.transform;
+        }
+
+        // ---- Choice rows ----------------------------------------------------
+
+        /// <summary>
+        /// A row of choices, evenly divided. Used for format tiles, table sizes
+        /// and room types alike, so every choice in a room behaves the same way.
+        /// </summary>
+        /// <param name="parent">The body stack or a section.</param>
+        /// <param name="spacing">Gap between the options.</param>
+        /// <returns>The row, to parent options into.</returns>
+        public static RectTransform ChoiceRow(RectTransform parent, float spacing = 18f)
+        {
+            GameObject row = UiKit.Child(parent, "Choices");
             HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 16f;
+            h.spacing = spacing;
             h.childAlignment = TextAnchor.MiddleCenter;
             h.childControlWidth = true;
             h.childControlHeight = true;
@@ -208,33 +272,82 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// One picture choice: art in a fixed box with its name beneath. The
-        /// name stays even once art lands — a player who has not learned the
-        /// pictures yet still has to be able to pick.
+        /// The shell every choice shares: a rounded box, a lit ring that only the
+        /// chosen one wears, and a tick in its corner. The tick matters — it
+        /// means the choice is carried by a shape as well as by colour.
         /// </summary>
-        /// <param name="row">The row from <see cref="TileRow"/>.</param>
-        /// <param name="label">The format's name.</param>
-        /// <param name="onClick">Invoked when the tile is chosen.</param>
-        /// <returns>The tile, for <see cref="SetChosen"/> and art assignment.</returns>
-        public static GameObject Tile(RectTransform row, string label, Action onClick)
+        /// <param name="row">The row from <see cref="ChoiceRow"/>.</param>
+        /// <param name="name">Name for the object, for debugging.</param>
+        /// <param name="onClick">Invoked when this option is chosen.</param>
+        /// <returns>The box, ready to be filled and passed to <see cref="SetChosen"/>.</returns>
+        private static GameObject ChoiceBox(RectTransform row, string name, Action onClick)
         {
-            GameObject go = UiKit.Child(row, $"Tile_{label}");
-            Image bg = go.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.12f, Color.white, Color.white);
-            bg.type = Image.Type.Sliced;
-            bg.color = TileFill;
+            GameObject go = UiKit.Child(row, name);
 
-            Outline edge = go.AddComponent<Outline>();
-            edge.effectColor = new Color(UiKit.Lamplight.r, UiKit.Lamplight.g, UiKit.Lamplight.b, 0.2f);
-            edge.effectDistance = new Vector2(1.5f, -1.5f);
+            Image bg = go.AddComponent<Image>();
+            bg.sprite = Box();
+            bg.type = Image.Type.Sliced;
+            bg.color = BoxFill;
 
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
             btn.onClick.AddListener(() => onClick());
 
+            // Behind the content and outside the box, so it blooms outward
+            // rather than washing over what it is marking.
+            GameObject glow = UiKit.Child(go.transform, "Glow");
+            RectTransform grt = (RectTransform)glow.transform;
+            grt.anchorMin = Vector2.zero;
+            grt.anchorMax = Vector2.one;
+            grt.offsetMin = new Vector2(-14f, -14f);
+            grt.offsetMax = new Vector2(14f, 14f);
+            Image glowImg = glow.AddComponent<Image>();
+            glowImg.sprite = Glow();
+            glowImg.type = Image.Type.Sliced;
+            glowImg.color = Color.white;
+            glowImg.raycastTarget = false;
+            glow.SetActive(false);
+
+            GameObject tick = UiKit.Child(go.transform, "Tick");
+            RectTransform trt = (RectTransform)tick.transform;
+            trt.anchorMin = trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(1f, 1f);
+            trt.anchoredPosition = new Vector2(-12f, -12f);
+            trt.sizeDelta = new Vector2(46f, 46f);
+            Image disc = tick.AddComponent<Image>();
+            disc.sprite = GradientSprite.RoundedDiagonal(0.5f, UiKit.BrassLit, UiKit.Brass);
+            disc.color = Color.white;
+            disc.raycastTarget = false;
+            GameObject mark = UiKit.Child(tick.transform, "Mark");
+            UiKit.Stretch((RectTransform)mark.transform, inset: 11f);
+            Image markImg = mark.AddComponent<Image>();
+            markImg.sprite = IconFactory.Check();
+            markImg.color = new Color(0.09f, 0.08f, 0.04f);
+            markImg.raycastTarget = false;
+            tick.SetActive(false);
+
+            return go;
+        }
+
+        // ---- Format tiles ---------------------------------------------------
+
+        /// <summary>
+        /// One picture choice: art in a fixed box, its name, and one line saying
+        /// what picking it means. The name stays even once art lands — a player
+        /// who has not learned the pictures yet still has to be able to pick.
+        /// </summary>
+        /// <param name="row">The row from <see cref="ChoiceRow"/>.</param>
+        /// <param name="label">The format's name.</param>
+        /// <param name="blurb">One line on what this format plays like.</param>
+        /// <param name="onClick">Invoked when the tile is chosen.</param>
+        /// <returns>The tile, for <see cref="SetChosen"/> and art assignment.</returns>
+        public static GameObject Tile(RectTransform row, string label, string blurb, Action onClick)
+        {
+            GameObject go = ChoiceBox(row, $"Tile_{label}", onClick);
+
             VerticalLayoutGroup v = go.AddComponent<VerticalLayoutGroup>();
-            v.padding = new RectOffset(12, 12, 12, 10);
-            v.spacing = 6f;
+            v.padding = new RectOffset(16, 16, 18, 14);
+            v.spacing = 4f;
             v.childAlignment = TextAnchor.MiddleCenter;
             v.childControlWidth = true;
             v.childControlHeight = true;
@@ -251,9 +364,14 @@ namespace Pose.Game
             art.enabled = false;
 
             TextMeshProUGUI name = UiKit.Label(
-                go.transform, label, 24f, UiKit.Lamplight, TextAlignmentOptions.Center);
+                go.transform, label, 26f, UiKit.Bone, TextAlignmentOptions.Center);
             name.fontStyle = FontStyles.Bold;
             name.raycastTarget = false;
+
+            TextMeshProUGUI sub = UiKit.Label(
+                go.transform, blurb, 19f, UiKit.Muted, TextAlignmentOptions.Center);
+            sub.raycastTarget = false;
+            sub.name = "Blurb";
             return go;
         }
 
@@ -283,62 +401,31 @@ namespace Pose.Game
 
             // Two tiles side by side, each with its own padding and the gap
             // between them.
-            float tileWidth = (rowWidth - 16f) / 2f;
-            artGo.GetComponent<LayoutElement>().preferredHeight = (tileWidth - 24f) / TileArtAspect;
+            float tileWidth = (rowWidth - 18f) / 2f;
+            artGo.GetComponent<LayoutElement>().preferredHeight = (tileWidth - 32f) / TileArtAspect;
         }
 
         // ---- Seat choice ----------------------------------------------------
 
         /// <summary>
-        /// How many people are at the table, counted in heads. A digit has to be
-        /// read; heads are counted at a glance, and the difference between two
-        /// and four people is the point of the choice.
+        /// One table size: that many heads, and what the table is called. Heads
+        /// rather than a digit, because the difference between two people and
+        /// four is the actual substance of the choice and is counted faster than
+        /// it is read.
         /// </summary>
-        /// <param name="card">The card to add the row to.</param>
-        /// <returns>The row, to parent seat options into.</returns>
-        public static RectTransform SeatRow(RectTransform card)
-        {
-            GameObject row = UiKit.Child(card, "Seats");
-            HorizontalLayoutGroup h = row.AddComponent<HorizontalLayoutGroup>();
-            h.spacing = 14f;
-            h.childAlignment = TextAnchor.MiddleCenter;
-            h.childControlWidth = true;
-            h.childControlHeight = true;
-            h.childForceExpandWidth = true;
-            h.childForceExpandHeight = false;
-            row.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            return (RectTransform)row.transform;
-        }
-
-        /// <summary>
-        /// One table size: that many heads, and what the table is called.
-        /// </summary>
-        /// <param name="row">The row from <see cref="SeatRow"/>.</param>
+        /// <param name="row">The row from <see cref="ChoiceRow"/>.</param>
         /// <param name="seats">How many heads to draw.</param>
         /// <param name="caption">What players call a table this size.</param>
         /// <param name="onClick">Invoked when this size is chosen.</param>
         /// <returns>The option, for <see cref="SetChosen"/>.</returns>
         public static GameObject SeatOption(RectTransform row, int seats, string caption, Action onClick)
         {
-            GameObject go = UiKit.Child(row, $"Seats_{seats}");
-            go.AddComponent<LayoutElement>().preferredHeight = 116f;
-
-            Image bg = go.AddComponent<Image>();
-            bg.sprite = GradientSprite.RoundedDiagonal(0.18f, Color.white, Color.white);
-            bg.type = Image.Type.Sliced;
-            bg.color = TileFill;
-
-            Outline edge = go.AddComponent<Outline>();
-            edge.effectColor = new Color(UiKit.Lamplight.r, UiKit.Lamplight.g, UiKit.Lamplight.b, 0.2f);
-            edge.effectDistance = new Vector2(1.5f, -1.5f);
-
-            Button btn = go.AddComponent<Button>();
-            btn.targetGraphic = bg;
-            btn.onClick.AddListener(() => onClick());
+            GameObject go = ChoiceBox(row, $"Seats_{seats}", onClick);
+            go.AddComponent<LayoutElement>().preferredHeight = 128f;
 
             VerticalLayoutGroup v = go.AddComponent<VerticalLayoutGroup>();
-            v.padding = new RectOffset(6, 6, 12, 8);
-            v.spacing = 2f;
+            v.padding = new RectOffset(6, 6, 16, 12);
+            v.spacing = 4f;
             v.childAlignment = TextAnchor.MiddleCenter;
             v.childControlWidth = true;
             v.childControlHeight = true;
@@ -346,7 +433,7 @@ namespace Pose.Game
             v.childForceExpandHeight = false;
 
             GameObject heads = UiKit.Child(go.transform, "Heads");
-            heads.AddComponent<LayoutElement>().preferredHeight = 44f;
+            heads.AddComponent<LayoutElement>().preferredHeight = 46f;
             HorizontalLayoutGroup hh = heads.AddComponent<HorizontalLayoutGroup>();
             hh.spacing = 3f;
             hh.childAlignment = TextAnchor.MiddleCenter;
@@ -360,30 +447,51 @@ namespace Pose.Game
             {
                 GameObject head = UiKit.Child(heads.transform, "Head");
                 LayoutElement hle = head.AddComponent<LayoutElement>();
-                hle.preferredWidth = 40f;
-                hle.preferredHeight = 40f;
+                hle.preferredWidth = 42f;
+                hle.preferredHeight = 42f;
                 Image img = head.AddComponent<Image>();
                 img.sprite = person;
-                img.color = UiKit.Muted;
+                img.color = HeadIdle;
                 img.preserveAspect = true;
                 img.raycastTarget = false;
             }
 
             TextMeshProUGUI cap = UiKit.Label(
-                go.transform, caption, 20f, UiKit.Muted, TextAlignmentOptions.Center);
+                go.transform, caption, 21f, UiKit.Muted, TextAlignmentOptions.Center);
+            cap.fontStyle = FontStyles.Bold;
             cap.raycastTarget = false;
+            return go;
+        }
+
+        /// <summary>
+        /// A plain worded choice — the kind with nothing to picture, like whether
+        /// a friends room plays Cut-Throat or Partner.
+        /// </summary>
+        /// <param name="row">The row from <see cref="ChoiceRow"/>.</param>
+        /// <param name="label">The choice.</param>
+        /// <param name="onClick">Invoked when it is chosen.</param>
+        /// <returns>The option, for <see cref="SetChosen"/>.</returns>
+        public static GameObject WordOption(RectTransform row, string label, Action onClick)
+        {
+            GameObject go = ChoiceBox(row, $"Opt_{label}", onClick);
+            go.AddComponent<LayoutElement>().preferredHeight = 88f;
+
+            TextMeshProUGUI t = UiKit.Label(
+                go.transform, label, 26f, UiKit.Muted, TextAlignmentOptions.Center);
+            t.fontStyle = FontStyles.Bold;
+            UiKit.Stretch((RectTransform)t.transform, left: 14f, right: 14f);
+            t.raycastTarget = false;
             return go;
         }
 
         // ---- Chosen state ---------------------------------------------------
 
         /// <summary>
-        /// Lights a tile or seat option as the chosen one — brass edge, warm
-        /// ground, and the heads and lettering brought up with it. Colour is
-        /// never the only signal: the chosen option also carries the only solid
-        /// brass edge in the row.
+        /// Lights an option as the chosen one: the box goes see-through so the
+        /// room shows through it, a gold ring blooms around it, the tick appears,
+        /// and its heads and lettering warm up. The unchosen keep a flat grey.
         /// </summary>
-        /// <param name="option">A tile or seat option.</param>
+        /// <param name="option">A tile, seat option or worded option.</param>
         /// <param name="chosen">Whether this is the current choice.</param>
         public static void SetChosen(GameObject? option, bool chosen)
         {
@@ -395,37 +503,40 @@ namespace Pose.Game
             Image? bg = option.GetComponent<Image>();
             if (bg != null)
             {
-                bg.color = chosen ? TileFillOn : TileFill;
+                bg.color = chosen ? BoxFillOn : BoxFill;
             }
 
-            Outline? edge = option.GetComponent<Outline>();
-            if (edge != null)
+            Transform? glow = option.transform.Find("Glow");
+            if (glow != null)
             {
-                edge.effectColor = chosen
-                    ? UiKit.Brass
-                    : new Color(UiKit.Lamplight.r, UiKit.Lamplight.g, UiKit.Lamplight.b, 0.2f);
-                edge.effectDistance = chosen ? new Vector2(2.5f, -2.5f) : new Vector2(1.5f, -1.5f);
+                glow.gameObject.SetActive(chosen);
             }
 
-            Color ink = chosen ? UiKit.BrassLit : UiKit.Muted;
-            foreach (Transform child in option.transform)
+            Transform? tick = option.transform.Find("Tick");
+            if (tick != null)
             {
-                if (child.name == "Heads")
+                tick.gameObject.SetActive(chosen);
+            }
+
+            Transform? heads = option.transform.Find("Heads");
+            if (heads != null)
+            {
+                foreach (Transform head in heads)
                 {
-                    foreach (Transform head in child)
+                    Image? hi = head.GetComponent<Image>();
+                    if (hi != null)
                     {
-                        Image? hi = head.GetComponent<Image>();
-                        if (hi != null)
-                        {
-                            hi.color = ink;
-                        }
+                        hi.color = chosen ? UiKit.BrassLit : HeadIdle;
                     }
                 }
             }
 
             foreach (TextMeshProUGUI label in option.GetComponentsInChildren<TextMeshProUGUI>(true))
             {
-                label.color = chosen ? UiKit.BrassLit : UiKit.Lamplight;
+                bool blurb = label.gameObject.name == "Blurb";
+                label.color = chosen
+                    ? (blurb ? UiKit.BrassLit : UiKit.Bone)
+                    : (blurb ? UiKit.Muted : new Color(UiKit.Muted.r, UiKit.Muted.g, UiKit.Muted.b, 0.92f));
             }
         }
 

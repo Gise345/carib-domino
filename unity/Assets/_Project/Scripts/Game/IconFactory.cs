@@ -121,6 +121,16 @@ namespace Pose.Game
             ThickLine(b, 46, 60, 28, 36, 5f);
         });
 
+        /// <summary>
+        /// A tick. Marks the chosen option in a row, so selection is carried by
+        /// a shape as well as by colour.
+        /// </summary>
+        public static Sprite Check() => Make(b =>
+        {
+            ThickLine(b, 16, 38, 30, 22, 6f);
+            ThickLine(b, 30, 22, 57, 52, 6f);
+        });
+
         /// <summary>A hollow circle, used as a badge behind another glyph.</summary>
         public static Sprite Ring() => Make(b => Ring(b, S / 2f, S / 2f, (S / 2f) - 2f, (S / 2f) - 7f));
 

@@ -133,9 +133,15 @@ namespace Pose.Game
         private readonly List<(GameObject go, MatchFormat fmt)> _formatTiles = new();
 
         // Table size is per-room: Cut Throat's pick is not the friends room's.
-        private readonly List<(GameObject go, (GameMode mode, int seats) choice)> _cutThroatSeats = new();
-        private readonly List<(GameObject go, (GameMode mode, int seats) choice)> _friendsSeats = new();
+        private readonly List<(GameObject go, int seats)> _cutThroatSeats = new();
+        private readonly List<(GameObject go, int seats)> _friendsSeats = new();
         private int _friendsSeatCount = NetworkedMatch.MaxPlayers;
+
+        // A friends room is Cut-Throat or Partner, and the two halves of the
+        // screen below the switch are built separately and swapped.
+        private readonly List<(GameObject go, GameMode mode)> _friendsModes = new();
+        private RectTransform? _friendsCutThroatSection;
+        private RectTransform? _friendsPartnerSection;
 
         // Restated whenever a choice changes — rounds to win, and every number
         // on a rewards board.
@@ -151,6 +157,8 @@ namespace Pose.Game
         private Image? _cutThroatBoard;
         private Image? _partnerBoard;
         private Image? _oneLoveBoard;
+        private Image? _oneLovePartnerBoard;
+        private readonly List<Image> _roomBackgrounds = new();
         private RoomArt _roomArt = new();
 
         private TMP_InputField? _codeInput;
@@ -264,6 +272,24 @@ namespace Pose.Game
             }
             float bodyWidth = screenWidth - (RoomBodyInset * 2f);
 
+            foreach (Image ground in _roomBackgrounds)
+            {
+                if (ground == null)
+                {
+                    continue;
+                }
+                if (_roomArt.RoomBackground != null)
+                {
+                    ground.sprite = _roomArt.RoomBackground;
+                    ground.type = Image.Type.Simple;
+                    // Stretched, not fitted: the art is drawn at the canvas
+                    // ratio, and letterboxing a full-bleed ground would show
+                    // the felt behind it.
+                    ground.preserveAspect = false;
+                }
+                ground.color = Color.white;
+            }
+
             RoomKit.SetHeroArt(_cutThroatHero, _roomArt.CutThroatTitle, screenWidth);
             RoomKit.SetHeroArt(_partnerHero, _roomArt.PartnerTitle, screenWidth);
             RoomKit.SetHeroArt(_oneLoveHero, _roomArt.OneLoveTitle, screenWidth);
@@ -282,6 +308,7 @@ namespace Pose.Game
             RoomKit.SetBoardArt(_cutThroatBoard, _roomArt.RewardsBoard, bodyWidth);
             RoomKit.SetBoardArt(_partnerBoard, _roomArt.RewardsBoard, bodyWidth);
             RoomKit.SetBoardArt(_oneLoveBoard, _roomArt.RewardsBoard, bodyWidth);
+            RoomKit.SetBoardArt(_oneLovePartnerBoard, _roomArt.RewardsBoard, bodyWidth);
         }
 
         // Sets a block's background frame: the supplied wooden image (9-sliced so
@@ -944,11 +971,10 @@ namespace Pose.Game
 
         // ---- Game rooms ----------------------------------------------------
         //
-        // All three ask the same questions in the same order — what format, who
-        // is at the table, what it pays — so they are built from one set of
-        // pieces (RoomKit) and differ only where the modes genuinely differ.
-        // Partner is the exception to the order: its seat map explains the mode
-        // before there is anything to choose, so it comes first.
+        // Every room asks the same things in the same order — what format, who
+        // is at the table, what it pays — and answers them with pictures rather
+        // than boxed-off panels. A friends room asks one more question first,
+        // because what kind of table it is changes everything below it.
 
         private GameObject BuildCutThroatScreen()
         {
@@ -956,9 +982,11 @@ namespace Pose.Game
                 "CutThroatScreen", L10n.Get("room_cutthroat_title"), out Image hero);
             _cutThroatHero = hero;
 
-            BuildFormatCard(body, L10n.Get("fmt_classic_six_love"), L10n.Get("fmt_quick_love"), showRounds: true);
-            BuildSeatCard(body, _cutThroatSeats, GameMode.CutThroat, partnerOption: false);
-            _cutThroatBoard = BuildRewardsBoard(body, GameMode.CutThroat);
+            BuildFormatChoice(body, cutThroat: true);
+            BuildSeatChoice(body, _cutThroatSeats);
+            _cutThroatBoard = BuildRewardsBoard(
+                body, GameMode.CutThroat,
+                () => RoomSummary.For(GameMode.CutThroat, _selectedSize, _selectedFormat));
 
             UiKit.PrimaryButton(body, L10n.Get("room_start"),
                 () => StartOnline(GameMode.CutThroat, _selectedSize, _selectedFormat));
@@ -972,15 +1000,12 @@ namespace Pose.Game
                 "PartnerScreen", L10n.Get("room_partner_title"), out Image hero);
             _partnerHero = hero;
 
-            // The diagram is the explanation: that your partner sits opposite is
-            // the whole rule, and it lands faster drawn than written.
-            RectTransform team = UiKit.Card(
-                body, L10n.Get("room_your_team"), L10n.Get("room_always_four"));
-            BuildPartnerSeatMap(team);
-            UiKit.Label(team, L10n.Get("room_partner_note"), 21f, UiKit.Muted, TextAlignmentOptions.MidlineLeft);
-
-            BuildFormatCard(body, L10n.Get("fmt_classic_partner"), L10n.Get("fmt_quick_partner"), showRounds: false);
-            _partnerBoard = BuildRewardsBoard(body, GameMode.Partner);
+            // No table-size choice and no seat diagram: Partner is always four
+            // seats with partners opposite, so there is nothing here to decide.
+            BuildFormatChoice(body, cutThroat: false);
+            _partnerBoard = BuildRewardsBoard(
+                body, GameMode.Partner,
+                () => RoomSummary.For(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
 
             UiKit.PrimaryButton(body, L10n.Get("room_find_match"),
                 () => StartOnline(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
@@ -994,13 +1019,32 @@ namespace Pose.Game
                 "FriendsRoomScreen", L10n.Get("room_onelove_title"), out Image hero);
             _oneLoveHero = hero;
 
-            BuildFormatCard(body, L10n.Get("fmt_classic_six_love"), L10n.Get("fmt_quick_love"), showRounds: true);
+            // The first question, because the rest of the screen depends on it:
+            // a Partner table has no size to pick and pays out to a side, not a
+            // player, so the two rooms are built separately and swapped.
+            RoomKit.Caption(body, L10n.Get("room_table_type"));
+            RectTransform modeRow = RoomKit.ChoiceRow(body);
+            _friendsModes.Add((
+                RoomKit.WordOption(modeRow, L10n.Get("mode_cutthroat"),
+                    () => ChooseFriendsMode(GameMode.CutThroat)),
+                GameMode.CutThroat));
+            _friendsModes.Add((
+                RoomKit.WordOption(modeRow, L10n.Get("mode_partner"),
+                    () => ChooseFriendsMode(GameMode.Partner)),
+                GameMode.Partner));
 
-            // Same shape as Cut Throat, with one extra seating: a friends room
-            // is the only place you can arrange a 2 v 2, so the partner table
-            // lives here as a table shape rather than a separate mode switch.
-            BuildSeatCard(body, _friendsSeats, GameMode.CutThroat, partnerOption: true);
-            _oneLoveBoard = BuildRewardsBoard(body, GameMode.CutThroat, friendsRoom: true);
+            _friendsCutThroatSection = RoomKit.Section(body);
+            BuildFormatChoice(_friendsCutThroatSection, cutThroat: true);
+            BuildSeatChoice(_friendsCutThroatSection, _friendsSeats);
+            _oneLoveBoard = BuildRewardsBoard(
+                _friendsCutThroatSection, GameMode.CutThroat,
+                () => RoomSummary.For(GameMode.CutThroat, _friendsSeatCount, _selectedFormat));
+
+            _friendsPartnerSection = RoomKit.Section(body);
+            BuildFormatChoice(_friendsPartnerSection, cutThroat: false);
+            _oneLovePartnerBoard = BuildRewardsBoard(
+                _friendsPartnerSection, GameMode.Partner,
+                () => RoomSummary.For(GameMode.Partner, NetworkedMatch.MaxPlayers, _selectedFormat));
 
             UiKit.PrimaryButton(body, L10n.Get("room_create"), OnCreateRoomClicked);
 
@@ -1013,9 +1057,9 @@ namespace Pose.Game
         // ---- Room pieces ---------------------------------------------------
 
         /// <summary>
-        /// A room's shell: the felt ground, the title art across the top with the
-        /// back ring over it, and an empty body stack. Registered as an overlay
-        /// so the Yard's back navigation already knows about it.
+        /// A room's shell: the painted beach ground, the title art across the top
+        /// with the back ring over it, and an empty body stack. Registered as an
+        /// overlay so the Yard's back navigation already knows about it.
         /// </summary>
         private (GameObject screen, RectTransform body) CreateRoomScreen(
             string name, string fallbackTitle, out Image hero)
@@ -1026,6 +1070,7 @@ namespace Pose.Game
             bg.sprite = GradientSprite.Vertical(Hex("#0A3D22"), Hex("#062A17"), Hex("#04160C"));
             bg.color = Color.white;
             bg.raycastTarget = true;
+            _roomBackgrounds.Add(bg);
 
             (Image titleArt, RectTransform body) = RoomKit.Screen(
                 (RectTransform)screen.transform, fallbackTitle, HideOverlays);
@@ -1037,76 +1082,60 @@ namespace Pose.Game
         }
 
         /// <summary>
-        /// The format choice, made by picture. Both rooms that offer a choice
-        /// share <see cref="_selectedFormat"/>, so a player who prefers the
-        /// short series does not have to say so twice.
+        /// The format choice, made by picture. Every room that offers a choice
+        /// shares <see cref="_selectedFormat"/>, so a player who prefers the
+        /// short series does not have to say so twice. Only the naming differs:
+        /// Partner's two are Classic Partner and Quick Partner.
         /// </summary>
-        private void BuildFormatCard(RectTransform body, string classicLabel, string quickLabel, bool showRounds)
+        private void BuildFormatChoice(RectTransform parent, bool cutThroat)
         {
-            RectTransform card = UiKit.Card(
-                body, L10n.Get("room_format"), L10n.Get("room_clock_fmt", (int)TurnTimer.ExpireAfterSeconds));
+            RoomKit.Caption(parent, L10n.Get("room_game_format"));
+            RectTransform row = RoomKit.ChoiceRow(parent);
 
-            RectTransform row = RoomKit.TileRow(card);
-            GameObject classic = RoomKit.Tile(row, classicLabel, () => ChooseFormat(MatchFormat.ClassicSixLove));
-            GameObject quick = RoomKit.Tile(row, quickLabel, () => ChooseFormat(MatchFormat.QuickLove));
+            GameObject classic = RoomKit.Tile(
+                row,
+                L10n.Get(cutThroat ? "fmt_classic_six_love" : "fmt_classic_partner"),
+                L10n.Get("fmt_classic_blurb"),
+                () => ChooseFormat(MatchFormat.ClassicSixLove));
+            GameObject quick = RoomKit.Tile(
+                row,
+                L10n.Get(cutThroat ? "fmt_quick_love" : "fmt_quick_partner"),
+                L10n.Get("fmt_quick_blurb"),
+                () => ChooseFormat(MatchFormat.QuickLove));
+
             _formatTiles.Add((classic, MatchFormat.ClassicSixLove));
             _formatTiles.Add((quick, MatchFormat.QuickLove));
             _classicTiles.Add(classic);
             _quickTiles.Add(quick);
-
-            if (showRounds)
-            {
-                TextMeshProUGUI rounds = UiKit.Row(card, L10n.Get("room_rounds_to_win"), string.Empty);
-                _roomRefreshers.Add(() =>
-                    rounds.text = MatchFormatRules.For(_selectedFormat).Loves.ToString(CultureInfo.CurrentCulture));
-            }
         }
 
-        /// <summary>
-        /// How many people are at the table, counted in heads rather than read as
-        /// a digit.
-        /// </summary>
-        private void BuildSeatCard(
-            RectTransform body,
-            List<(GameObject go, (GameMode mode, int seats) choice)> options,
-            GameMode mode,
-            bool partnerOption)
+        /// <summary>How many people are at the table, counted in heads.</summary>
+        private void BuildSeatChoice(RectTransform parent, List<(GameObject go, int seats)> options)
         {
-            RectTransform card = UiKit.Card(body, L10n.Get("room_players"));
-            RectTransform row = RoomKit.SeatRow(card);
+            RoomKit.Caption(parent, L10n.Get("room_players"));
+            RectTransform row = RoomKit.ChoiceRow(parent, spacing: 14f);
 
             for (int n = Stakes.MinSeats; n <= Stakes.MaxSeats; n++)
             {
                 int seats = n;
                 GameObject go = RoomKit.SeatOption(
-                    row, seats, L10n.Get($"room_seat_{seats}"), () => ChooseSeats(options, mode, seats));
-                options.Add((go, (mode, seats)));
-            }
-
-            if (partnerOption)
-            {
-                GameObject go = RoomKit.SeatOption(
-                    row,
-                    NetworkedMatch.MaxPlayers,
-                    L10n.Get("room_seat_partners"),
-                    () => ChooseSeats(options, GameMode.Partner, NetworkedMatch.MaxPlayers));
-                options.Add((go, (GameMode.Partner, NetworkedMatch.MaxPlayers)));
+                    row, seats, L10n.Get($"room_seat_{seats}"), () => ChooseSeats(options, seats));
+                options.Add((go, seats));
             }
         }
 
         /// <summary>
-        /// The stake, carved into the rewards board. Which lines a room shows
-        /// depends on whether the win is shared: a Partner table states the
-        /// team's take and then each partner's half, because "4,000" alone would
+        /// The stake, carved into the rewards board. A Partner table states the
+        /// side's take and then each partner's half, because the pot alone would
         /// overstate what one player receives.
         /// </summary>
-        private Image BuildRewardsBoard(RectTransform body, GameMode mode, bool friendsRoom = false)
+        private Image BuildRewardsBoard(RectTransform parent, GameMode mode, Func<RoomSummary> summary)
         {
-            (Image board, RectTransform rows) = RoomKit.Board(body, L10n.Get("room_rewards"));
+            (Image board, RectTransform rows) = RoomKit.Board(parent, L10n.Get("room_rewards"));
 
             bool team = mode == GameMode.Partner;
             (_, TextMeshProUGUI entry) = RoomKit.BoardRow(
-                rows, L10n.Get(team || friendsRoom ? "room_entry_each" : "room_entry"));
+                rows, L10n.Get(team ? "room_entry_each" : "room_entry"));
             (_, TextMeshProUGUI take) = RoomKit.BoardRow(
                 rows, L10n.Get(team ? "room_team_takes" : "room_winner_takes"));
             (_, TextMeshProUGUI extra) = RoomKit.BoardRow(
@@ -1114,62 +1143,12 @@ namespace Pose.Game
 
             _roomRefreshers.Add(() =>
             {
-                RoomSummary s = SummaryFor(mode, friendsRoom);
+                RoomSummary s = summary();
                 entry.text = Coins(s.Entry);
                 take.text = Coins(s.WinningSideTakes);
                 extra.text = team ? Coins(s.ShareEach) : "+" + Coins(s.KeyBonus);
             });
             return board;
-        }
-
-        /// <summary>
-        /// The seat diagram: partners opposite, opponents on the flanks. Drawn
-        /// from the same <see cref="SeatArrangement"/> the table itself uses, so
-        /// the preview cannot promise a seat the deal will not give.
-        /// </summary>
-        private void BuildPartnerSeatMap(RectTransform card)
-        {
-            GameObject grid = UiKit.Child(card, "SeatMap");
-            grid.AddComponent<LayoutElement>().preferredHeight = 240f;
-
-            SeatPosition[] seats = SeatArrangement.Arrange(NetworkedMatch.MaxPlayers, localIndex: 0);
-            for (int i = 0; i < seats.Length; i++)
-            {
-                // Seat 0 is the local player; in a 2 v 2 the partner is two
-                // seats around, which is what puts them opposite.
-                bool isSelf = i == 0;
-                bool isMate = i == 2;
-                Color tint = isSelf ? UiKit.Brass : isMate ? UiKit.Success : UiKit.Danger;
-                string label = L10n.Get(isSelf ? "seat_you" : isMate ? "seat_mate" : "seat_foe");
-                AddSeatDot(grid.transform, seats[i], label, tint);
-            }
-        }
-
-        private void AddSeatDot(Transform parent, SeatPosition position, string label, Color tint)
-        {
-            (float x, float y) = position switch
-            {
-                SeatPosition.Bottom => (0.5f, 0.14f),
-                SeatPosition.Top => (0.5f, 0.86f),
-                SeatPosition.Left => (0.18f, 0.5f),
-                _ => (0.82f, 0.5f),
-            };
-
-            GameObject dot = UiKit.Child(parent, $"Seat_{position}");
-            RectTransform rt = (RectTransform)dot.transform;
-            rt.anchorMin = rt.anchorMax = new Vector2(x, y);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(96f, 96f);
-
-            Image ring = dot.AddComponent<Image>();
-            ring.sprite = IconFactory.Ring();
-            ring.color = tint;
-            ring.raycastTarget = false;
-
-            TextMeshProUGUI t = UiKit.Label(dot.transform, label, 19f, tint, TextAlignmentOptions.Center);
-            t.fontStyle = FontStyles.Bold;
-            UiKit.Stretch((RectTransform)t.transform);
-            t.raycastTarget = false;
         }
 
         /// <summary>The code field and its Join button, for a friends table.</summary>
@@ -1221,7 +1200,8 @@ namespace Pose.Game
             _codeInput.textComponent = textTmp;
             _codeInput.placeholder = phTmp;
 
-            GameObject join = UiKit.GhostButton((RectTransform)row.transform, L10n.Get("room_join"), OnSubmitJoinClicked);
+            GameObject join = UiKit.GhostButton(
+                (RectTransform)row.transform, L10n.Get("room_join"), OnSubmitJoinClicked);
             LayoutElement joinLe = join.GetComponent<LayoutElement>();
             joinLe.preferredWidth = 150f;
             joinLe.flexibleWidth = 0f;
@@ -1235,12 +1215,10 @@ namespace Pose.Game
             RefreshRooms();
         }
 
-        private void ChooseSeats(
-            List<(GameObject go, (GameMode mode, int seats) choice)> options, GameMode mode, int seats)
+        private void ChooseSeats(List<(GameObject go, int seats)> options, int seats)
         {
             if (ReferenceEquals(options, _friendsSeats))
             {
-                _createMode = mode;
                 _friendsSeatCount = seats;
             }
             else
@@ -1250,27 +1228,32 @@ namespace Pose.Game
             RefreshRooms();
         }
 
+        private void ChooseFriendsMode(GameMode mode)
+        {
+            _createMode = mode;
+            RefreshRooms();
+        }
+
         /// <summary>
         /// Restates every room's choices and every number that follows from
-        /// them. Cheap enough to run on any tap: three rooms, a handful of
-        /// tints, and one summary per board.
+        /// them, and shows the half of the friends room its table type calls
+        /// for. Cheap enough to run on any tap.
         /// </summary>
         private void RefreshRooms()
         {
             RoomKit.Refresh(_formatTiles, _selectedFormat);
-            RoomKit.Refresh(_cutThroatSeats, (GameMode.CutThroat, _selectedSize));
-            RoomKit.Refresh(_friendsSeats, (_createMode, _friendsSeatCount));
+            RoomKit.Refresh(_cutThroatSeats, _selectedSize);
+            RoomKit.Refresh(_friendsSeats, _friendsSeatCount);
+            RoomKit.Refresh(_friendsModes, _createMode);
+
+            _friendsCutThroatSection?.gameObject.SetActive(_createMode == GameMode.CutThroat);
+            _friendsPartnerSection?.gameObject.SetActive(_createMode == GameMode.Partner);
 
             foreach (Action refresh in _roomRefreshers)
             {
                 refresh();
             }
         }
-
-        /// <summary>The numbers a room states, for the choices currently made in it.</summary>
-        private RoomSummary SummaryFor(GameMode mode, bool friendsRoom) => friendsRoom
-            ? RoomSummary.For(_createMode, _friendsSeatCount, _selectedFormat)
-            : RoomSummary.For(mode, _selectedSize, _selectedFormat);
 
         private static string Coins(int amount) => amount.ToString("N0", CultureInfo.CurrentCulture);
 
@@ -1281,7 +1264,8 @@ namespace Pose.Game
                 return;
             }
 
-            StartCreate(_friendsSeatCount, _createMode, _selectedFormat);
+            int seats = _createMode == GameMode.Partner ? NetworkedMatch.MaxPlayers : _friendsSeatCount;
+            StartCreate(seats, _createMode, _selectedFormat);
         }
 
         // ---- Placeholder tab panels ---------------------------------------
