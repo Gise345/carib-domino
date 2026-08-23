@@ -45,6 +45,11 @@ export { resolveFacebookFriends } from './social/resolveFacebookFriends';
 // allowlist re-check gate every admin action. See ADR 0022.
 export { syncAdminClaim } from './admin/syncAdminClaim';
 
+// Admin (phase C): analytics + user search/detail, all gated by assertAdmin.
+export { getAdminStats } from './admin/getAdminStats';
+export { searchUsers } from './admin/searchUsers';
+export { getUserDetail } from './admin/getUserDetail';
+
 /**
  * Health check callable function — returns server time and a static OK marker.
  * Used by the client to confirm Cloud Functions reachability and clock skew.
